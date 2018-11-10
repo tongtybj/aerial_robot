@@ -54,7 +54,10 @@ add_dependencies(dragon_transform_control aerial_robot_msgs_generate_messages_cp
 add_executable(dragon_transform_control_node src/transform_control_node.cpp)
 target_link_libraries(dragon_transform_control_node dragon_transform_control ${catkin_LIBRARIES} ${Eigen3_LIBRARIES})
 
-add_library(dragon_control_pluginlib src/gimbal_control.cpp)
+# gimbal controller plugin
+add_library(dragon_control_pluginlib
+  src/gimbal_control.cpp
+  src/gimbal_pitch_only_control.cpp)
 target_link_libraries (dragon_control_pluginlib dragon_robot_model ${catkin_LIBRARIES} ${Eigen3_LIBRARIES})
 add_dependencies(dragon_control_pluginlib aerial_robot_msgs_generate_messages_cpp aerial_robot_base_generate_messages_cpp hydrus_generate_messages_cpp hydrus_gencfg)
 

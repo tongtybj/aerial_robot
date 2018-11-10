@@ -42,7 +42,7 @@
     <rosparam file="$(find dragon)/config/SensorFusion.yaml" command="load" if="$(arg real_machine)"/>
     <rosparam file="$(find dragon)/config/SensorSimulation.yaml" command="load" if="$(arg simulation)"/>
     ###########  Gimbal Control  ###########
-    <param name="control_plugin_name" value ="control_plugin/dragon_gimbal" />
+    <param name="control_plugin_name" value ="control_plugin/dragon_gimbal_pitch_only" />
     <rosparam file="$(find dragon)/config/$(arg type)/GimbalControlConfig.yaml" command="load" />
     <remap from="/gimbals_ctrl" to="/dragon/gimbals_ctrl"/>
     <remap from="/joints_ctrl" to="/dragon/joints_ctrl"/>
