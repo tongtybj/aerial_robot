@@ -82,6 +82,7 @@ namespace aerial_robot_model {
     int getRotorNum() const { return rotor_num_; }
     template<class T> std::vector<T> getRotorsNormalFromCog() const;
     template<class T> std::vector<T> getRotorsOriginFromCog() const;
+    template<class T> std::vector<T> getLinksNormalFromCog() const; //temporary for some special control
     double getVerbose() const { return verbose_; }
     void setActuatorJointMap(const sensor_msgs::JointState& actuator_state);
     void setCogDesireOrientation(double roll, double pitch, double yaw) { cog_desire_orientation_ = KDL::Rotation::RPY(roll, pitch, yaw); }
@@ -113,6 +114,7 @@ namespace aerial_robot_model {
     int rotor_num_;
     std::vector<KDL::Vector> rotors_origin_from_cog_;
     std::vector<KDL::Vector> rotors_normal_from_cog_;
+    std::vector<KDL::Vector> links_normal_from_cog_;
     KDL::Tree tree_;
     std::string thrust_link_;
     bool verbose_;
@@ -271,4 +273,20 @@ namespace aerial_robot_model {
   {
     return aerial_robot_model::kdlToTf2(rotors_origin_from_cog_);
   }
+
+  template<> inline std::vector<KDL::Vector> RobotModel::getLinksNormalFromCog() const
+  {
+    return links_normal_from_cog_;
+  }
+
+  template<> inline std::vector<Eigen::Vector3d> RobotModel::getLinksNormalFromCog() const
+  {
+    return aerial_robot_model::kdlToEigen(links_normal_from_cog_);
+  }
+
+  template<> inline std::vector<tf2::Vector3> RobotModel::getLinksNormalFromCog() const
+  {
+    return aerial_robot_model::kdlToTf2(links_normal_from_cog_);
+  }
+
 } //namespace aerial_robot_model

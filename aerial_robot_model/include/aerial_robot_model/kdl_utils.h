@@ -112,4 +112,12 @@ namespace aerial_robot_model {
                                                     });
   }
 
+  inline std::vector<tf2::Transform> kdlToTf2(const std::vector<KDL::Frame>& in)
+  {
+    return convertVector<tf2::Transform, KDL::Frame>(in,
+                                                     [](const KDL::Frame& in)->tf2::Transform {
+                                                       return kdlToTf2(in);
+                                                     });
+  }
+
 } //namespace aerial_robot_model
