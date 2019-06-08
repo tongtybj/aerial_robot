@@ -18,6 +18,7 @@
 
 /* ros */
 #include <spinal/ServoControlCmd.h>
+#include <spinal/ServoTorqueCmd.h>
 #include <spinal/UavInfo.h>
 
 #define MAX_PWM  54000
