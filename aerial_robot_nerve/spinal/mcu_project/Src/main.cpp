@@ -80,6 +80,8 @@
 /* Extra Servo */
 #include "extra_servo/extra_servo.h"
 
+/* VL53L0X */
+#include "sensors/tof/VL53L0X.h"
 
 /* Internal Communication System */
 #include <Spine/spine.h>
@@ -107,6 +109,8 @@ Baro baro_;
 GPS gps_;
 #endif
 
+VL53L0X tof_sensor_;
+
 #if ATTITUDE_ESTIMATE_FLAG || HEIGHT_ESTIMATE_FLAG || POS_ESTIMATE_FLAG
 StateEstimate estimator_;
 #endif
@@ -114,9 +118,9 @@ StateEstimate estimator_;
 #if FLIGHT_CONTROL_FLAG
 BatteryStatus battery_status_;
 FlightControl controller_;
-ExtraServo extra_servo_;
 #endif
 
+ExtraServo extra_servo_;
 
 
 /* USER CODE END PV */
@@ -164,6 +168,8 @@ void HAL_SYSTICK_Callback(void)
 #if NERVE_COMM
   Spine::update();
 #endif
+
+  tof_sensor_.update();
 
  /* ros communication */
   nh_.spinOnce();
@@ -247,8 +253,12 @@ int main(void){
 
 #endif // imu condition
 
+  tof_sensor_.init(&hi2c2, &nh_);
+
+#if FLIGHT_CONTROL_FLAG
   /* Extra Servo Control */
   extra_servo_.init(&htim3, &htim5, &nh_);
+#endif
 
   FlashMemory::read(); //IMU calib data, uav type
 
@@ -285,23 +295,22 @@ int main(void){
 
   while (1)
     {
-  /* USER CODE END WHILE */
-  /* USER CODE BEGIN 3 */
+      /* USER CODE END WHILE */
+      /* USER CODE BEGIN 3 */
       nh_.publish();
-      #if FLIGHT_CONTROL_FLAG
-      	  battery_status_.update();
-	  #endif
-
+#if FLIGHT_CONTROL_FLAG
+      battery_status_.update();
+#endif
 
 #if 0
-      /* test logging: 1Hz */
-      if(HAL_GetTick() - now_time > 1000)
-      {
-    	  char s[20] = {'\0'};
-    	  snprintf(s, 20, "time is %d", now_time);
-    	  nh_.logwarn(s);
-    	  now_time = HAL_GetTick();
-      }
+        /* test logging: 1Hz */
+        if(HAL_GetTick() - now_time > 1000)
+          {
+            char s[20] = {'\0'};
+            snprintf(s, 20, "time is %d", now_time);
+            nh_.logwarn(s);
+            now_time = HAL_GetTick();
+          }
 #endif
     }
 
