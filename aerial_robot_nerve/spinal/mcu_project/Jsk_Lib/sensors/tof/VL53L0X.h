@@ -185,6 +185,9 @@ private:
   bool single_shot_mode_;
   bool connected_;
 
+  uint32_t update_duration_;
+  uint32_t update_t_;
+
   bool getSpadInfo(uint8_t * count, bool * type_is_aperture);
 
   void getSequenceStepEnables(SequenceStepEnables * enables);

@@ -34,6 +34,8 @@ VL53L0X::VL53L0X(void)
   , address_(ADDRESS_DEFAULT)
   , io_timeout_(0) // no timeout
   , did_timeout_(false)
+  , update_duration_(10) // ms
+  , update_t_(0) // no timeout
   , connected_(false)
 {
 }
@@ -301,16 +303,22 @@ void VL53L0X::update()
 {
   if(!connected_) return;
 
-  uint16_t range = 0;
+  uint16_t range = 65535;
   if(single_shot_mode_)
-	  range = readRangeSingleMillimeters();
+    range = readRangeSingleMillimeters();
   else
-	  range = readRangeContinuousMillimeters();
+    {
+      if(HAL_GetTick() - update_t_ > update_duration_)
+        {
+          range = readRangeContinuousMillimeters();
+          update_t_ = HAL_GetTick();
+        }
+    }
 
   if(range != 65535)
     {
-	  range_msg_.stamp = nh_->now();
-	  range_msg_.altitude = range / 1000.0 - offset_;
+      range_msg_.stamp = nh_->now();
+      range_msg_.altitude = range / 1000.0 - offset_;
       range_pub_.publish(&range_msg_);
 
     }
