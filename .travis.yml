@@ -3,7 +3,6 @@ dist: trusty
 language: generic
 env:
   matrix:
-      - ROS_DISTRO="kinetic"   REPOSITORY=http://packages.ros.org/ros/ubuntu
       - ROS_DISTRO="melodic"   REPOSITORY=http://packages.ros.org/ros/ubuntu
 
 install:

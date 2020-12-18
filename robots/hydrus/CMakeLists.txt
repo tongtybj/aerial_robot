@@ -72,8 +72,4 @@ target_link_libraries(hydrus_numerical_jacobians hydrus_robot_model ${catkin_LIB
 add_executable(hydrus_jacobian_test test/hydrus/jacobian_test.cpp)
 target_link_libraries(hydrus_jacobian_test hydrus_numerical_jacobians ${catkin_LIBRARIES} ${GTEST_LIBRARIES})
 
-if(CATKIN_ENABLE_TESTING)
-  find_package(catkin REQUIRED COMPONENTS rostest)
-  add_subdirectory(test)
-endif()
 

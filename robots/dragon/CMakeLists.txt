@@ -62,7 +62,3 @@ target_link_libraries(dragon_numerical_jacobians dragon_robot_model ${catkin_LIB
 add_executable(dragon_jacobian_test test/dragon/jacobian_test.cpp)
 target_link_libraries(dragon_jacobian_test dragon_numerical_jacobians ${catkin_LIBRARIES} ${GTEST_LIBRARIES})
 
-if(CATKIN_ENABLE_TESTING)
-  find_package(catkin REQUIRED COMPONENTS rostest)
-  add_subdirectory(test)
-endif()

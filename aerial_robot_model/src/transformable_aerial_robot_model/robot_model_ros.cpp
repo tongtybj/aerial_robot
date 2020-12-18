@@ -1,4 +1,5 @@
 #include <aerial_robot_model/transformable_aerial_robot_model_ros.h>
+#include <sstream>
 
 namespace aerial_robot_model {
   RobotModelRos::RobotModelRos(ros::NodeHandle nh, ros::NodeHandle nhp):
@@ -41,6 +42,13 @@ namespace aerial_robot_model {
     robot_model_->updateRobotModel(*state);
 
     ROS_INFO_ONCE("initialized robot model, the mass is %f", robot_model_->getMass());
+
+
+    std::stringstream ss;
+    for(int i = 0; i < joint_state_.position.size(); i++)
+      ss << joint_state_.name.at(i) << ": " << joint_state_.position.at(i) << "; ";
+
+    ROS_INFO_STREAM_THROTTLE(1.0, ss.str());
 
     geometry_msgs::TransformStamped tf = robot_model_->getCog<geometry_msgs::TransformStamped>();
     tf.header = state->header;
