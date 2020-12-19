@@ -99,6 +99,6 @@
   </include>
 
   ######### init gimbal angles #########
-  <node pkg="hydrus_xi" name="init_gimbal_angles" type="init_gimbal_angles.py" ns="$(arg robot_ns)" if="$(arg init_gimbal_angle)"/>
+  <node pkg="hydrus_xi" name="init_gimbal_angles" type="init_gimbal_angles.py" ns="$(arg robot_ns)" if="$(eval init_gimbal_angle and real_machine)"/>
 
 </launch>
