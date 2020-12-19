@@ -48,7 +48,7 @@ namespace aerial_robot_model {
     for(int i = 0; i < joint_state_.position.size(); i++)
       ss << joint_state_.name.at(i) << ": " << joint_state_.position.at(i) << "; ";
 
-    ROS_INFO_STREAM_THROTTLE(1.0, ss.str());
+    ROS_INFO_STREAM(ss.str());
 
     geometry_msgs::TransformStamped tf = robot_model_->getCog<geometry_msgs::TransformStamped>();
     tf.header = state->header;
