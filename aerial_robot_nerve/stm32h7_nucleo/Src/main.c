@@ -50,6 +50,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "dma.h"
 #include "fdcan.h"
 #include "i2c.h"
 #include "lwip.h"
@@ -124,6 +125,7 @@ uint32_t min_du = 1e6;
 
 extern osSemaphoreId coreTaskSemHandle;
 extern osMailQId canMsgMailHandle;
+extern osMutexId rosPubMutexHandle;
 
 extern "C"
 {
@@ -207,7 +209,8 @@ extern "C"
     ip4_addr_t dst_addr;
     IP4_ADDR(&dst_addr,192,168,25,100);
 
-    nh_.initNode(dst_addr, 12345,12345);
+    //nh_.initNode(dst_addr, 12345,12345);
+    nh_.initNode(&huart2, &rosPubMutexHandle, NULL);
 
     nh_.advertise(test_pub_);
     nh_.advertise(test_pub2_);
@@ -217,13 +220,18 @@ extern "C"
 
     osSemaphoreWait(coreTaskSemHandle, osWaitForever);
 
+    uint32_t imu_pub_t = HAL_GetTick();
     for(;;)
       {
         osSemaphoreWait(coreTaskSemHandle, osWaitForever);
 
         Spine::send();
-        imu_msg_.stamp = nh_.now();
-        test_pub_.publish(&imu_msg_);
+        if (HAL_GetTick() - imu_pub_t >= 5)
+          {
+            imu_msg_.stamp = nh_.now();
+            test_pub_.publish(&imu_msg_);
+            imu_pub_t = HAL_GetTick();
+          }
         Spine::update();
       }
   }
@@ -240,6 +248,20 @@ extern "C"
           }
       }
   }
+
+  void rosPublishTask(void const * argument)
+  {
+    for(;;)
+      {
+        /* publish one message from ring buffer */
+        if(nh_.publish() == BUFFER_EMPTY)
+          {
+            /* if no messages in ring buffer, we kindly sleep for 1ms */
+            osDelay(1);
+          }
+      }
+  }
+
 }
 
 /* USER CODE END 0 */
@@ -281,6 +303,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART3_UART_Init();
   MX_RNG_Init();
   MX_SPI1_Init();
@@ -290,6 +313,7 @@ int main(void)
   MX_UART5_Init();
   MX_RTC_Init();
   MX_FDCAN1_Init();
+  MX_USART2_UART_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -380,9 +404,9 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USART3
-                              |RCC_PERIPHCLK_FDCAN|RCC_PERIPHCLK_UART5
-                              |RCC_PERIPHCLK_RNG|RCC_PERIPHCLK_SPI1
-                              |RCC_PERIPHCLK_I2C2;
+                              |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_FDCAN
+                              |RCC_PERIPHCLK_UART5|RCC_PERIPHCLK_RNG
+                              |RCC_PERIPHCLK_SPI1|RCC_PERIPHCLK_I2C2;
   PeriphClkInitStruct.PLL2.PLL2M = 1;
   PeriphClkInitStruct.PLL2.PLL2N = 100;
   PeriphClkInitStruct.PLL2.PLL2P = 2;
@@ -475,6 +499,21 @@ void MPU_Config(void)
   MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
   MPU_InitStruct.IsBufferable = MPU_ACCESS_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.Number = MPU_REGION_NUMBER3;
+  MPU_InitStruct.BaseAddress = 0x24040000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_1KB;
+  MPU_InitStruct.SubRegionDisable = 0x0;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
