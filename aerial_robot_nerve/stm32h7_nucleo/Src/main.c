@@ -76,8 +76,8 @@
 #include <spinal/Imu.h>
 
 /* Internal Communication System */
-#include <Spine/spine.h>
-
+#include <CAN/can_device_manager.h>
+#include <CANDevice/test/canfd_test.h>
 
 /* USER CODE END Includes */
 
@@ -121,6 +121,9 @@ uint32_t servo_msg_recv_t = 0;
 uint32_t servo_msg_echo_t = 0;
 uint32_t max_du = 0;
 uint32_t min_du = 1e6;
+
+CANFDTest canfd_test_;
+bool start_can_tx_ = false;
 
 extern osSemaphoreId coreTaskSemHandle;
 extern osMailQId canMsgMailHandle;
@@ -217,14 +220,22 @@ extern "C"
 
     osSemaphoreWait(coreTaskSemHandle, osWaitForever);
 
+    uint32_t t = HAL_GetTick();
+
     for(;;)
       {
         osSemaphoreWait(coreTaskSemHandle, osWaitForever);
 
-        Spine::send();
         imu_msg_.stamp = nh_.now();
         test_pub_.publish(&imu_msg_);
-        Spine::update();
+
+        CANDeviceManager::tick(1);
+        if (HAL_GetTick() - t > 100) // 10ms
+          {
+            if (start_can_tx_)
+              canfd_test_.sendData();
+            t = HAL_GetTick();
+          }
       }
   }
 
@@ -238,6 +249,20 @@ extern "C"
             /* if no data in ring buffer, we kindly sleep for 1ms */
             osDelay(1);
           }
+      }
+  }
+
+  void idleTaskFunc(void const * argument)
+  {
+    for(;;)
+      {
+        if(HAL_GPIO_ReadPin(USER_Btn_GPIO_Port, USER_Btn_Pin) == GPIO_PIN_SET)
+          {
+            start_can_tx_ = true;
+          }
+
+        HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+        osDelay(1000);
       }
   }
 }
@@ -297,8 +322,11 @@ int main(void)
 
   /* NERVE */
   /* TODO: should be called in coreTask, but we have to replace all the HAL_Delay() to os Delay() */
-  Spine::init(&hfdcan1, &nh_, LD1_GPIO_Port, LD1_Pin);
-  Spine::useRTOS(&canMsgMailHandle); // use RTOS for CAN in spianl
+  CANDeviceManager::init(&hfdcan1, LD1_GPIO_Port, LD1_Pin);
+  CANDeviceManager::useRTOS(&canMsgMailHandle);
+  CANDeviceManager::addDevice(canfd_test_);
+  CANDeviceManager::CAN_START();
+
 
   /* USER CODE END 2 */
 
