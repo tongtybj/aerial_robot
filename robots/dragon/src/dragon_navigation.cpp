@@ -92,7 +92,7 @@ void DragonNavigator::landingProcess()
           double curr_roll = estimator_->getState(State::ROLL_BASE, estimate_mode_)[0];
           double curr_pitch = estimator_->getState(State::PITCH_BASE, estimate_mode_)[0];
 
-          if(fabs(fabs(curr_pitch) - M_PI/2) < 0.05 && fabs(curr_roll) > M_PI/2) // singularity of XYZ Euler
+          if(fabs(fabs(curr_pitch) - M_PI/2) < 0.2 && fabs(curr_roll) > M_PI/2) // singularity of XYZ Euler
             curr_roll = 0;
 
           /* force set the current deisre tilt to current estimated tilt */
