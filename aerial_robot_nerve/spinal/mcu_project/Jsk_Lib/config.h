@@ -10,7 +10,7 @@
 #include "stm32f7xx_hal.h"
 
 //0. Comm Type
-#define NERVE_COMM 1
+#define NERVE_COMM 0
 
 //1. GPIO Macro
 //1.1 LEDS

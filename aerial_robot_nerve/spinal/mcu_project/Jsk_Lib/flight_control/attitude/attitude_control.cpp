@@ -99,7 +99,7 @@ void AttitudeController::baseInit()
   att_control_flag_ = true;
 
   // pwm
-  pwm_conversion_mode_ = -1;
+  pwm_conversion_mode_ = 0;
   min_duty_ = IDLE_DUTY;
   max_duty_ = IDLE_DUTY; //should assign right value from PC(ros)
   min_thrust_ = 0;
@@ -291,6 +291,8 @@ void AttitudeController::update(void)
         for(int axis = 0; axis < 3; axis++)
           {
             error_angle[axis] = target_angle_[axis] - angles[axis];
+            if (error_angle[axis] > PI) error_angle[axis] -= 2 * PI;
+            if (error_angle[axis] < -PI) error_angle[axis] += 2 * PI;
             if(integrate_flag_) error_angle_i_[axis] += error_angle[axis] * DELTA_T;
 
             if(axis == X)
@@ -338,7 +340,8 @@ void AttitudeController::update(void)
                   }
                 if(axis == Z)
                   {
-                    yaw_term_[i] = extra_yaw_pi_term_[i] + d_term;
+                    //yaw_term_[i] = extra_yaw_pi_term_[i] + d_term;
+                    yaw_term_[i] = p_term + i_term + d_term;
                     control_term_msg_.motors[i].yaw_d = d_term * 1000; //d_term;
                   }
               }
@@ -579,6 +582,8 @@ void AttitudeController::rpyGainCallback( const spinal::RollPitchYawTerms &gain_
           thrust_p_gain_[i][Y] = gain_msg.motors[i].pitch_p * 0.001f;
           thrust_i_gain_[i][Y] = gain_msg.motors[i].pitch_i * 0.001f;
           thrust_d_gain_[i][Y] = gain_msg.motors[i].pitch_d * 0.001f;
+          thrust_p_gain_[i][Z] = gain_msg.motors[i].yaw_p * 0.001f;
+          thrust_i_gain_[i][Z] = gain_msg.motors[i].yaw_i * 0.001f;
           thrust_d_gain_[i][Z] = gain_msg.motors[i].yaw_d * 0.001f;
         }
     }
@@ -663,6 +668,7 @@ void AttitudeController::pwmTestCallback(const std_msgs::Float32& pwm_msg)
 void AttitudeController::setStartControlFlag(bool start_control_flag)
 {
   start_control_flag_ = start_control_flag;
+  target_angle_[Z] = estimator_->getAttEstimator()->getAttitude(Frame::VIRTUAL)[Z]; // fixed yaw angle  control
 
   if(!start_control_flag_) reset();
 }
@@ -823,7 +829,31 @@ void AttitudeController::pwmConversion()
       return;
     }
 
-  if(motor_info_.size() == 0) return;
+
+  // direct send pwm
+  if (pwm_conversion_mode_ == 2) // direct mode
+    {
+      for(int i = 0; i < motor_number_; i++)
+        {
+          target_thrust_[i] = roll_pitch_term_[i] * 1000 + base_thrust_term_[i] + yaw_term_[i] * 1000; // since gain are devided by 1000 in subscribing
+          if(start_control_flag_)
+            {
+              target_pwm_[i] = target_thrust_[i] / 2000.0f;
+
+              if(target_pwm_[i] < min_duty_) target_pwm_[i]  = min_duty_;
+              else if(target_pwm_[i]  > max_duty_) target_pwm_[i]  = max_duty_;
+            }
+
+          /* for ros */
+          pwms_msg_.motor_value[i] = (target_pwm_[i] * 2000);
+        }
+      return;
+    }
+
+  if(motor_info_.size() == 0)
+    {
+      return;
+    }
 
   /* update the factor regarding the robot voltage */
   if(HAL_GetTick() - voltage_update_last_time_ > 500) //[500ms = 0.5s]

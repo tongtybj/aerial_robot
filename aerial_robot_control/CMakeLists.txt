@@ -18,6 +18,7 @@ find_package(Eigen3 REQUIRED)
 
 generate_dynamic_reconfigure_options(
   cfg/PidControl.cfg
+  cfg/PDGain.cfg
   )
 
 ### Temporary soulition because of https://github.com/ros/ros_comm/issues/1404
