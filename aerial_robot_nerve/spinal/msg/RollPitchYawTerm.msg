@@ -11,4 +11,6 @@ int16 pitch_i
 int16 pitch_d
 
 # yaw
+int16 yaw_p
+int16 yaw_i
 int16 yaw_d

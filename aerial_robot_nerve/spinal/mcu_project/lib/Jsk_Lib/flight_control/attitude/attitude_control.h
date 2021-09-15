@@ -63,6 +63,8 @@
 
 #define MOTOR_TEST 0
 
+#define PI 3.14159f
+
 enum AXIS {
   X = 0,
   Y = 1,
