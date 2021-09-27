@@ -95,7 +95,7 @@ class QuadrotorAttitudeTest(object):
 
 
     def joyCallback(self, msg):
-        if msg.buttons[7] == 1: # R2
+        if msg.buttons[6] == 1: # L2
             if not self.motor_arm:
                 # start arming motor
                 self.motor_cmd_pub.publish(FlightConfigCmd(FlightConfigCmd.ARM_ON_CMD))

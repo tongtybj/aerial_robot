@@ -10,6 +10,9 @@
     <param name="dev" value="/dev/input/js0"/>
     <param name="coalesce_interval" value="0.025"/>
   </node>
+  # instruction:
+  # L2: start flight
+  # Left joystick: roll/pitch 
 
   # control node
   <node pkg="aerial_robot_control" type="multirotor_att_test.py" name="multirotor_att_test" output="screen" >
