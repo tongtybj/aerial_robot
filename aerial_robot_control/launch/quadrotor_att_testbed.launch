@@ -5,6 +5,9 @@
   <include file="$(find spinal_ros_bridge)/launch/serial.launch" >
   </include>
 
+  # rqt reconfigure
+  <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="rqt_reconfigure" output="screen" />
+
   # ps4 joy
   <node pkg="joy" type="joy_node" name="joy_node" output="screen" >
     <param name="dev" value="/dev/input/js0"/>
