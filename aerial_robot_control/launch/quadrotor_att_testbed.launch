@@ -6,7 +6,7 @@
   </include>
 
   # rqt reconfigure
-  <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="rqt_reconfigure" output="screen" />
+  <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="rqt_reconfigure" output="screen"  launch-prefix="bash -c 'sleep 5; $0 $@' " />/>
 
   # ps4 joy
   <node pkg="joy" type="joy_node" name="joy_node" output="screen" >
