@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp std_msgs geometry_msgs message_ge
 ## Declare ROS messages and services
 add_message_files(FILES
   DynamicReconfigureLevels.msg
+  ExtraModule.msg
   FourAxisGain.msg
   AerialRobotStatus.msg
   FlightNav.msg
@@ -21,7 +22,7 @@ add_message_files(FILES
 )
 
 ## Generate added messages and services
-generate_messages(DEPENDENCIES std_msgs std_msgs geometry_msgs)
+generate_messages(DEPENDENCIES std_msgs geometry_msgs)
 
 ## Declare a catkin package
 catkin_package(

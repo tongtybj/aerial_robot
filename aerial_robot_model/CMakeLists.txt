@@ -5,12 +5,12 @@ project(aerial_robot_model)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  aerial_robot_msgs
   eigen_conversions
   geometry_msgs
   interactive_markers
   kalman_filter
   kdl_parser
-  message_generation
   pluginlib
   roscpp
   sensor_msgs
@@ -40,17 +40,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DNDEBUG")
-
-add_service_files(
-  FILES
-  AddExtraModule.srv
-  )
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-  )
 
 catkin_package(
   INCLUDE_DIRS include test
