@@ -24,6 +24,8 @@
 *.elf.*
 *.elf
 
+.mxproject
+
 ros_lib/
 /TrueSTUDIO/**/Debug
 /**/language.settings.xml 
