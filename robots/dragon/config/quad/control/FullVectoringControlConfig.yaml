@@ -53,7 +53,7 @@ controller:
 
   xy:
     p_gain: 3.6
-    i_gain: 0.03
+    i_gain: 0.15
     d_gain: 4
     limit_sum: 10
     limit_p: 10 # [m/s^2]
