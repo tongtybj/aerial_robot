@@ -916,17 +916,106 @@ Eigen::VectorXd FullVectoringRobotModel::calcFeasibleControlTDists(const std::ve
       Eigen::Vector3d p = cog_rot.inverse() * rotor_pos.at(i); // w.r.t. baselink frame
       if(roll_locked_gimbal.at(i) == 0)
         {
-          // ominidirectional: 3DoF
+          // 1. ominidirectional gimbal -> circle in 3D frame
+#if 1 // strict approximation of 2DoF gimbal
+          Eigen::Vector3d va;
+          if(p[0] == 0 && p[1] == 0)
+            {
+              va = Eigen::Vector3d(p.norm(), 0, 0);
+            }
+          else if(p[2] == 0)
+            {
+              va = Eigen::Vector3d(0, 0, p.norm());
+            }
+          else
+            {
+              double a_x = sqrt(std::pow(p.norm(), 2) /
+                                (1 + std::pow(p[1]/p[0], 2) + std::pow((p[0] + p[1] * p[1] / p[0]) / p[2], 2)));
+              double a_y = p[1] / p[0] * a_x;
+              double a_z = - (p[0] * a_x + p[1] * a_y) / p[2];
+              va = Eigen::Vector3d(a_x, a_y, a_z);
+            }
+          Eigen::Vector3d vb = p.cross(va / p.norm());
+
+          // rectangle approximation:
+          v.push_back(va); // the first axis
+          v.push_back(vb); // the second axis
+
+          // octagon
+          // TODO: the result is not good as rectangle approx, mybe too much convex is not good.
+          // double l = p.norm() / ((1 + sqrt(2)) / 2);
+          // va = va.normalized() * l / 2;
+          // vb = vb.normalized() * l / 2;
+          // Eigen::Vector3d vc1 = (va + vb).normalized() * l / 2;
+          // Eigen::Vector3d vc2 = (va - vb).normalized() * l / 2;
+          // v.push_back(va);
+          // v.push_back(vb);
+          // v.push_back(vc1);
+          // v.push_back(vc2);
+
+#else // rough approximation
           v.push_back(p.cross(Eigen::Vector3d(1, 0, 0))); // from the tilted x force
           v.push_back(p.cross(Eigen::Vector3d(0, 1, 0))); // from the tilted y force
           v.push_back(p.cross(Eigen::Vector3d(0, 0, 1))); // from the z force
+#endif
         }
       else
         {
-          // lock gimbal roll: 2DOF
+          // 2. lock gimbal roll: 2DOF -> ellipse in 3D frame
           Eigen::Matrix3d gimbal_roll_rot =  cog_rot.inverse() * link_rot.at(i) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(locked_angles.at(gimbal_lock_cnt), 0, 0)); // w.r.t. baselink frame, but not cog frame, to keep the invariance against the desired rotation of CoG frame.
+#if 0 // strcit approximation of 1DoF gimbal
+          // TODO:: both rectangle and octagon approximation is not good as the rought approximation
+          Eigen::Vector3d p_dash = gimbal_roll_rot.inverse() * p;  // w.r.t. gimbal roll coord
+          double alpha = atan2(p_dash[0], p_dash[2]);
+          double theta1 = -alpha;
+          Eigen::Vector3d c1(p_dash[1] * sin(theta1),
+                             p_dash[2] * cos(theta1) - p_dash[0] * sin(theta1),
+                             -p_dash[1] * cos(theta1));
+          double theta2 = M_PI/2 - alpha;
+          Eigen::Vector3d c2(p_dash[1] * sin(theta2),
+                             p_dash[2] * cos(theta2) - p_dash[0] * sin(theta2),
+                             -p_dash[1] * cos(theta2));
+
+          Eigen::Vector3d va = gimbal_roll_rot * c1;
+          Eigen::Vector3d vb = gimbal_roll_rot * c2;
+
+          if(vb.norm() < 1e-6)
+             v.push_back(va); // convert back to baselink frame
+          else
+            {
+              // rectangle approximation:
+              // if(vb.norm() > 1e-6)
+              //   v.push_back(vb); // convert back to baselink frame
+
+              // octagon approximation:
+              double a = va.norm();
+              double b = vb.norm();
+              double r = b / a;
+
+              double x0 = sqrt(1 / (1 / a*a + b*b / (std::pow(a,4) * r*r)));
+              double y0 = b*b / (a*a) * x0 / r;
+
+              double a_dash = x0 - (b-y0) / r;
+              double b_dash = y0 - r * (a-x0);
+              double l = sqrt(std::pow(a-a_dash, 2) + std::pow(b-b_dash, 2));
+
+              va = va.normalized() * a_dash;
+              vb = vb.normalized() * b_dash;
+
+              Eigen::Vector3d vc1 = (va / a_dash * (a - a_dash) + vb / b_dash * (b - b_dash));
+              vc1 = vc1.normalized() * l / 2;
+              Eigen::Vector3d vc2 = (va / a_dash * (a - a_dash) - vb / b_dash * (b - b_dash));
+              vc2 = vc2.normalized() * l / 2;
+
+              v.push_back(va);
+              v.push_back(vb);
+              v.push_back(vc1);
+              v.push_back(vc2);
+            }
+#else // rough approximation
           v.push_back(p.cross(gimbal_roll_rot * Eigen::Vector3d(1, 0, 0))); // from the x force
           v.push_back(p.cross(gimbal_roll_rot * Eigen::Vector3d(0, 0, 1))); // from the z force
+#endif
           gimbal_lock_cnt++;
         }
     }
