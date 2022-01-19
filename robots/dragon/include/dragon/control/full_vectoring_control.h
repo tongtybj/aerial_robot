@@ -45,6 +45,7 @@
 #include <spinal/RollPitchYawTerm.h>
 #include <spinal/TorqueAllocationMatrixInv.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Int8.h>
 #include <std_msgs/String.h>
 #include <tf_conversions/tf_eigen.h>
 #include <dragon/sensor/imu.h>
@@ -199,6 +200,20 @@ namespace aerial_robot_control
       std::lock_guard<std::mutex> lock(wrench_mutex_);
       target_wrench_cog_ = target_wrench_cog;
     }
+
+    /* inactive rotor & wind rotor */
+    ros::Subscriber inactive_rotor_sub_;
+    ros::Subscriber wind_gimbal_sub_;
+    void windGimbalCallback(const std_msgs::Int8::ConstPtr& msg);
+    void inactiveRotorCallback(const std_msgs::Int8::ConstPtr& msg);
+    bool wind_flag_;
+    int wind_gimbal_;
+    bool inactive_flag_;
+    int inactive_rotor_;
+    double wind_start_angle_;
+    double wind_start_delay_, wind_stop_delay_;
+    double wind_duration_;
+    double start_wind_time_;
 
     void controlCore() override;
     void rotorInterfereCompensation();

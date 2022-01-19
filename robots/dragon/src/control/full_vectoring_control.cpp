@@ -394,6 +394,13 @@ void DragonFullVectoringController::initialize(ros::NodeHandle nh, ros::NodeHand
   extra_vectoring_force_sub_ = nh_.subscribe("extra_vectoring_force", 1, &DragonFullVectoringController::extraVectoringForceCallback, this);
   extra_vectoring_forces_.resize(0);
 
+  inactive_rotor_sub_ = nh_.subscribe("inactive_rotor", 1, &DragonFullVectoringController::inactiveRotorCallback, this);
+  wind_gimbal_sub_ = nh_.subscribe("wind_gimbal", 1, &DragonFullVectoringController::windGimbalCallback, this);
+  wind_flag_ = false;
+  inactive_flag_ = false;
+  wind_gimbal_ = -1; // no rotor needs wind
+  inactive_rotor_ = -1;  // all rotors are active
+
   rotor_interfere_comp_wrench_ = Eigen::VectorXd::Zero(6); // reset
   est_external_wrench_ = Eigen::VectorXd::Zero(6);
   init_sum_momentum_ = Eigen::VectorXd::Zero(6);
@@ -1051,7 +1058,6 @@ void DragonFullVectoringController::controlCore()
   // solution2: using the target angular velocity: https://ieeexplore.ieee.org/document/6669644, problem is the larget gap between true  omega and target one. but this paper claim this is oK
   // solution3: ignore this term for low angular motion <- current is this
 
-
   // allocation from wrench to thrust force and target gimbal angles
   if(integral_vectoring_allocation_)
     {
@@ -1350,6 +1356,65 @@ void DragonFullVectoringController::controlCore()
         }
     }
 
+  // rotor active winding action: only support one rotor to do active winding
+  if(wind_flag_)
+    {
+      double t = ros::Time::now().toSec() - start_wind_time_;
+      if(t < wind_start_delay_)
+        {
+          // wait for the winding rotor to be totally disarmed
+          wind_start_angle_ = target_gimbal_angles_.at(2 * wind_gimbal_);
+        }
+      else if(t < wind_start_delay_ + wind_duration_)
+        {
+          double boost_rate = 3;
+          double delta_angle = boost_rate * (t - wind_start_delay_) / wind_duration_ * 2 * M_PI + M_PI / 2; // heuristic
+          if(delta_angle > 2 * M_PI) delta_angle = 2 * M_PI;
+
+          if(wind_start_angle_ < 0)
+            target_gimbal_angles_.at(2 * wind_gimbal_) = wind_start_angle_ + delta_angle;
+          else
+            target_gimbal_angles_.at(2 * wind_gimbal_) = wind_start_angle_ - delta_angle;
+        }
+      else if(t < wind_start_delay_ + wind_duration_ + wind_stop_delay_)
+        {
+          // do nothinng
+        }
+      else
+        {
+          wind_flag_ = false;
+          wind_gimbal_ = -1;
+
+          inactive_flag_ = false;
+          inactive_rotor_ = -1;
+        }
+    }
+
+  // get shortest path to the target gimbal angles to avoid unexpected rotor wind action.
+  for(int i = 0; i < target_gimbal_angles_.size(); i++)
+    {
+      if(prev_target_gimbal_angles_.size() == 0) break; // stop if no previous target gimbal angles
+      if(wind_flag_ && i == wind_gimbal_) continue; // ignore if this rotor is wind back
+
+      double prev_angle = prev_target_gimbal_angles_.at(i);
+      double angle = target_gimbal_angles_.at(i);
+      double delta = prev_angle - angle;
+
+      if(delta > M_PI)
+        {
+          angle += (int)(delta / (2 * M_PI)) * 2 * M_PI;
+          if(prev_angle - angle > M_PI)
+            angle += 2* M_PI;
+        }
+      else if(delta < -M_PI)
+        {
+          angle += (int)(delta / (2 * M_PI)) * 2 * M_PI;
+          if(prev_angle - angle < -M_PI)
+            angle -= 2* M_PI;
+        }
+      target_gimbal_angles_.at(i) = angle;
+    }
+
   // re-update the robot model for other purpose (e.g. external wrench estimation and rotor interference)
   const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
   for(int i = 0; i < motor_num_; ++i)
@@ -1361,7 +1426,6 @@ void DragonFullVectoringController::controlCore()
   robot_model_for_control_->updateRobotModel(gimbal_processed_joint);
   Eigen::VectorXd target_wrench = robot_model_for_control_->calcWrenchMatrixOnCoG() * Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(target_base_thrust_.data(), motor_num_);
   setTargetWrench(target_wrench); // for external wrench estimation
-
 
   if(control_verbose_)
     {
@@ -1455,7 +1519,13 @@ bool DragonFullVectoringController::staticIterativeAllocation(const int iterativ
   double t = ros::Time::now().toSec();
   const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
   int gimbal_lock_num = std::accumulate(roll_locked_gimbal_.begin(), roll_locked_gimbal_.end(), 0);
-  Eigen::MatrixXd full_q_mat = Eigen::MatrixXd::Zero(6, 3 * motor_num_ - gimbal_lock_num);
+
+  // Note: rotor active winding action
+  // - only support in staticIterativeAllocation.
+  // - only support single rotor
+  int inactive_rotor_dof = 3;
+  if (std::find(roll_locked_gimbal_.begin(), roll_locked_gimbal_.end(), inactive_rotor_) != roll_locked_gimbal_.end()) inactive_rotor_dof = 2;
+  Eigen::MatrixXd full_q_mat = Eigen::MatrixXd::Zero(6, 3 * motor_num_ - gimbal_lock_num - (int)inactive_flag_ * inactive_rotor_dof);
 
   for(int j = 0; j < iterative_cnt; j++)
     {
@@ -1471,6 +1541,8 @@ bool DragonFullVectoringController::staticIterativeAllocation(const int iterativ
       for(int i = 0; i < motor_num_; i++)
         {
           wrench_map.block(3, 0, 3, 3) = aerial_robot_model::skew(rotors_origin_from_cog.at(i));
+
+          if(inactive_flag_ && i == inactive_rotor_) continue;
 
           if(roll_locked_gimbal_.at(i) == 0)
             {
@@ -1506,6 +1578,12 @@ bool DragonFullVectoringController::staticIterativeAllocation(const int iterativ
 
       for(int i = 0; i < motor_num_; i++)
         {
+          if(inactive_flag_ && i == inactive_rotor_)
+            { /* special process for non-contributed rotor */
+              thrust_forces.at(i) = 0;
+              continue;
+            }
+
           if(roll_locked_gimbal_.at(i) == 0)
             {
               Eigen::Vector3d f_i = vectoring_forces.segment(last_col, 3);
@@ -1714,7 +1792,6 @@ bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::Vecto
       ROS_INFO_STREAM("[strict nonlinear allocation], sqp result:  " <<  result  << "; count: " << sqp_cnt_ << "; average count: " << sqp_ave_cnt_ << ", wrench diff is : "
                       << wrench_diff.transpose() << "; time: " << ros::Time::now().toSec() - t
                       <<  "\n allocation result: " << ss.str() << "; squre sum of thrust force: " << thrust_sum);
-
 
       if(wrench_diff.cwiseAbs().maxCoeff() > 1e-3)
         {
@@ -1980,6 +2057,27 @@ void DragonFullVectoringController::extraVectoringForceCallback(const aerial_rob
 }
 
 
+/* inactive & windinng rotor */
+void DragonFullVectoringController::windGimbalCallback(const std_msgs::Int8::ConstPtr& msg)
+{
+  wind_flag_ = true;
+  wind_gimbal_ = msg->data; // wind this gimbal
+
+  inactive_rotor_ = wind_gimbal_/2; // stop this rotor
+  inactive_flag_ = true;
+
+  start_wind_time_ = ros::Time::now().toSec();
+}
+
+void DragonFullVectoringController::inactiveRotorCallback(const std_msgs::Int8::ConstPtr& msg)
+{
+  inactive_rotor_ = msg->data; // stop this rotor and active all rotor by assigning -1
+
+  if(inactive_rotor_ < 0) inactive_flag_ = false;
+  else inactive_flag_ = true;
+}
+
+
 void DragonFullVectoringController::sendCmd()
 {
   PoseLinearController::sendCmd();
@@ -2065,7 +2163,6 @@ void DragonFullVectoringController::rosParamInit()
   getParam<double>(control_nh, "overlap_dist_rotor_relax_thresh", overlap_dist_rotor_relax_thresh_, 0.08);
   getParam<double>(control_nh, "overlap_dist_inter_joint_thresh", overlap_dist_inter_joint_thresh_, 0.08);
 
-
   getParam<double>(control_nh, "fctmin_thresh", fctmin_thresh_, 0.1);
   //getParam<double>(control_nh, "fctmin_hard_thresh", fctmin_hard_thresh_, 0.1);
   getParam<int>(control_nh, "fctmin_status_change_thresh", fctmin_status_change_thresh_, 10); // 10 / 40 = 0.25 Hz
@@ -2078,6 +2175,10 @@ void DragonFullVectoringController::rosParamInit()
   getParam<double>(control_nh, "sr_inverse_sigma", sr_inverse_sigma_, 0.1);
   getParam<double>(control_nh, "sr_inverse_thrust_diff_thresh", sr_inverse_thrust_diff_thresh_, 1.0);
   getParam<double>(control_nh, "sr_inverse_acc_diff_thresh", sr_inverse_acc_diff_thresh_, 0.01);
+
+  getParam<double>(control_nh, "wind_start_delay", wind_start_delay_, 0.5);
+  getParam<double>(control_nh, "wind_stop_delay", wind_stop_delay_, 0.5);
+  getParam<double>(control_nh, "wind_duration", wind_duration_, 1.5);
 }
 
 /* plugin registration */

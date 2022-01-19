@@ -89,7 +89,7 @@
 
     <!-- gimbal roll -->
     <joint name="gimbal${self}_roll" type="revolute">
-      <limit effort="3" lower="-3.14" upper="3.14" velocity="12.5"/>
+      <limit effort="3" lower="${-2*pi}" upper="${2*pi}" velocity="12.5"/>
       <parent link="link${self}"/>
       <child link="gimbal${self}_roll_module"/>
       <origin rpy="0 0 0" xyz="${link_length/2} 0 0"/>
@@ -132,7 +132,7 @@
 
     <!-- gimbal pitch -->
     <joint name="gimbal${self}_pitch" type="revolute">
-      <limit effort="3" lower="-3.14" upper="3.14" velocity="12.5"/>
+      <limit effort="3" lower="${-2*pi}" upper="${2*pi}" velocity="12.5"/>
       <parent link="gimbal${self}_roll_module"/>
       <child link="gimbal${self}_pitch_module"/>
       <origin rpy="0 0 0" xyz="0 0 ${gimbal_pitch_z_offset}"/>
