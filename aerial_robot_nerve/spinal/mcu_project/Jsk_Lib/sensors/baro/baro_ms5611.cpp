@@ -22,7 +22,7 @@ void Baro::init(I2C_HandleTypeDef* hi2c, ros::NodeHandle* nh)
 {
   i2c_handle_ = hi2c;
   nh_ = nh;
-  nh_->subscribe< ros::Subscriber<std_msgs::UInt8, Baro> >(baro_config_sub_);
+  nh_->subscribe(baro_config_sub_);
 
   BARO_H;
   //reset
