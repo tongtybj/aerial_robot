@@ -27,8 +27,10 @@
 class BatteryStatus
 {
 public:
-  BatteryStatus():  voltage_status_pub_("battery_voltage_status", &voltage_status_msg_),
-                    adc_scale_sub_("set_adc_scale", &BatteryStatus::adcScaleCallback, this)
+  BatteryStatus():  voltage_status_pub_("adc1/voltage", &voltage_status_msg_),
+                    adc_scale_sub_("adc1/set/adc_scale", &BatteryStatus::adcScaleCallback, this),
+					  vol_offset_sub_("adc1/set/vol_offset", &BatteryStatus::volOffsetCallback, this),
+					  adc_lpf_rate_sub_("adc1/set/lpf_rate", &BatteryStatus::adcLpfRateCallback, this)
   {
   }
 
@@ -40,12 +42,16 @@ public:
     nh_ = nh;
     nh_->advertise(voltage_status_pub_);
     nh_->subscribe<ros::Subscriber<std_msgs::Float32, BatteryStatus> >(adc_scale_sub_);
+    nh_->subscribe<ros::Subscriber<std_msgs::Float32, BatteryStatus> >(vol_offset_sub_);
+    nh_->subscribe<ros::Subscriber<std_msgs::Float32, BatteryStatus> >(adc_lpf_rate_sub_);
     hadc_ = hadc;
 
-    voltage_ = -1;
+    reset_ = true;
     ros_pub_last_time_ = HAL_GetTick();
 
     FlashMemory::addValue(&adc_scale_, sizeof(float));
+    FlashMemory::addValue(&vol_offset_, sizeof(float));
+    FlashMemory::addValue(&lpf_rate_, sizeof(float));
 
     HAL_ADC_Start(hadc_);
   }
@@ -53,10 +59,28 @@ public:
   void adcScaleCallback(const std_msgs::Float32& cmd_msg)
   {
     adc_scale_ = cmd_msg.data;
-    voltage_ = -1; // reset
     FlashMemory::erase();
     FlashMemory::write();
-    nh_->loginfo("overwrite adc sacle");
+    reset_ = true;
+    nh_->loginfo("overwrite scale for ADC1");
+  }
+
+  void volOffsetCallback(const std_msgs::Float32& cmd_msg)
+  {
+    vol_offset_ = cmd_msg.data;
+    FlashMemory::erase();
+    FlashMemory::write();
+    reset_ = true;
+    nh_->loginfo("overwrite voltage offset for ADC1");
+  }
+
+  void adcLpfRateCallback(const std_msgs::Float32& cmd_msg)
+  {
+	 lpf_rate_ = cmd_msg.data;
+    FlashMemory::erase();
+    FlashMemory::write();
+    reset_ = true;
+    nh_->loginfo("overwrite LPF rate for ADC1");
   }
 
   void update()
@@ -66,11 +90,15 @@ public:
 
     HAL_ADC_Start(hadc_);
 
-    float voltage =  adc_scale_ * adc_value_;
-    if(voltage_ < 0) voltage_ = voltage;
+    float voltage =  adc_scale_ * adc_value_ - vol_offset_; // offset voltage
+
+    if (reset_) {
+    	voltage_ = voltage;
+    	reset_ = false;
+    }
 
     /* filtering */
-    if(voltage  > 0) voltage_ = 0.99 * voltage_  + 0.01 * voltage;
+    voltage_ = (1 - lpf_rate_) * voltage_  + lpf_rate_ * voltage;
 
     if(HAL_GetTick() - ros_pub_last_time_ > ROS_PUB_INTERVAL)
       {
@@ -82,6 +110,8 @@ public:
 
   ros::Publisher voltage_status_pub_;
   ros::Subscriber<std_msgs::Float32, BatteryStatus> adc_scale_sub_;
+  ros::Subscriber<std_msgs::Float32, BatteryStatus> vol_offset_sub_;
+  ros::Subscriber<std_msgs::Float32, BatteryStatus> adc_lpf_rate_sub_;
   std_msgs::Float32 voltage_status_msg_;
 
   inline float getVoltage() {return voltage_;}
@@ -92,7 +122,10 @@ private:
 
   float adc_value_;
   float adc_scale_;
+  float vol_offset_;
+  float lpf_rate_;
   float voltage_;
+  bool reset_;
 
   uint32_t ros_pub_last_time_;
 };
