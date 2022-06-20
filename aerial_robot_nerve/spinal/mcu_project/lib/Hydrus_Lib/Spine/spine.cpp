@@ -286,7 +286,7 @@ namespace Spine
 
     if(now_time - last_connected_time_ > 1000 /* ms */)
       {
-        if(nh_->connected()) nh_->logerror("CAN is not connected");
+        //if(nh_->connected()) nh_->logerror("CAN is not connected");
         last_connected_time_ = now_time;
       }
   }

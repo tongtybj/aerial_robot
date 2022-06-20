@@ -247,7 +247,7 @@ public:
   inline const ap::Matrix3f getDesiredCoord()  { return estimator_->getDesiredCoord(); }
   inline void setPubAccGryoOnlyFlag(bool flag) { pub_acc_gyro_only_flag_ = flag; }
 
-  static const uint8_t IMU_PUB_INTERVAL = 5; //10-> 100Hz, 2 -> 500Hz
+  static const uint8_t IMU_PUB_INTERVAL = 1; //10-> 100Hz, 2 -> 500Hz
   static const uint8_t ATTITUDE_PUB_INTERVAL = 100; //100 -> 10Hz
 
 private:
