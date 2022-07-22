@@ -89,4 +89,7 @@
     <arg name="spawn_yaw" value="$(arg spawn_yaw)" />
   </include>
 
+  ######## work around to evoke robot model update #######
+  <node pkg="aero_mobility" type="joint_state_pub.py" name="joint_state_pub" ns="$(arg robot_ns)"/>
+
 </launch>

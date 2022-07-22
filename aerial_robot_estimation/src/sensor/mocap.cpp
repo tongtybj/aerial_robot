@@ -71,12 +71,7 @@ namespace sensor_plugin
       std::string topic_name;
       getParam<std::string>("mocap_sub_name", topic_name, std::string("pose"));
 
-#ifdef ARM_MELODIC //https://github.com/ros/ros_comm/issues/1404
-      mocap_sub_ = nh_.subscribe(topic_name, 1, &Mocap::poseCallback, this); // since we do not use time_sync mode for mocap, so only need the latest value.
-#else
-      mocap_sub_ = nh_.subscribe(topic_name, 1, &Mocap::poseCallback, this, ros::TransportHints().udp()); // since we do not use time_sync mode for mocap, so only need the latest value.
-      ROS_INFO("use UDP for mocap topic subscriber in ground truth mode");
-#endif
+      mocap_sub_ = nh_.subscribe(topic_name, 1, &Mocap::poseCallback, this);
       nhp_.param("ground_truth_sub_name", topic_name, std::string("ground_truth"));
       ground_truth_sub_ = nh_.subscribe(topic_name, 1, &Mocap::groundTruthCallback, this);
     }
