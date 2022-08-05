@@ -106,6 +106,6 @@
   </include>
 
   ######### Servo Load Check ###########
-  <node pkg="tiger" type="tiger_joint_load_check.py" name="tiger_joint_load_check" output="screen" />
+  <!-- <node pkg="tiger" type="tiger_joint_load_check.py" name="tiger_joint_load_check" output="screen" /> -->
 
 </launch>
