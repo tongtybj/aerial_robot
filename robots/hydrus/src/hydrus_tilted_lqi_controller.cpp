@@ -30,8 +30,13 @@ void HydrusTiltedLQIController::controlCore()
 
   tf::Vector3 target_acc_dash = (tf::Matrix3x3(tf::createQuaternionFromYaw(rpy_.z()))).inverse() * target_acc_w;
 
-  target_pitch_ = atan2(target_acc_dash.x(), target_acc_dash.z());
-  target_roll_ = atan2(-target_acc_dash.y(), sqrt(target_acc_dash.x() * target_acc_dash.x() + target_acc_dash.z() * target_acc_dash.z()));
+  Eigen::VectorXd target_acc(6);
+  target_acc << target_acc_dash.x(), 0.0, target_acc_dash.z(), 0.0, 0.0, 0.0;
+
+  Eigen::MatrixXd q_mat = robot_model_->calcWrenchMatrixOnCoG();
+
+  target_pitch_ = 0.0;
+  target_roll_ = atan2(-target_acc_dash.y(), target_acc_dash.z());
 
   if(navigator_->getForceLandingFlag())
     {
@@ -39,25 +44,23 @@ void HydrusTiltedLQIController::controlCore()
       target_roll_ = 0;
     }
 
-  Eigen::VectorXd f = robot_model_->getStaticThrust();
-  Eigen::VectorXd allocate_scales = f / f.sum() * robot_model_->getMass();
-  Eigen::VectorXd target_thrust_z_term = allocate_scales * target_acc_w.length();
+  Eigen::VectorXd target_thrust_xz_term = aerial_robot_model::pseudoinverse(q_mat) * target_acc;
 
   // constraint z (also  I term)
   int index;
-  double max_term = target_thrust_z_term.cwiseAbs().maxCoeff(&index);
+  double max_term = target_thrust_xz_term.cwiseAbs().maxCoeff(&index);
   double residual = max_term - z_limit_;
 
   if(residual > 0)
     {
       pid_controllers_.at(Z).setErrI(pid_controllers_.at(Z).getPrevErrI());
-      target_thrust_z_term *= (1 - residual / max_term);
+      target_thrust_xz_term *= (1 - residual / max_term);
     }
 
   for(int i = 0; i < motor_num_; i++)
     {
-      target_base_thrust_.at(i) = target_thrust_z_term(i);
-      pid_msg_.z.total.at(i) =  target_thrust_z_term(i);
+      target_base_thrust_.at(i) = target_thrust_xz_term(i);
+      pid_msg_.z.total.at(i) =  target_acc_dash.z();
     }
 
   allocateYawTerm();

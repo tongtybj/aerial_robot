@@ -1,19 +1,28 @@
 aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_controller
 
 controller:
-  xy:
-    p_gain: 1.0
-    i_gain: 0.05
-    d_gain: 3.0
+  x:
+    p_gain: 10.0
+    i_gain: 0.1
+    d_gain: 12.0
+    limit_sum: 3
+    limit_p: 10
+    limit_i: 10
+    limit_d: 10
+
+  y:
+    p_gain: 6.0
+    i_gain: 0.5
+    d_gain: 18.0
     limit_sum: 3
     limit_p: 3
     limit_i: 1.5
     limit_d: 3
 
   z:
-    p_gain: 3.6
-    i_gain: 1.55
-    d_gain: 3.4
+    p_gain: 28.8
+    i_gain: 12.4
+    d_gain: 27.2
     limit_err_p: 1.0
     limit_sum: 160 # N for clamping thrust force
     limit_p: 160 # m / s^2

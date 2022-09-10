@@ -7,6 +7,8 @@
   <thrust_link name="thrust" />
 
   <!-- kinematics [m] -->
+  <xacro:property name="PI" value="${3.14}" />
+  <xacro:property name="rotor_p_tilt" value="${20.0/180.0*PI}" />
   <xacro:property name="rotor_x_front" value="${1.2005}" />
   <xacro:property name="rotor_x_middle" value="${0.4005}" />
   <xacro:property name="rotor_y" value="${0.9415}" />
@@ -43,12 +45,12 @@
     </link>
   </xacro:macro>
 
-  <xacro:macro name="propeller_module" params="id x y z direction">
+  <xacro:macro name="propeller_module" params="id x y z roll pitch yaw direction">
     <joint name="rotor${id}" type="continuous">
       <limit effort="100.0" lower="${min_force}" upper="${max_force}" velocity="0.5"/>
       <parent link="main_body"/>
       <child link="thrust${id}"/>
-      <origin rpy="0 0 0" xyz="${x} ${y} ${z}"/>
+      <origin rpy="${roll} ${pitch} ${yaw}" xyz="${x} ${y} ${z}"/>
       <axis xyz="0 0 ${direction}"/>
     </joint>
 
@@ -63,7 +65,7 @@
             izz="0.00002"/>
       </inertial>
       <visual>
-        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <origin rpy="${roll} ${pitch} ${yaw}" xyz="0 0 0"/>
         <geometry>
           <xacro:if value="${direction == 1}">
             <mesh filename="package://aero_mobility/urdf/mesh/prop_30inch_CCW.dae" />
@@ -148,14 +150,14 @@
 
 
   <!-- propellers -->
-  <xacro:propeller_module id = "1" x = "${rotor_x_front}" y = "${rotor_y}" z = "${rotor_z}" direction = "1" />
-  <xacro:propeller_module id = "2" x = "${rotor_x_middle}" y = "${rotor_y}" z = "${rotor_z}" direction = "-1" />
-  <xacro:propeller_module id = "3" x = "${-rotor_x_middle}" y = "${rotor_y}" z = "${rotor_z}" direction = "1" />
-  <xacro:propeller_module id = "4" x = "${-rotor_x_front}" y = "${rotor_y}" z = "${rotor_z}"  direction = "-1" />
-  <xacro:propeller_module id = "5" x = "${-rotor_x_front}" y = "${-rotor_y}" z = "${rotor_z}" direction = "1" />
-  <xacro:propeller_module id = "6" x = "${-rotor_x_middle}" y = "${-rotor_y}" z = "${rotor_z}" direction = "-1" />
-  <xacro:propeller_module id = "7" x = "${rotor_x_middle}" y = "${-rotor_y}" z = "${rotor_z}" direction = "1" />
-  <xacro:propeller_module id = "8" x = "${rotor_x_front}" y = "${-rotor_y}" z = "${rotor_z}" direction = "-1" />
+  <xacro:propeller_module id = "1" x = "${rotor_x_front}" y = "${rotor_y}" z = "${rotor_z}" roll="0" pitch="${rotor_p_tilt}" yaw="0" direction = "1" />
+  <xacro:propeller_module id = "2" x = "${rotor_x_middle}" y = "${rotor_y}" z = "${rotor_z}" roll="0" pitch="${-rotor_p_tilt}" yaw="0" direction = "-1" />
+  <xacro:propeller_module id = "3" x = "${-rotor_x_middle}" y = "${rotor_y}" z = "${rotor_z}" roll="0" pitch="${rotor_p_tilt}" yaw="0" direction = "1" />
+  <xacro:propeller_module id = "4" x = "${-rotor_x_front}" y = "${rotor_y}" z = "${rotor_z}"  roll="0" pitch="${-rotor_p_tilt}" yaw="0" direction = "-1" />
+  <xacro:propeller_module id = "5" x = "${-rotor_x_front}" y = "${-rotor_y}" z = "${rotor_z}" roll="0" pitch="${-rotor_p_tilt}" yaw="0" direction = "1" />
+  <xacro:propeller_module id = "6" x = "${-rotor_x_middle}" y = "${-rotor_y}" z = "${rotor_z}" roll="0" pitch="${rotor_p_tilt}" yaw="0" direction = "-1" />
+  <xacro:propeller_module id = "7" x = "${rotor_x_middle}" y = "${-rotor_y}" z = "${rotor_z}" roll="0" pitch="${-rotor_p_tilt}" yaw="0" direction = "1" />
+  <xacro:propeller_module id = "8" x = "${rotor_x_front}" y = "${-rotor_y}" z = "${rotor_z}" roll="0" pitch="${rotor_p_tilt}" yaw="0" direction = "-1" />
 
 
 </robot>
