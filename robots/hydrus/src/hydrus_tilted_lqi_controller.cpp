@@ -44,7 +44,7 @@ void HydrusTiltedLQIController::controlCore()
       target_roll_ = 0;
     }
 
-  Eigen::VectorXd target_thrust_xz_term = aerial_robot_model::pseudoinverse(q_mat) * target_acc;
+  Eigen::VectorXd target_thrust_xz_term = aerial_robot_model::pseudoinverse(q_mat) * robot_model_->getMass() * target_acc;
 
   // constraint z (also  I term)
   int index;
