@@ -8,7 +8,7 @@
 
   <!-- kinematics [m] -->
   <xacro:property name="PI" value="${3.14}" />
-  <xacro:property name="rotor_p_tilt" value="${20.0/180.0*PI}" />
+  <xacro:property name="rotor_p_tilt" value="${-20.0/180.0*PI}" />
   <xacro:property name="rotor_x_front" value="${1.2005}" />
   <xacro:property name="rotor_x_middle" value="${0.4005}" />
   <xacro:property name="rotor_y" value="${0.9415}" />
