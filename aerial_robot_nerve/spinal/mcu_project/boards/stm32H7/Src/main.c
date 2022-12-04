@@ -29,24 +29,7 @@
 #include <string>
 
 #include <ros.h>
-#include <std_msgs/String.h>
-#include <std_msgs/Empty.h>
-#include <spinal/ServoControlCmd.h>
-#include <spinal/Imu.h>
-
-#include "flashmemory/flashmemory.h"
-#include "sensors/imu/imu_mpu9250.h"
-#include "sensors/imu/imu_ros_cmd.h"
-#include "sensors/baro/baro_ms5611.h"
-#include "sensors/gps/gps_ublox.h"
-#include "sensors/encoder/mag_encoder.h"
-
-#include "battery_status/battery_status.h"
-
-#include "state_estimate/state_estimate.h"
-#include "flight_control/flight_control.h"
-
-#include <Spine/spine.h>
+#include "sensors/external_adc/mcp3425.h"
 
 /* USER CODE END Includes */
 
@@ -83,31 +66,18 @@ DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart3_rx;
 
-osThreadId coreTaskHandle;
 osThreadId rosSpinTaskHandle;
-osThreadId idleTaskHandle;
 osThreadId rosPublishHandle;
-osThreadId voltageHandle;
-osThreadId canRxHandle;
-osTimerId coreTaskTimerHandle;
+osThreadId extAdcHandle;
+
 osMutexId rosPubMutexHandle;
-osMutexId flightControlMutexHandle;
-osSemaphoreId coreTaskSemHandle;
 osSemaphoreId uartTxSemHandle;
 /* USER CODE BEGIN PV */
-osMailQId canMsgMailHandle;
 
 ros::NodeHandle nh_;
 
 /* sensor instances */
-IMUOnboard imu_;
-Baro baro_;
-GPS gps_;
-BatteryStatus battery_status_;
-
-
-StateEstimate estimator_;
-FlightControl controller_;
+MCP3425 ext_adc_;
 
 /* USER CODE END PV */
 
@@ -125,13 +95,9 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM4_Init(void);
-void coreTaskFunc(void const * argument);
 void rosSpinTaskFunc(void const * argument);
-void idleTaskFunc(void const * argument);
 void rosPublishTask(void const * argument);
-void voltageTask(void const * argument);
-void canRxTask(void const * argument);
-void coreTaskEvokeCb(void const * argument);
+void extAdcTaskFunc(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -195,53 +161,9 @@ int main(void)
   HAL_NVIC_DisableIRQ(DMA1_Stream0_IRQn); // we do not need DMA Interrupt for USART1 RX, circular mode
   HAL_NVIC_DisableIRQ(DMA1_Stream2_IRQn); // we do not need DMA Interrupt for USART3 RX, circular mode
 
-  /* Flash Memory */
-  FlashMemory::init(0x081E0000, FLASH_SECTOR_7);
-  // Bank2, Sector7: 0x081E 0000 (128KB); https://www.stmcu.jp/download/?dlid=51599_jp
-  // BANK1 (with Sector7) cuases the flash failure by STLink from the second time. So we use BANK_2, which is tested OK
+  ext_adc_.init(&hi2c3, &nh_);
+  nh_.initNode(&huart1, &rosPubMutexHandle, &uartTxSemHandle);
 
-  // It semms like the first 64 byte of flashmemory for data is easily to be overwritten by zero, when re-flash the flash memory.
-  // A possible reason is the power supply from stlink does not contain 3.3V output.
-  // which is the only difference compared with the old version (STM32F7)
-  // So, we introduce following dummy data for a workaround to avoid the vanishment of stored data in flash memory.
-  uint8_t dummy_data[64];
-  memset(dummy_data, 1, 64);
-  FlashMemory::addValue(dummy_data, 64);
-
-#if 0 // test flash memory
-
-  uint8_t test_data[128];
-  for(int i = 0; i < 128; i++)
-    test_data[i] = i;
-  FlashMemory::addValue(test_data, 128);
-
-  int32_t test_int = -1234;
-  //int32_t test_int;
-  FlashMemory::addValue(&test_int, sizeof(test_int));
-
-  float test_float = 1.1f;
-  //float test_float;
-  FlashMemory::addValue(&test_float, sizeof(test_float));
-
-  /* FlashMemory::erase(); */
-  /* FlashMemory::write(); */
-  FlashMemory::read();
-#endif
-
-  imu_.init(&hspi1, &hi2c3, &nh_, IMUCS_GPIO_Port, IMUCS_Pin, LED0_GPIO_Port, LED0_Pin);
-  baro_.init(&hi2c1, &nh_, BAROCS_GPIO_Port, BAROCS_Pin);
-  gps_.init(&huart3, &nh_, LED2_GPIO_Port, LED2_Pin);
-  battery_status_.init(&hadc1, &nh_);
-  estimator_.init(&imu_, &baro_, &gps_, &nh_);  // imu + baro + gps => att + alt + pos(xy)
-  controller_.init(&htim1, &htim4, &estimator_, &battery_status_, &nh_, &flightControlMutexHandle);
-
-  FlashMemory::read(); //IMU calib data (including IMU in neurons)
-
-#if NERVE_COMM        
-  Spine::init(&hfdcan1, &nh_, &estimator_, LED1_GPIO_Port, LED1_Pin);
-  Spine::useRTOS(&canMsgMailHandle); // use RTOS for CAN in spianl
-#endif
-  
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */
@@ -249,18 +171,12 @@ int main(void)
   osMutexDef(rosPubMutex);
   rosPubMutexHandle = osMutexCreate(osMutex(rosPubMutex));
 
-  /* definition and creation of flightControlMutex */
-  osMutexDef(flightControlMutex);
-  flightControlMutexHandle = osMutexCreate(osMutex(flightControlMutex));
-
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
   /* definition and creation of coreTaskSem */
-  osSemaphoreDef(coreTaskSem);
-  coreTaskSemHandle = osSemaphoreCreate(osSemaphore(coreTaskSem), 1);
 
   /* definition and creation of uartTxSem */
   osSemaphoreDef(uartTxSem);
@@ -272,47 +188,31 @@ int main(void)
 
   /* Create the timer(s) */
   /* definition and creation of coreTaskTimer */
-  osTimerDef(coreTaskTimer, coreTaskEvokeCb);
-  coreTaskTimerHandle = osTimerCreate(osTimer(coreTaskTimer), osTimerPeriodic, NULL);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-  osTimerStart(coreTaskTimerHandle, 1); // 1 ms (1kHz)
 
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* add mail queue for CAN RX */
-  osMailQDef(CanMail, 10, can_msg); // defualt: 20 for 8 data bytes (in case of initializer sendBoardConfig (4 servo: 1 + 4 x 3 = 13 packets)); 10 for 64 data bytes
-  canMsgMailHandle = osMailCreate(osMailQ(CanMail), NULL);
 
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of coreTask */
-  osThreadDef(coreTask, coreTaskFunc, osPriorityRealtime, 0, 512);
-  coreTaskHandle = osThreadCreate(osThread(coreTask), NULL);
-
   /* definition and creation of rosSpinTask */
   osThreadDef(rosSpinTask, rosSpinTaskFunc, osPriorityNormal, 0, 256);
   rosSpinTaskHandle = osThreadCreate(osThread(rosSpinTask), NULL);
-
-  /* definition and creation of idleTask */
-  osThreadDef(idleTask, idleTaskFunc, osPriorityIdle, 0, 128);
-  idleTaskHandle = osThreadCreate(osThread(idleTask), NULL);
 
   /* definition and creation of rosPublish */
   osThreadDef(rosPublish, rosPublishTask, osPriorityBelowNormal, 0, 128);
   rosPublishHandle = osThreadCreate(osThread(rosPublish), NULL);
 
-  /* definition and creation of voltage */
-  osThreadDef(voltage, voltageTask, osPriorityLow, 0, 256);
-  voltageHandle = osThreadCreate(osThread(voltage), NULL);
+  /* definition and creation of external adc */
+  osThreadDef(extAdcTask, extAdcTaskFunc, osPriorityLow, 0, 256);
+  extAdcHandle = osThreadCreate(osThread(extAdcTask), NULL);
 
-  /* definition and creation of canRx */
-  osThreadDef(canRx, canRxTask, osPriorityRealtime, 0, 256);
-  canRxHandle = osThreadCreate(osThread(canRx), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1008,81 +908,6 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_coreTaskFunc */
-/**
-  * @brief  Function implementing the coreTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_coreTaskFunc */
-void coreTaskFunc(void const * argument)
-{
-  /* USER CODE BEGIN 5 */
-#ifdef USE_ETH
-  /* init code for LWIP */
-  MX_LWIP_Init();
-#endif
-
-  /* it is better to init this Node before register publisher/subscriber
-     since we have to use LWIP/Ethernet after start RTOS,
-     we have to first do registration before following initNode.
-     Or, we can move the senser init funcs to following scope,
-     which contains the HAL_Delay that effecting the RTOS tick.
-     TODO: please try.
-  */
-
-  /* ros node hardware init */
-#ifndef USE_ETH
-  nh_.initNode(&huart1, &rosPubMutexHandle, &uartTxSemHandle);
-  //nh_.initNode(&huart1, &rosPubMutexHandle, NULL); // no DMA for TX
-#else
-
-  ip4_addr_t dst_addr;
-  IP4_ADDR(&dst_addr,192,168,25,100);
-  nh_.initNode(dst_addr, 12345,12345);
-#endif
-
-  IMU_ROS_CMD::init(&nh_);
-  IMU_ROS_CMD::addImu(&imu_);
-  imu_.gyroCalib(true, IMU::GYRO_DEFAULT_CALIB_DURATION); // re-calibrate gyroscope because of the HAL_Delay in spine init
-
-  osSemaphoreWait(coreTaskSemHandle, osWaitForever);
-
-  for(;;)
-    {
-      osSemaphoreWait(coreTaskSemHandle, osWaitForever);
-
-#if NERVE_COMM
-      Spine::send();
-#endif
-
-      imu_.update();
-      baro_.update();
-      gps_.update();
-      estimator_.update();
-      controller_.update();
-
-#if NERVE_COMM      
-      Spine::update();
-#endif
-
-      // Workaround to handle the BUSY->TIMEOUT Error problem of ETH handler in STM32H7
-      // We observe this is occasionally occur, but the ETH DMA is valid.
-      if (heth.ErrorCode & HAL_ETH_ERROR_TIMEOUT)
-        {
-          // force to restart ETH transmit
-          heth.gState = HAL_ETH_STATE_READY;
-          ETH_TxDescListTypeDef *dmatxdesclist = &(heth.TxDescList);
-          for (uint32_t i = 0; i < (uint32_t)ETH_TX_DESC_CNT; i++)
-            {
-              ETH_DMADescTypeDef *dmatxdesc = (ETH_DMADescTypeDef *)dmatxdesclist->TxDesc[i];
-              CLEAR_BIT(dmatxdesc->DESC3, ETH_DMATXNDESCRF_OWN);
-            }
-        }
-    }
-
-  /* USER CODE END 5 */
-}
 
 /* USER CODE BEGIN Header_rosSpinTaskFunc */
 /**
@@ -1106,23 +931,6 @@ void rosSpinTaskFunc(void const * argument)
   /* USER CODE END rosSpinTaskFunc */
 }
 
-/* USER CODE BEGIN Header_idleTaskFunc */
-/**
-* @brief Function implementing the idleTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_idleTaskFunc */
-void idleTaskFunc(void const * argument)
-{
-  /* USER CODE BEGIN idleTaskFunc */
-  for(;;)
-  {
-    // HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-    osDelay(1000);
-  }
-  /* USER CODE END idleTaskFunc */
-}
 
 /* USER CODE BEGIN Header_rosPublishTask */
 /**
@@ -1149,50 +957,21 @@ void rosPublishTask(void const * argument)
 
 /* USER CODE BEGIN Header_voltageTask */
 /**
-* @brief Function implementing the voltage thread.
+* @brief Function implementing the external adc thread.
 * @param argument: Not used
 * @retval None
 */
 /* USER CODE END Header_voltageTask */
-void voltageTask(void const * argument)
+void extAdcTaskFunc(void const * argument)
 {
   /* USER CODE BEGIN voltageTask */
   /* Infinite loop */
   for(;;)
   {
-    battery_status_.update();
-    osDelay(VOLTAGE_CHECK_INTERVAL);
+    ext_adc_.update();
+    osDelay(100);
   }
   /* USER CODE END voltageTask */
-}
-
-/* USER CODE BEGIN Header_canRxTask */
-/**
-* @brief Function implementing the canRx thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_canRxTask */
-__weak void canRxTask(void const * argument)
-{
-  /* USER CODE BEGIN canRxTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-    osDelay(1000);
-  }
-  /* USER CODE END canRxTask */
-}
-
-/* coreTaskEvokeCb function */
-void coreTaskEvokeCb(void const * argument)
-{
-  /* USER CODE BEGIN coreTaskEvokeCb */
-  if(FlashMemory::isLock()) return; // avoid overflow of ros publish buffer in rosserial UART mode
-  // timer callback to evoke coreTask at 1KHz
-  osSemaphoreRelease (coreTaskSemHandle);
-  /* USER CODE END coreTaskEvokeCb */
 }
 
 /* MPU Configuration */
