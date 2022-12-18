@@ -3,7 +3,7 @@
     xmlns:xacro="http://www.ros.org/wiki/xacro" name="dragon_link" >
 
   <!-- D-H kai description(different from prof.nakamura) -->
-  <xacro:macro name="dragon_module" params="self child baselink">
+  <xacro:macro name="dragon_module" params="self child baselink gimbal:=true">
 
     <!-- link -->
     <link name="link${self}">
@@ -87,130 +87,133 @@
     </link>
     <xacro:damping_factor link ="link${self}"/>
 
-    <!-- gimbal roll -->
-    <joint name="gimbal${self}_roll" type="revolute">
-      <limit effort="3" lower="-3.14" upper="3.14" velocity="12.5"/>
-      <parent link="link${self}"/>
-      <child link="gimbal${self}_roll_module"/>
-      <origin rpy="0 0 0" xyz="${link_length/2} 0 0"/>
-      <axis xyz="1 0 0"/>
-      <dynamics damping="0.1" friction="0.0"/>
-    </joint>
+    <xacro:if value="${gimbal}">
+      <!-- gimbal roll -->
+      <joint name="gimbal${self}_roll" type="revolute">
+        <limit effort="3" lower="-3.14" upper="3.14" velocity="12.5"/>
+        <parent link="link${self}"/>
+        <child link="gimbal${self}_roll_module"/>
+        <origin rpy="0 0 0" xyz="${link_length/2} 0 0"/>
+        <axis xyz="1 0 0"/>
+        <dynamics damping="0.1" friction="0.0"/>
+      </joint>
 
-    <link name="gimbal${self}_roll_module">
-      <inertial>
-        <origin xyz="${gimbal_roll_x_offset - 17.60 * 0.001} ${0.42 * 0.001} ${15.48 * 0.001}" rpy="0 0 0"/>
-        <mass value="0.4604" />
-        <inertia
-            ixx="0.0004" iyy="0.0004" izz="0.0003"
-            ixy="0" ixz="-0.0003" iyz="0"/>
-      </inertial>
-      <visual>
-        <origin xyz="${gimbal_roll_x_offset} 0 0" rpy="0 0 0"/>
-        <geometry>
-          <mesh filename="package://dragon/urdf/mesh/ducted_fan_gimbal_roll.dae"/>
-        </geometry>
-      </visual>
+      <link name="gimbal${self}_roll_module">
+        <inertial>
+          <origin xyz="${gimbal_roll_x_offset - 17.60 * 0.001} ${0.42 * 0.001} ${15.48 * 0.001}" rpy="0 0 0"/>
+          <mass value="0.4604" />
+          <inertia
+              ixx="0.0004" iyy="0.0004" izz="0.0003"
+              ixy="0" ixz="-0.0003" iyz="0"/>
+        </inertial>
+        <visual>
+          <origin xyz="${gimbal_roll_x_offset} 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="package://dragon/urdf/mesh/ducted_fan_gimbal_roll.dae"/>
+          </geometry>
+        </visual>
 
-      <!-- box collision not work good for FCL
-      <collision>
-        <origin rpy="0 0 0" xyz="${gimbal_roll_x_offset}  0 0"/>
-        <geometry>
-          <box size="0.1 0.3 0.1686"/>
-        </geometry>
-      </collision>
-      -->
-      <!-- cylinder collision geometry works well for FCL -->
-      <collision>
-        <origin rpy="${pi/2} 0 0" xyz="0 0 0.02"/>
-        <geometry>
-          <cylinder length="0.3" radius="0.09" />
-        </geometry>
-      </collision>
+        <!-- box collision not work good for FCL
+             <collision>
+             <origin rpy="0 0 0" xyz="${gimbal_roll_x_offset}  0 0"/>
+             <geometry>
+             <box size="0.1 0.3 0.1686"/>
+             </geometry>
+             </collision>
+        -->
+        <!-- cylinder collision geometry works well for FCL -->
+        <collision>
+          <origin rpy="${pi/2} 0 0" xyz="0 0 0.02"/>
+          <geometry>
+            <cylinder length="0.3" radius="0.09" />
+          </geometry>
+        </collision>
 
-    </link>
+      </link>
 
-    <!-- gimbal pitch -->
-    <joint name="gimbal${self}_pitch" type="revolute">
-      <limit effort="3" lower="-3.14" upper="3.14" velocity="12.5"/>
-      <parent link="gimbal${self}_roll_module"/>
-      <child link="gimbal${self}_pitch_module"/>
-      <origin rpy="0 0 0" xyz="0 0 ${gimbal_pitch_z_offset}"/>
-      <axis xyz="0 1 0"/>
-      <dynamics damping="0.1" friction="0.0"/>
-    </joint>
+      <!-- gimbal pitch -->
+      <joint name="gimbal${self}_pitch" type="revolute">
+        <limit effort="3" lower="-3.14" upper="3.14" velocity="12.5"/>
+        <parent link="gimbal${self}_roll_module"/>
+        <child link="gimbal${self}_pitch_module"/>
+        <origin rpy="0 0 0" xyz="0 0 ${gimbal_pitch_z_offset}"/>
+        <axis xyz="0 1 0"/>
+        <dynamics damping="0.1" friction="0.0"/>
+      </joint>
 
-    <link name="gimbal${self}_pitch_module">
-      <inertial>
-        <origin xyz="0 ${0.33 * 0.001}  ${-8.71 * 0.001}" rpy="0 0 0"/>
-        <mass value="0.5301" />
-        <inertia
-            ixx="0.0061" iyy="0.0001" izz="0.0061"
-            ixy="0.0" ixz="0.0" iyz="0.0"/>
-      </inertial>
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <mesh filename="package://dragon/urdf/mesh/ducted_fan_gimbal_pitch.dae"/>
-        </geometry>
-      </visual>
-    </link>
+      <link name="gimbal${self}_pitch_module">
+        <inertial>
+          <origin xyz="0 ${0.33 * 0.001}  ${-8.71 * 0.001}" rpy="0 0 0"/>
+          <mass value="0.5301" />
+          <inertia
+              ixx="0.0061" iyy="0.0001" izz="0.0061"
+              ixy="0.0" ixz="0.0" iyz="0.0"/>
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="package://dragon/urdf/mesh/ducted_fan_gimbal_pitch.dae"/>
+          </geometry>
+        </visual>
+      </link>
 
-    <!-- rotor -->
-    <joint name="rotor${self}" type="continuous">
-      <limit effort="100.0" lower="${min_force}" upper="${max_force}" velocity="0.5"/>
-      <parent link="gimbal${self}_pitch_module"/>
-      <child link="thrust${self}"/>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
-      <axis xyz="0 0 1"/>
-    </joint>
+      <!-- rotor -->
+      <joint name="rotor${self}" type="continuous">
+        <limit effort="100.0" lower="${min_force}" upper="${max_force}" velocity="0.5"/>
+        <parent link="gimbal${self}_pitch_module"/>
+        <child link="thrust${self}"/>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <axis xyz="0 0 1"/>
+      </joint>
 
-    <link name="thrust${self}">
-      <inertial>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <mass value="0.0001"/>
-        <inertia
-            ixx="0.00001" ixy="0.0" ixz="0.0"
-            iyy="0.00001" iyz="0.0"
-            izz="0.00002"/>
-      </inertial>
-    </link>
+      <link name="thrust${self}">
+        <inertial>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <mass value="0.0001"/>
+          <inertia
+              ixx="0.00001" ixy="0.0" ixz="0.0"
+              iyy="0.00001" iyz="0.0"
+              izz="0.00002"/>
+        </inertial>
+      </link>
 
-    <!-- special part of duct fun -->
-    <joint name="edf${self}_left_mount" type="fixed">
-      <child link="edf${self}_left"/>
-      <parent link="gimbal${self}_pitch_module"/>
-      <origin rpy="0 0 0" xyz="0 0.1115 0 "/>
-      <axis xyz="0 0 1"/>
-    </joint>
-    <link name="edf${self}_left">
-      <inertial>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <mass value="0.00001"/>
-        <inertia
-            ixx="0.000001" ixy="0.0" ixz="0.0"
-            iyy="0.000001" iyz="0.0"
-            izz="0.000002"/>
-      </inertial>
-    </link>
-    <joint name="edf${self}_right_mount" type="fixed">
-      <child link="edf${self}_right"/>
-      <parent link="gimbal${self}_pitch_module"/>
-      <origin rpy="0 0 0" xyz="0 -0.1115 0 "/>
-      <axis xyz="0 0 1"/>
-    </joint>
-    <link name="edf${self}_right">
-      <inertial>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <mass value="0.00001"/>
-        <inertia
-            ixx="0.000001" ixy="0.0" ixz="0.0"
-            iyy="0.000001" iyz="0.0"
-            izz="0.000002"/>
-      </inertial>
-    </link>
+      <!-- special part of duct fun -->
+      <joint name="edf${self}_left_mount" type="fixed">
+        <child link="edf${self}_left"/>
+        <parent link="gimbal${self}_pitch_module"/>
+        <origin rpy="0 0 0" xyz="0 0.1115 0 "/>
+        <axis xyz="0 0 1"/>
+      </joint>
+      <link name="edf${self}_left">
+        <inertial>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <mass value="0.00001"/>
+          <inertia
+              ixx="0.000001" ixy="0.0" ixz="0.0"
+              iyy="0.000001" iyz="0.0"
+              izz="0.000002"/>
+        </inertial>
+      </link>
+      <joint name="edf${self}_right_mount" type="fixed">
+        <child link="edf${self}_right"/>
+        <parent link="gimbal${self}_pitch_module"/>
+        <origin rpy="0 0 0" xyz="0 -0.1115 0 "/>
+        <axis xyz="0 0 1"/>
+      </joint>
+      <link name="edf${self}_right">
+        <inertial>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <mass value="0.00001"/>
+          <inertia
+              ixx="0.000001" ixy="0.0" ixz="0.0"
+              iyy="0.000001" iyz="0.0"
+              izz="0.000002"/>
+        </inertial>
+      </link>
 
-    <xacro:damping_factor link ="thrust${self}"/>
+      <xacro:damping_factor link ="thrust${self}"/>
+    </xacro:if>
+
     <!-- joint -->
     <xacro:unless value="${self == child}">
       <joint name="joint${self}_pitch" type="revolute">
@@ -324,37 +327,39 @@
       </transmission>
     </xacro:unless>
 
-    <transmission name="gimbal${self}_roll_tran">
-      <type>transmission_interface/SimpleTransmission</type>
-      <joint name="gimbal${self}_roll">
-        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
-      </joint>
-      <actuator name="gimbal_servo{self}_roll">
-        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
-        <mechanicalReduction>1</mechanicalReduction>
-      </actuator>
-    </transmission>
-    <transmission name="gimbal${self}_pitch_tran">
-      <type>transmission_interface/SimpleTransmission</type>
-      <joint name="gimbal${self}_pitch">
-        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
-      </joint>
-      <actuator name="gimbal_servo{self}_pitch">
-        <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
-        <mechanicalReduction>1</mechanicalReduction>
-      </actuator>
-    </transmission>
-
-    <transmission name="rotor${self}_tran">
-      <type>transmission_interface/SimpleTransmission</type>
-      <joint name="rotor${self}">
-        <hardwareInterface>RotorInterface</hardwareInterface>
-      </joint>
-      <actuator name="rotor${self}">
-        <hardwareInterface>RotorInterface</hardwareInterface>
-        <mechanicalReduction>1</mechanicalReduction>
-      </actuator>
+    <xacro:if value="${gimbal}">
+      <transmission name="gimbal${self}_roll_tran">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="gimbal${self}_roll">
+          <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="gimbal_servo{self}_roll">
+          <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+          <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
       </transmission>
+      <transmission name="gimbal${self}_pitch_tran">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="gimbal${self}_pitch">
+          <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="gimbal_servo{self}_pitch">
+          <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+          <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+      </transmission>
+
+      <transmission name="rotor${self}_tran">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="rotor${self}">
+          <hardwareInterface>RotorInterface</hardwareInterface>
+        </joint>
+        <actuator name="rotor${self}">
+          <hardwareInterface>RotorInterface</hardwareInterface>
+          <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+      </transmission>
+    </xacro:if>
     <xacro:friction self ="${self}"/>
 
   </xacro:macro>
