@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<launch>
+  ###########  launch config  ###########
+  <arg name="type" default="octo" />
+  <arg name="onboards_model" default="robot" />
+
+  ###########  Robot Model  ###########
+  <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
+    <arg name="headless" value="false" />
+    <arg name="robot_ns" value="dragon" />
+    <arg name="robot_model" value="$(find dragon)/robots/$(arg type)/$(arg onboards_model).urdf.xacro"/>
+    <arg name="rviz_config" value="$(find dragon)/config/rviz_config/only_model.rviz" />
+    <arg name="rviz_init_pose" value="$(find dragon)/config/$(arg type)/RvizInit.yaml" />
+    <arg name="need_joint_state" value="true" />
+  </include >
+
+  ##########  tf reconfigure publisher #######
+  <node name="tf_publisher" pkg="dynamic_tf_publisher" type="tf_reconfigure_publisher.py"  >
+      <rosparam subst_value="True" >
+        frame_id: dragon/root
+        parent_frame_id: world
+      </rosparam>
+  </node>
+
+  ########## rqt ############
+  <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure" />
+
+</launch>
+
+
+
