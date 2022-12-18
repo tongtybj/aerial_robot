@@ -19,6 +19,7 @@
       <rosparam subst_value="True" >
         frame_id: dragon/root
         parent_frame_id: world
+        pitch: 0.3
       </rosparam>
   </node>
 
