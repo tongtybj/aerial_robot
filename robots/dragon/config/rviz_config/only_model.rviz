@@ -13,16 +13,10 @@ Panels:
         - /RobotModel1/Links1/gimbal1_pitch_module1
         - /RobotModel1/Links1/gimbal2_pitch_module1
         - /RobotModel1/Links1/gimbal2_roll_module1
-        - /RobotModel1/Links1/gimbal3_pitch_module1
-        - /RobotModel1/Links1/gimbal3_roll_module1
         - /RobotModel1/Links1/gimbal4_pitch_module1
         - /RobotModel1/Links1/gimbal4_roll_module1
-        - /RobotModel1/Links1/gimbal5_pitch_module1
-        - /RobotModel1/Links1/gimbal5_roll_module1
         - /RobotModel1/Links1/gimbal6_pitch_module1
         - /RobotModel1/Links1/gimbal6_roll_module1
-        - /RobotModel1/Links1/gimbal7_pitch_module1
-        - /RobotModel1/Links1/gimbal7_roll_module1
         - /RobotModel1/Links1/gimbal8_pitch_module1
         - /RobotModel1/Links1/gimbal8_roll_module1
         - /RobotModel1/Links1/inter_joint21
@@ -90,30 +84,18 @@ Visualization Manager:
           Value: true
         dragon/edf2_right:
           Value: true
-        dragon/edf3_left:
-          Value: true
-        dragon/edf3_right:
-          Value: true
         dragon/edf4_left:
           Value: true
         dragon/edf4_right:
-          Value: true
-        dragon/edf5_left:
-          Value: true
-        dragon/edf5_right:
           Value: true
         dragon/edf6_left:
           Value: true
         dragon/edf6_right:
           Value: true
-        dragon/edf7_left:
-          Value: true
-        dragon/edf7_right:
-          Value: true
         dragon/edf8_left:
-          Value: true
+          Value: false
         dragon/edf8_right:
-          Value: true
+          Value: false
         dragon/fc:
           Value: false
         dragon/gimbal1_pitch_module:
@@ -124,28 +106,16 @@ Visualization Manager:
           Value: true
         dragon/gimbal2_roll_module:
           Value: true
-        dragon/gimbal3_pitch_module:
-          Value: true
-        dragon/gimbal3_roll_module:
-          Value: true
         dragon/gimbal4_pitch_module:
           Value: true
         dragon/gimbal4_roll_module:
-          Value: true
-        dragon/gimbal5_pitch_module:
-          Value: true
-        dragon/gimbal5_roll_module:
           Value: true
         dragon/gimbal6_pitch_module:
           Value: true
         dragon/gimbal6_roll_module:
           Value: true
-        dragon/gimbal7_pitch_module:
-          Value: true
-        dragon/gimbal7_roll_module:
-          Value: true
         dragon/gimbal8_pitch_module:
-          Value: true
+          Value: false
         dragon/gimbal8_roll_module:
           Value: true
         dragon/inter_joint1:
@@ -184,15 +154,9 @@ Visualization Manager:
           Value: false
         dragon/thrust2:
           Value: false
-        dragon/thrust3:
-          Value: false
         dragon/thrust4:
           Value: false
-        dragon/thrust5:
-          Value: false
         dragon/thrust6:
-          Value: false
-        dragon/thrust7:
           Value: false
         dragon/thrust8:
           Value: false
@@ -230,14 +194,6 @@ Visualization Manager:
                         {}
                   dragon/inter_joint2:
                     dragon/link3:
-                      dragon/gimbal3_roll_module:
-                        dragon/gimbal3_pitch_module:
-                          dragon/edf3_left:
-                            {}
-                          dragon/edf3_right:
-                            {}
-                          dragon/thrust3:
-                            {}
                       dragon/inter_joint3:
                         dragon/link4:
                           dragon/gimbal4_roll_module:
@@ -250,14 +206,6 @@ Visualization Manager:
                                 {}
                           dragon/inter_joint4:
                             dragon/link5:
-                              dragon/gimbal5_roll_module:
-                                dragon/gimbal5_pitch_module:
-                                  dragon/edf5_left:
-                                    {}
-                                  dragon/edf5_right:
-                                    {}
-                                  dragon/thrust5:
-                                    {}
                               dragon/inter_joint5:
                                 dragon/link6:
                                   dragon/gimbal6_roll_module:
@@ -270,14 +218,6 @@ Visualization Manager:
                                         {}
                                   dragon/inter_joint6:
                                     dragon/link7:
-                                      dragon/gimbal7_roll_module:
-                                        dragon/gimbal7_pitch_module:
-                                          dragon/edf7_left:
-                                            {}
-                                          dragon/edf7_right:
-                                            {}
-                                          dragon/thrust7:
-                                            {}
                                       dragon/inter_joint7:
                                         dragon/link8:
                                           dragon/gimbal8_roll_module:
@@ -316,14 +256,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        edf3_left:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        edf3_right:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         edf4_left:
           Alpha: 1
           Show Axes: false
@@ -332,27 +264,11 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        edf5_left:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        edf5_right:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         edf6_left:
           Alpha: 1
           Show Axes: false
           Show Trail: false
         edf6_right:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        edf7_left:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        edf7_right:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -388,16 +304,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        gimbal3_pitch_module:
-          Alpha: 0.6000000238418579
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gimbal3_roll_module:
-          Alpha: 0.6000000238418579
-          Show Axes: false
-          Show Trail: false
-          Value: true
         gimbal4_pitch_module:
           Alpha: 0.5
           Show Axes: false
@@ -408,16 +314,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        gimbal5_pitch_module:
-          Alpha: 0.4000000059604645
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gimbal5_roll_module:
-          Alpha: 0.4000000059604645
-          Show Axes: false
-          Show Trail: false
-          Value: true
         gimbal6_pitch_module:
           Alpha: 0.30000001192092896
           Show Axes: false
@@ -425,16 +321,6 @@ Visualization Manager:
           Value: true
         gimbal6_roll_module:
           Alpha: 0.30000001192092896
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gimbal7_pitch_module:
-          Alpha: 0.20000000298023224
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gimbal7_roll_module:
-          Alpha: 0.20000000298023224
           Show Axes: false
           Show Trail: false
           Value: true
@@ -535,23 +421,11 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        thrust3:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         thrust4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        thrust5:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         thrust6:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        thrust7:
           Alpha: 1
           Show Axes: false
           Show Trail: false

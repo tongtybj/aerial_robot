@@ -14,3 +14,9 @@ zeros:
   joint7_pitch: -0.3
   joint7_yaw: 1.2 # 0.785
   gimbal1_pitch: -0.3
+  gimbal2_roll: 0.1
+  gimbal4_roll: 0.4
+  gimbal4_pitch: -0.3
+  gimbal6_roll: -0.1
+  gimbal6_pitch: -0.2
+  gimbal8_roll: 0.26
