@@ -16,6 +16,12 @@
 
         <!-- mocap -->
         <include file="$(find aerial_robot_base)/launch/external_module/mocap.launch" />
+
+	<!-- m5stack -->
+	<node pkg="rosserial_python" type="serial_node.py" name="m5stack_ros_node" output="screen" >
+	  <param name="port" value="/dev/m5stack_atom"/>
+	</node>
+
       </group>
     </group>
 
