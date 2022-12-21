@@ -3,7 +3,7 @@
     xmlns:xacro="http://www.ros.org/wiki/xacro" name="dragon_link" >
 
   <!-- D-H kai description(different from prof.nakamura) -->
-  <xacro:macro name="dragon_module" params="self child baselink gimbal:=true">
+  <xacro:macro name="dragon_module" params="self child baselink gimbal:=true head_gimbal:=false">
 
     <!-- link -->
     <link name="link${self}">
@@ -93,7 +93,12 @@
         <limit effort="3" lower="-3.14" upper="3.14" velocity="12.5"/>
         <parent link="link${self}"/>
         <child link="gimbal${self}_roll_module"/>
-        <origin rpy="0 0 0" xyz="${link_length/2} 0 0"/>
+        <xacro:if value="${head_gimbal}">
+          <origin rpy="0 0 0" xyz="0.05 0 0"/>
+        </xacro:if>
+        <xacro:unless value="${head_gimbal}">
+          <origin rpy="0 0 0" xyz="${link_length/2} 0 0"/>
+        </xacro:unless>
         <axis xyz="1 0 0"/>
         <dynamics damping="0.1" friction="0.0"/>
       </joint>
