@@ -56,24 +56,16 @@ public:
   virtual void calcStaticThrust() override;
 
   inline const uint8_t getWrenchDof() const { return wrench_dof_; }
-  inline const double getRollPitchPositionMargin() const { return rp_position_margin_; }
-  inline const double getRollPitchPositionMarginThresh() const { return rp_position_margin_thre_; }
-  inline const double getWrenchMatDeterminant() const { return wrench_mat_det_; }
-  inline const double getWrenchMatDetThresh() const {return wrench_mat_det_thre_;}
   const Eigen::MatrixXd& getFeasibleControlRollPitchDistsJacobian() const {return fc_rp_dists_jacobian_;}
   inline const double& getFeasibleControlRollPitchMin()  {return fc_rp_min_;}
   inline const double& getFeasibleControlRollPitchMinThre()  {return fc_rp_min_thre_;}
   inline const Eigen::VectorXd& getFeasibleControlRollPitchDists() const {return fc_rp_dists_;}
   inline const Eigen::VectorXd& getApproxFeasibleControlRollPitchDists() const {return approx_fc_rp_dists_;}
 
-  bool rollPitchPositionMarginCheck(); // deprecated
-
   inline void setWrenchDof(uint8_t dof) { wrench_dof_ = dof; }
   virtual bool stabilityCheck(bool verbose = true) override;
 
   virtual void updateJacobians(const KDL::JntArray& joint_positions, bool update_model = true) override;
-
-  bool wrenchMatrixDeterminantCheck(); // deprecated
 
 private:
 
@@ -85,12 +77,6 @@ private:
   double fc_rp_min_;
   double fc_rp_min_thre_;
   Eigen::MatrixXd fc_rp_dists_jacobian_;
-
-  // following variables will be replaced by fc_t_min, fc_f_min in the furture
-  double wrench_mat_det_;
-  double wrench_mat_det_thre_;
-  double rp_position_margin_;
-  double rp_position_margin_thre_;
 
   // private functions
   void getParamFromRos();
