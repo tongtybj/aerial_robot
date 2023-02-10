@@ -19,6 +19,35 @@ HydrusRobotModel::HydrusRobotModel(bool init_with_rosparam, bool verbose, double
 
 }
 
+void HydrusRobotModel::calcFeasibleControlRollPitchAngAcc()
+{
+  /* angular acceleration for roll and pitch */
+  const int rotor_num = getRotorNum();
+  const double thrust_max = getThrustUpperLimit();
+
+  Eigen::VectorXd dists = Eigen::VectorXd::Zero(getRotorNum());
+
+  auto v = calcV();
+
+  for (auto& v_i: v) {
+      Eigen::Vector3d v_temp = v_i;
+      v_i = getInertia<Eigen::Matrix3d>().inverse() * v_temp;
+      v_i.z() = 0;
+    }
+
+  for (int i = 0; i < rotor_num; ++i) {
+    double t_min_i = 0.0;
+    auto v_i_normalized = v.at(i).normalized();
+    for (int j = 0; j < rotor_num; ++j) {
+      if (i == j) continue;
+      double cross_product = (v.at(j).cross(v_i_normalized)).z();
+      t_min_i += std::max(0.0, cross_product * thrust_max);
+    }
+    dists(i) = t_min_i;
+  }
+  fc_ang_acc_rp_min_ = dists.minCoeff();
+}
+
 void HydrusRobotModel::calcFeasibleControlRollPitchDists()
 {
   /* only consider Moment for roll and pitch */
@@ -118,6 +147,7 @@ void HydrusRobotModel::calcStaticThrust()
 void HydrusRobotModel::getParamFromRos()
 {
   ros::NodeHandle nh;
+  nh.param("fc_ang_acc_rp_min_thre", fc_ang_acc_rp_min_thre_, 1e-6);
   nh.param("fc_rp_min_thre", fc_rp_min_thre_, 1e-6);
   if(nh.hasParam("wrench_dof"))  nh.getParam("wrench_dof", wrench_dof_);
 }
@@ -127,6 +157,12 @@ void HydrusRobotModel::getParamFromRos()
 bool HydrusRobotModel::stabilityCheck(bool verbose)
 {
   if(!aerial_robot_model::RobotModel::stabilityCheck(verbose)) return false;
+
+  if(fc_ang_acc_rp_min_ < fc_ang_acc_rp_min_thre_)
+    {
+      if(verbose) ROS_ERROR_STREAM("fc_ang_acc_rp_min " << fc_ang_acc_rp_min_ << " is lower than the threshold " <<  fc_ang_acc_rp_min_thre_);
+      return false;
+    }
 
   if(fc_rp_min_ < fc_rp_min_thre_)
     { // only roll & pitch
@@ -141,6 +177,7 @@ void HydrusRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_positions
 {
   aerial_robot_model::RobotModel::updateRobotModelImpl(joint_positions);
   calcFeasibleControlRollPitchDists();
+  calcFeasibleControlRollPitchAngAcc();
 }
 
 void HydrusRobotModel::updateJacobians(const KDL::JntArray& joint_positions, bool update_model)

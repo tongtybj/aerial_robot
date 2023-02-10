@@ -51,12 +51,15 @@ public:
 
   void calcFeasibleControlRollPitchDists();
   void calcFeasibleControlRollPitchDistsJacobian();
+  void calcFeasibleControlRollPitchAngAcc();
 
   virtual void calcWrenchMatrixOnRoot() override;
   virtual void calcStaticThrust() override;
 
   inline const uint8_t getWrenchDof() const { return wrench_dof_; }
   const Eigen::MatrixXd& getFeasibleControlRollPitchDistsJacobian() const {return fc_rp_dists_jacobian_;}
+  inline const double& getFeasibleControlAngAccRollPitchMin()  {return fc_ang_acc_rp_min_;}
+  inline const double& getFeasibleControlAngAccRollPitchMinThre()  {return fc_ang_acc_rp_min_thre_;}
   inline const double& getFeasibleControlRollPitchMin()  {return fc_rp_min_;}
   inline const double& getFeasibleControlRollPitchMinThre()  {return fc_rp_min_thre_;}
   inline const Eigen::VectorXd& getFeasibleControlRollPitchDists() const {return fc_rp_dists_;}
@@ -71,6 +74,9 @@ private:
 
   // private attributes
   int wrench_dof_;
+
+  double fc_ang_acc_rp_min_;
+  double fc_ang_acc_rp_min_thre_;
 
   Eigen::VectorXd approx_fc_rp_dists_;
   Eigen::VectorXd fc_rp_dists_;
