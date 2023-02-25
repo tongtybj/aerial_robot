@@ -209,6 +209,7 @@ int main(void)
   motor_.init(&htim1);
   HAL_Delay(300); //wait servo init
   servo_.init(&huart2, &hi2c1, &servoMutexHandle);
+  HAL_ADC_Start(&hadc1); // start ADC
 
   CANDeviceManager::init(&hfdcan1, slave_id, GPIOC, GPIO_PIN_13);
   CANDeviceManager::addDevice(&motor_);
@@ -799,6 +800,16 @@ void idleTaskCallback(void const * argument)
   for(;;)
   {
     // HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+
+    uint32_t adc_val;
+    if(HAL_ADC_PollForConversion(&hadc1,10) == HAL_OK) {
+      adc_val = HAL_ADC_GetValue(&hadc1);
+
+      float vol = adc_val / 4096.0f * 3.3f;
+      HAL_ADC_Start(&hadc1);
+    }
+
+
     osDelay(1000);
   }
   /* USER CODE END 5 */
