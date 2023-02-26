@@ -148,12 +148,11 @@ namespace CAN {
   {
     tx_header_.Identifier = (((device_id & ((1 << DEVICE_ID_LEN) - 1))  << (MESSAGE_ID_LEN + SLAVE_ID_LEN))) | ((message_id & ((1 << MESSAGE_ID_LEN) - 1)) << SLAVE_ID_LEN) | (slave_id & ((1 << SLAVE_ID_LEN) - 1));
 
-    if (dlc <= 8) { // calssic  model
-      tx_header_.FDFormat = FDCAN_CLASSIC_CAN;
+    tx_header_.FDFormat = FDCAN_FD_CAN;
+    if (dlc <= 8) {
       tx_header_.DataLength =  dlc << 16;
     }
     else {
-      tx_header_.FDFormat = FDCAN_FD_CAN;
       switch(dlc) {
       case 12:
         {
