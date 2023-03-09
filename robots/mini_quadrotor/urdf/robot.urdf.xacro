@@ -129,7 +129,7 @@
 
   <!-- spinal -->
   <xacro:extra_module name = "fc" parent = "main_body" visible = "0" >
-    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <origin xyz="-0.012 -0.003 0.023" rpy="0 0 0"/>
     <inertial>
       <mass value = "00" />
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -138,6 +138,21 @@
           iyy="0.0" iyz="0.0" izz="0.0"/>
     </inertial>
   </xacro:extra_module>
+
+  <!-- front realsense t265 -->
+  <xacro:extra_module name = "realsense_t265" parent = "main_body" visible = "1" scale= "1"
+                      model_url = "package://mini_quadrotor/urdf/mesh/realSense_t265.STL">
+    <origin xyz="0.1095 0.00775 0.0125" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "0.07" />
+      <origin xyz="-0.007 -0.007 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.0" ixy="0.0" ixz="0.0"
+          iyy="0.0001" iyz="0.0"
+          izz="0.0001"/>
+    </inertial>
+  </xacro:extra_module>
+
 
   <!-- battery -->
   <xacro:extra_module name = "battery" parent = "main_body" visible = "1" model_url = "package://mini_quadrotor/urdf/mesh/turnigy_3S_2200mAh.dae" >
