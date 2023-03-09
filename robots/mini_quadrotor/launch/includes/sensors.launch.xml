@@ -22,6 +22,9 @@
 	  <param name="port" value="/dev/m5stack_atom"/>
 	</node>
 
+	<!-- realsense t265 -->
+	<include file="$(find realsense2_camera)/launch/rs_t265.launch" />
+	
       </group>
     </group>
 
