@@ -31,5 +31,6 @@
     <!-- basic configuration for sensors (e.g. noise sigma) -->
     <rosparam file="$(find aerial_robot_base)/config/sensors/imu/spinal.yaml" command="load" />
     <rosparam file="$(find aerial_robot_base)/config/sensors/mocap.yaml" command="load" />
+    <rosparam file="$(find hydrus)/config/sensors/vo/realsense_t265.yaml" command="load" />
   </group>
 </launch>

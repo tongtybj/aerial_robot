@@ -46,8 +46,11 @@ sensor_plugin:
                 estimate_mode: 3 # 1<<0 + 1<<1
         mocap:
                 estimate_mode: 6 # 1<<1 + 1<<2
-        vo:
+        vo1:
                 estimate_mode: 1 # 1<<0
-                vo_sub_topic_name: realsense/odom/throttle
+                vo_sub_topic_name: /quadrotor/camera/odom/sample
                 sensor_frame: realsense_pose_frame
+                z_vel_mode: false
+                fusion_mode: 0 # ONLY POS MODE
+                throttle_rate: 120 # Hz
 
