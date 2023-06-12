@@ -384,7 +384,7 @@ namespace sensor_plugin
           }
       }
 
-    raw_global_vel_ = raw_vel;
+    raw_global_vel_ = world_offset_tf_.getBasis() * raw_vel;
     if (local_vel_mode_)
       {
         // if the velocity is described in local frame (i.e., the sensor frame),
