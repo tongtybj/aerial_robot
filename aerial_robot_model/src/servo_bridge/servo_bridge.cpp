@@ -137,16 +137,16 @@ ServoBridge::ServoBridge(ros::NodeHandle nh, ros::NodeHandle nhp): nh_(nh),nhp_(
               double angle_scale = servo_params.second.hasMember("angle_scale")?
                 servo_params.second["angle_scale"]:servo_group_params.second["angle_scale"];
 
-              double torque_scale = servo_group_params.second.hasMember("torque_scale")?
-                servo_group_params.second["torque_scale"]:(servo_params.second.hasMember("torque_scale")?servo_params.second["torque_scale"]: XmlRpc::XmlRpcValue(1.0));
+              double torque_scale = servo_params.second.hasMember("torque_scale")?
+                servo_params.second["torque_scale"]:(servo_group_params.second.hasMember("torque_scale")?servo_group_params.second["torque_scale"]: XmlRpc::XmlRpcValue(1.0));
 
               /* for low pass filtering */
-              bool filter_flag = servo_group_params.second.hasMember("filter_flag")?
-                servo_group_params.second["filter_flag"]:(servo_params.second.hasMember("filter_flag")?servo_params.second["filter_flag"]: XmlRpc::XmlRpcValue(false));
-              double sample_freq = servo_group_params.second.hasMember("sample_freq")?
-                servo_group_params.second["sample_freq"]:(servo_params.second.hasMember("sample_freq")?servo_params.second["sample_freq"]: XmlRpc::XmlRpcValue(0.0));
-              double cutoff_freq = servo_group_params.second.hasMember("cutoff_freq")?
-                servo_group_params.second["cutoff_freq"]:(servo_params.second.hasMember("cutoff_freq")?servo_params.second["cutoff_freq"]: XmlRpc::XmlRpcValue(0.0));
+              bool filter_flag = servo_params.second.hasMember("filter_flag")?
+                servo_params.second["filter_flag"]:(servo_group_params.second.hasMember("filter_flag")?servo_group_params.second["filter_flag"]: XmlRpc::XmlRpcValue(false));
+              double sample_freq = servo_params.second.hasMember("sample_freq")?
+                servo_params.second["sample_freq"]:(servo_group_params.second.hasMember("sample_freq")?servo_group_params.second["sample_freq"]: XmlRpc::XmlRpcValue(0.0));
+              double cutoff_freq = servo_params.second.hasMember("cutoff_freq")?
+                servo_params.second["cutoff_freq"]:(servo_group_params.second.hasMember("cutoff_freq")?servo_group_params.second["cutoff_freq"]: XmlRpc::XmlRpcValue(0.0));
 
               servo_group_handler.push_back(SingleServoHandlePtr(new SingleServoHandle(servo_params.second["name"], servo_params.second["id"], angle_sgn, zero_point_offset, angle_scale, upper_limit, lower_limit, torque_scale, !no_real_state_flags_.at(group_name), filter_flag, sample_freq, cutoff_freq)));
 
