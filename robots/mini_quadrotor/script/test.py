@@ -7,11 +7,14 @@ import math
 import signal
 from aerial_robot_msgs.msg import FlightNav
 from nav_msgs.msg import Odometry
-# from geometry_msgs.msg import PoseWithCovariance
+
 class CircTrajFollow():
   def __init__(self):
     self.linear_move_pub = rospy.Publisher("/quadrotor/uav/nav", FlightNav, queue_size=1)
     self.linear_move_sub = rospy.Subscriber("/quadrotor/uav/cog/odom", Odometry, self.odomCb)
+    self.max_height = rospy.get_param("~max_height", 2.0)
+    self.min_height = rospy.get_param("~min_height", 1.0)
+    self.ascend_speed = rospy.get_param("~ascend_speed", 0.01)
     self.flight_nav = FlightNav()
     self.flight_nav.target = FlightNav.COG
     self.rate = 1.0/20.0 #20Hz
@@ -22,8 +25,11 @@ class CircTrajFollow():
   def odomCb(self, msg):
       now_z = msg.pose.pose.position.z
       # rospy.loginfo(now_z)
-      if now_z > 2.0:
+      if now_z > self.max_height:
           self.flag = True
+
+          # finish sbuscribe
+          self.linear_move_sub.unregister()
       else:
           self.flag = False
           #write processes based on robot's position
@@ -32,15 +38,18 @@ class CircTrajFollow():
 
     while not rospy.is_shutdown():
         #write publisher
-        fn = FlightNav()
-        fn.pos_z_nav_mode = 2
+        msg = FlightNav()
+
         if self.flag:
             rospy.loginfo("descend")
-            fn.target_pos_z = 1
-        # else:
-        #     rospy.loginfo("ascend")
-        #     fn.target_pos_z = 3  ##code for oscillate
-        self.linear_move_pub.publish(fn)
+            target_alt = self.min_height
+            msg.pos_z_nav_mode = msg.POS_MODE
+            msg.target_pos_z = target_alt
+        else:
+            rospy.loginfo("ascend")
+            msg.pos_z_nav_mode = msg.VEL_MODE
+            msg.target_pos_diff_z = self.ascend_speed
+        self.linear_move_pub.publish(msg)
         time.sleep(self.rate)
         #rate.sleep()
 
