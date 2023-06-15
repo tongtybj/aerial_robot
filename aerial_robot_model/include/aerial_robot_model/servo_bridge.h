@@ -72,7 +72,7 @@ namespace ValueType
 class SingleServoHandle
 {
 public:
-  SingleServoHandle(string name, int id, int angle_sgn, double zero_point_offset, double angle_scale, double upper_limit, double lower_limit, double torque_scale, bool receive_real_state, bool filter_flag = false, double sample_freq = 0, double cutoff_freq = 0): name_(name), id_(id), curr_angle_val_(0), target_angle_val_(0), init_target_angle_val_(false), curr_torque_val_(0), angle_sgn_(angle_sgn), zero_point_offset_(zero_point_offset), angle_scale_(angle_scale), upper_limit_(upper_limit), lower_limit_(lower_limit), torque_scale_(torque_scale), receive_real_state_(receive_real_state), filter_flag_(filter_flag)
+  SingleServoHandle(string name, int id, int angle_sgn, double zero_point_offset, double angle_scale, double upper_limit, double lower_limit, double torque_scale, bool receive_real_state, bool filter_flag = false, double sample_freq = 0, double cutoff_freq = 0): name_(name), id_(id), curr_angle_val_(0), target_angle_val_(0), init_filter_flag_(false), init_target_angle_val_(false), curr_torque_val_(0), angle_sgn_(angle_sgn), zero_point_offset_(zero_point_offset), angle_scale_(angle_scale), upper_limit_(upper_limit), lower_limit_(lower_limit), torque_scale_(torque_scale), receive_real_state_(receive_real_state), filter_flag_(filter_flag)
   {
     /* for simulation */
     //joint_ctrl_pub_ = nh_.advertise<std_msgs::Float64>(std::string("/j") + std_  + std::string("_controller/command"), 1);
@@ -100,7 +100,17 @@ public:
 
     /* do low pass filtering */
     if(filter_flag_)
-      curr_angle_val_ = lpf_angle_.filterFunction(curr_angle_val_);
+      {
+        if(!init_filter_flag_)
+          {
+            lpf_angle_.setInitValues(curr_angle_val_);
+            init_filter_flag_ = true;
+          }
+        else
+          {
+            curr_angle_val_ = lpf_angle_.filterFunction(curr_angle_val_);
+          }
+      }
 
     if(!init_target_angle_val_)
       {
@@ -203,6 +213,7 @@ private:
 
   bool receive_real_state_;
   bool filter_flag_;
+  bool init_filter_flag_;
   bool init_target_angle_val_;
 
 
