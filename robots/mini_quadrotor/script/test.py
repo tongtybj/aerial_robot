@@ -12,8 +12,8 @@ class CircTrajFollow():
   def __init__(self):
     self.linear_move_pub = rospy.Publisher("/quadrotor/uav/nav", FlightNav, queue_size=1)
     self.linear_move_sub = rospy.Subscriber("/quadrotor/uav/cog/odom", Odometry, self.odomCb)
-    self.max_height = rospy.get_param("~max_height", 2.0)
-    self.min_height = rospy.get_param("~min_height", 1.0)
+    self.max_height = rospy.get_param("~max_height", 1.2)#2.0
+    self.min_height = rospy.get_param("~min_height", 0.6)#1.0
     self.ascend_speed = rospy.get_param("~ascend_speed", 0.01)
     self.flight_nav = FlightNav()
     self.flight_nav.target = FlightNav.COG
