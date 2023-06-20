@@ -1,13 +1,57 @@
 #include <ros/ros.h>
-#include "sensor_msgs/PointCloud.h"
-void doPointcloudCallback(const sensor_msgs::PointCloud& msg){
-    ROS_INFO("time stamp is: %f",msg.header.stamp );
+#include <sensor_msgs/PointCloud.h>
+#include <std_msgs/Float32.h>
+// static ros::Publisher pub;
+void doPointcloudCallback(const sensor_msgs::PointCloud::ConstPtr& msg){
+  //  ROS_INFO("time stamp is: %f, point size is %d ",msg->header.stamp.toSec(), msg->points.size());
+
+  float min_pos_z = 1e6;
+  int d = 0;
+  int e = 0;
+  // read the points xyz position
+  for(int i=0; i < msg->points.size(); i++){
+    // int i = 0;
+    //  for (auto const point: msg->points ) {
+    // print out all point position
+    // ROS_INFO("x:%f y:%f z:%f", pc.points[i].x, pc.points[i].y, pc.points[i].z);
+    // step1: calculate theta
+    float position_x = msg->points.at(i).x;
+    float position_y = msg->points.at(i).y;
+    float position_z = msg->points.at(i).z;
+    float theta = atan2(position_z, sqrt(position_y * position_y + position_x * position_x));///change from double
+    //ROS_INFO("theta is : %f",theta);
+    float thresh = 50 * M_PI / 180.0; ///change from double
+
+    // step1.5: skip if theta is too small
+    if (theta < thresh) {
+      d++;
+      continue;
+    }
+
+    // get the pos_z of the valid point
+
+    // get the minimum position z
+    if (position_z < min_pos_z )
+      {
+        e++;
+        min_pos_z = position_z;
+      }
+  }
+
+  ROS_INFO("min position z(the distance to ceiling) is %f ", min_pos_z);
+  // while(ros::ok())
+  //   {
+  //     pub.publish(min_pos_z);
+  //   }
+  
 }
 int main(int argc, char  *argv[])
 {
-    ros::init(argc,argv,"pointcloud");
-    ros::NodeHandle nh;
-    ros::Subscriber sub = nh.subscribe("/quadrotor/livox/scan10,doPointcloudCallback);
-    ros::spin();
-    return 0;
+  ros::init(argc,argv,"pointcloud");
+  ros::NodeHandle nh;
+  ros::Subscriber sub = nh.subscribe("/quadrotor/livox/scan",10,doPointcloudCallback);
+  // ros::Publisher  pub = nh.advertise<std_msgs::Float32>("pub_min_height",10);
+  // ros::Rate r(10);
+  ros::spin();
+  return 0;
 }
