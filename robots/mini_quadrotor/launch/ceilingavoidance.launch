@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="mini_quadrotor" type="process_pointcloud" name="pointcloud_procession" />
+    <node pkg="mini_quadrotor" type="ceiling_avoid.py" name="pointcloud_ceiling_avoidance" output="screen" />
+</launch>
+

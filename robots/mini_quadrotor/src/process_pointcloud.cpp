@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud.h>
 #include <std_msgs/Float32.h>
+// #include<livox_ros_driver/CustomMsg>
 class CeilingDistance
 {
 public:
@@ -8,12 +9,21 @@ public:
 
     pub_= nh_.advertise<std_msgs::Float32>("/quadrotor/ceiling/min_distance",10);
     sub_= nh_.subscribe("/quadrotor/livox/scan",1, &CeilingDistance::pointcloudCallback,this);
+    // pub_trans= nh_.advertise<std_msgs::Float32>("/quadrotor/ceiling/min_distance",10);
+    // sub_trans= nh_.subscribe("/quadrotor/livox/scan",1, &CeilingDistance::pointcloud_transformCallback,this);
+
   }
 
   ~CeilingDistance(){}
+  // void pointcloud_transformCallback(const sensor_msgs::PointCloud::ConstPtr& msg){
+  //   for(int j=0; j < point_num; j++;){
+      
 
+  //   }
+
+  // }
   void pointcloudCallback(const sensor_msgs::PointCloud::ConstPtr& msg){
-    ROS_INFO("time stamp is: %f, point size is %d ",msg->header.stamp.toSec(), msg->points.size());
+     // ROS_INFO("time stamp is: %f, point size is %d ",msg->header.stamp.toSec(), msg->points.size());
 
     float min_pos_z = 1e6;
     int d = 0;
@@ -34,7 +44,7 @@ public:
 
       // step1.5: skip if theta is too small
       if (theta < thresh) {
-        d++;
+        // d++;
         continue;
       }
 
@@ -57,6 +67,8 @@ private:
   ros::NodeHandle nh_;
   ros::Publisher pub_;
   ros::Subscriber sub_;
+  // ros::Publisher pub_trans_;
+  // ros::Subscriber sub_trans_;
 };
 
 int main(int argc, char  *argv[])

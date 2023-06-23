@@ -8,7 +8,9 @@ import signal
 from aerial_robot_msgs.msg import FlightNav
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32
-class CircTrajFollow():
+
+class Ceilingavoid():
+
   def __init__(self):
     self.linear_move_pub = rospy.Publisher("/quadrotor/uav/nav", FlightNav, queue_size=1)
     self.linear_move_sub = rospy.Subscriber("/quadrotor/uav/cog/odom", Odometry, self.odomCb)
@@ -21,17 +23,22 @@ class CircTrajFollow():
     self.ceiling_avoid_sub = rospy.Subscriber("/quadrotor/ceiling/min_distance", Float32, self.doceiling_avoidcb)
     self.limit_distance = rospy.get_param("/distance",0.2)
     self.flag = 0
+    self.now_z = 0
+    # self.now_z = None
     self.avoid_distance = rospy.get_param("/avoid",0.1) 
     time.sleep(0.5)
+
   def doceiling_avoidcb(self,msg):
     now_distance = msg.data
-    rospy.loginfo("ok!")
+   # rospy.loginfo("ok!")
     if now_distance <= 0.2:
       self.flag = 2
+
   def odomCb(self, msg):
-    now_z = msg.pose.pose.position.z
+
+    self.now_z = msg.pose.pose.position.z
       # rospy.loginfo(now_z)
-    if now_z > self.max_height:
+    if self.now_z > self.max_height:
       self.flag = 1
 
           # finish sbuscribe
@@ -45,12 +52,11 @@ class CircTrajFollow():
     while not rospy.is_shutdown():
         #write publisher
         msg = FlightNav()
-
+        
         if self.flag == 1:
           rospy.loginfo("descend")
-          target_alt = self.min_height
           msg.pos_z_nav_mode = msg.POS_MODE
-          msg.target_pos_z = target_alt
+          msg.target_pos_z = self.min_height
         elif self.flag == 0:
           rospy.loginfo("ascend")
           msg.pos_z_nav_mode = msg.VEL_MODE
@@ -58,20 +64,26 @@ class CircTrajFollow():
           self.linear_move_pub.publish(msg)
           time.sleep(self.rate)
         elif self.flag == 2:
+
+          # if self.now_z is None:
+          #   continue
+
           self.linear_move_sub.unregister()
-          rospy.loginfo("avoid ceiling,descend")
-          target_alt = 0 #now_z - self.avoid_distance 
+          rospy.loginfo("avoid ceiling, descend")
+
+          target_alt =  self.now_z - self.avoid_distance
           msg.pos_z_nav_mode = msg.POS_MODE
           msg.target_pos_z = target_alt
           self.linear_move_pub.publish(msg)
+          self.flag = 3
           # #rate.sleep()
 
 
 if __name__ == "__main__":
 
-  rospy.init_node("linear_move_oscillation")
+  rospy.init_node("ceiling_avoidance")
 
-  Tracker = CircTrajFollow()
+  Tracker = Ceilingavoid()
   Tracker.main()
 
 

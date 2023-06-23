@@ -14,9 +14,9 @@ include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
 )
-add_executable(process_cloud_point src/process_point_cloud.cpp)
-add_dependencies(process_cloud_point ${PROJECT_NAME}_generate_messages_cpp)
-target_link_libraries(process_cloud_point
+add_executable(process_pointcloud src/process_pointcloud.cpp)
+add_dependencies(process_pointcloud ${PROJECT_NAME}_generate_messages_cpp)
+target_link_libraries(process_pointcloud
   ${catkin_LIBRARIES}
   )
 
