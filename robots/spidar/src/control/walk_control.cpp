@@ -669,50 +669,52 @@ void WalkController::jointControl()
     }
 
     // feedback control about joint torque
-    double du = ros::Time::now().toSec() - control_timestamp_;
-    for(int i = 0; i < joint_num; i++) {
-      std::string name = names.at(i);
-      int j = atoi(name.substr(5,1).c_str()) - 1; // start from 0
-      int leg_id = j / 2;
+    if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE) {
+      double du = ros::Time::now().toSec() - control_timestamp_;
+      for(int i = 0; i < joint_num; i++) {
+        std::string name = names.at(i);
+        int j = atoi(name.substr(5,1).c_str()) - 1; // start from 0
+        int leg_id = j / 2;
 
-      double current_angle = current_angles.at(i);
-      double target_angle  = target_angles.at(i);
-      double err = target_angle - current_angle;
-      double tor = static_joint_torque_(i);
+        double current_angle = current_angles.at(i);
+        double target_angle  = target_angles.at(i);
+        double err = target_angle - current_angle;
+        double tor = static_joint_torque_(i);
 
-      // TODO: consider whether skip yaw joint
-      // if (name.find("yaw") != std::string::npos) {
-      //   target_extra_joint_torque_(i) = 0;
-      //   continue;
-      // }
+        // TODO: consider whether skip yaw joint
+        // if (name.find("yaw") != std::string::npos) {
+        //   target_extra_joint_torque_(i) = 0;
+        //   continue;
+        // }
 
-      // skip the free leg
-      if (leg_id == free_leg_id) {
-        joint_torque_controllers_.at(i).reset();
-        target_extra_joint_torque_(i) = 0;
-        continue;
+        // skip the free leg
+        if (leg_id == free_leg_id) {
+          joint_torque_controllers_.at(i).reset();
+          target_extra_joint_torque_(i) = 0;
+          continue;
+        }
+
+        // skip if angle error is too small
+        if (fabs(err) < joint_error_angle_thresh_) {
+          target_extra_joint_torque_(i) = 0;
+          continue;
+        }
+
+        // only consider if the joint servo torque is potentially saturated
+        if (err * tor  < joint_error_angle_thresh_) {
+          target_extra_joint_torque_(i) = 0;
+          continue;
+        }
+
+        joint_torque_controllers_.at(i).update(err, du, 0);
+        target_extra_joint_torque_(i) = joint_torque_controllers_.at(i).result();
       }
-
-      // skip if angle error is too small
-      if (fabs(err) < joint_error_angle_thresh_) {
-        target_extra_joint_torque_(i) = 0;
-        continue;
+      std_msgs::Float32MultiArray msg;
+      for(int i = 0; i < target_extra_joint_torque_.size(); i++) {
+        msg.data.push_back(target_extra_joint_torque_(i));
       }
-
-      // only consider if the joint servo torque is potentially saturated
-      if (err * tor  < joint_error_angle_thresh_) {
-        target_extra_joint_torque_(i) = 0;
-        continue;
-      }
-
-      joint_torque_controllers_.at(i).update(err, du, 0);
-      target_extra_joint_torque_(i) = joint_torque_controllers_.at(i).result();
+      extra_joint_torque_pub_.publish(msg);
     }
-    std_msgs::Float32MultiArray msg;
-    for(int i = 0; i < target_extra_joint_torque_.size(); i++) {
-      msg.data.push_back(target_extra_joint_torque_(i));
-    }
-    extra_joint_torque_pub_.publish(msg);
 
     return;
   }
@@ -1322,6 +1324,12 @@ void WalkController::reset()
 
   for (int i = 0; i < motor_num_; i++) {
     fw_i_terms_.push_back(Eigen::Vector3d::Zero());
+  }
+
+  int joint_num = robot_model_->getLinkJointNames().size();
+  target_extra_joint_torque_ = Eigen::VectorXd::Zero(joint_num);
+  for(int i = 0; i < joint_num; i++) {
+    joint_torque_controllers_.at(i).reset();
   }
 }
 
