@@ -70,8 +70,8 @@ controller:
       joint_error_angle_thresh: 0.02 # rad
 
       p_gain: 5.0 # Nm/rad; 20: 0.1 rad -> 2 Nm
-      i_gain: 0.1
-      limit_sum: 2.0
-      limit_p: 2.0
-      limit_i: 0.0
+      i_gain: 2.0 # 10 Hz
+      limit_sum: 4.0
+      limit_p: 0.0
+      limit_i: 2.0
       limit_d: 0.0
