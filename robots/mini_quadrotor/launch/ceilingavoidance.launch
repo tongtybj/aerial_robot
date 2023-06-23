@@ -1,5 +1,22 @@
+<?xml version="1.0"?>
 <launch>
+  ###########  launch config  ###########
+  <arg name="max_height" default="5.0" />
+  <arg name="min_height" default="0.0" />
+  <arg name="ascend_speed" default="0.01" />
+  <arg name="avoid_distance" default="0.1" />
+  <arg name="thresh_distance" default="0.1" />
+  <arg name="main_rate" default="0.05" />
+  ###########  Base Platform  ###########
+  <node pkg="mini_quadrotor" type="ceiling_avoid.py" name="pointcloud_ceiling_avoidance" output="screen" >
+    <param name="max_height" value="$(arg max_height)" />
+    <param name="min_height" value="$(arg min_height)" />
+    <param name="ascend_speed" value="$(arg ascend_speed)" />
+    <param name="avoid_distance" value="$(arg avoid_distance)" />
+    <param name="thresh_distance" value="$(arg thresh_distance)" />
+    <param name="main_rate" value="$(arg main_rate)"/>
+  </node>
+
     <node pkg="mini_quadrotor" type="process_pointcloud" name="pointcloud_procession" />
-    <node pkg="mini_quadrotor" type="ceiling_avoid.py" name="pointcloud_ceiling_avoidance" output="screen" />
 </launch>
 
