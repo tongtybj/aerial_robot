@@ -348,6 +348,7 @@ public:
 	bool torque_enable_;
   	bool force_servo_off_;
 	bool first_get_pos_flag_;
+	float lfp_rate_;
 
 	int32_t getNewHomingOffset() const {return calib_value_ + homing_offset_ - present_position_;}
 	void setPresentPosition(int32_t present_position) {present_position_ = present_position + internal_offset_;}
