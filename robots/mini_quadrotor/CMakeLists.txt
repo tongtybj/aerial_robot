@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   mujoco_ros_control
   roscpp
   sensor_msgs
+  livox_ros_driver2
   )
 
 catkin_package(

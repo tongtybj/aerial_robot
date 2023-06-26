@@ -60,21 +60,21 @@ class Ceilingavoid():
           msg.target_pos_z = self.min_height
         elif self.flag == 0:
           rospy.loginfo("ascend")
+          # rospy.loginfo("thresh distance is %f",self.thresh_distance)
           msg.pos_z_nav_mode = msg.VEL_MODE
           msg.target_pos_diff_z = self.ascend_speed
           self.linear_move_pub.publish(msg)
           time.sleep(self.rate)
         elif self.flag == 2:
-
+          rospy.loginfo("ceiling detected, ascending")
           # if self.now_z is None:
           #   continue
 
           self.linear_move_sub.unregister()
-          rospy.loginfo("avoid ceiling, descend")
-
           target_alt =  self.now_z - self.avoid_distance
           msg.pos_z_nav_mode = msg.POS_MODE
           msg.target_pos_z = target_alt
+          # rospy.loginfo("thresh distance is %f",self.thresh_distance)
           self.linear_move_pub.publish(msg)
           self.flag = 3
           # #rate.sleep()
