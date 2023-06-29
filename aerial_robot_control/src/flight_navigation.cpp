@@ -601,7 +601,7 @@ void BaseNavigator::update()
               xy_control_mode_ = prev_xy_control_mode_;
             }
 
-          ROS_INFO_ONCE("\n \n ======================  \n Ready for takeoff !!! \n ====================== \n");
+          ROS_INFO_STREAM_ONCE("\033[1;32m" << "\n \n ======================  \n Ready for takeoff !!! \n ====================== \n" << "\033[0m");
         }
     }
 
