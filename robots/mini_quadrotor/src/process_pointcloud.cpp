@@ -5,7 +5,10 @@
 class CeilingDistance
 {
 public:
-  CeilingDistance(ros::NodeHandle nh): nh_(nh) {
+  CeilingDistance(ros::NodeHandle nh, ros::NodeHandle nhp): nh_(nh), nhp_(nhp) {
+
+    nhp_.param("theta_thresh", theta_thresh_, 40.0); // deg
+    theta_thresh_ *= (M_PI / 180.0);
 
     pub_= nh_.advertise<std_msgs::Float32>("/quadrotor/ceiling/min_distance",10);
     sub_= nh_.subscribe("/quadrotor/livox/scan",1, &CeilingDistance::pointcloudCallback,this);
@@ -18,16 +21,18 @@ public:
   void customMsg_transformCallback(const livox_ros_driver2::CustomMsg::ConstPtr& livox_msg){
     // ROS_INFO("get livox custom msg");
     float min_pos_z = 1e6;
+    float max_theta = 0;
     for(int i=0; i < livox_msg->points.size(); i++){
       float position_x = livox_msg->points.at(i).x;
       float position_y = livox_msg->points.at(i).y;
       float position_z = livox_msg->points.at(i).z;
       float theta = atan2(position_z, sqrt(position_y * position_y + position_x * position_x));
-      //ROS_INFO("theta is : %f",theta);
-      float thresh = 50 * M_PI / 180.0;
 
-      if (theta < thresh) {
+      if (theta > max_theta) {
+        max_theta = theta;
+      }
 
+      if (theta < theta_thresh_) {
         continue;
       }
 
@@ -39,6 +44,8 @@ public:
           min_pos_z = position_z;
         }
     }
+
+    ROS_INFO("max theta is : %f, min_pos_z: %f", max_theta, min_pos_z);
 
     // ROS_INFO("min position z(the distance to ceiling) is %f ", min_pos_z);
     std_msgs::Float32 dist_msg;
@@ -89,10 +96,13 @@ public:
 
 private:
   ros::NodeHandle nh_;
+  ros::NodeHandle nhp_;
   ros::Publisher pub_;
   ros::Subscriber sub_;
   // ros::Publisher pub_trans_;
   ros::Subscriber sub_trans_;
+
+  double theta_thresh_;
 };
 
 int main(int argc, char  *argv[])
@@ -100,8 +110,9 @@ int main(int argc, char  *argv[])
   ros::init(argc,argv,"pointcloud");
 
   ros::NodeHandle nh;
+  ros::NodeHandle nhp("~");
 
-  CeilingDistance ceiling_distance(nh);
+  CeilingDistance ceiling_distance(nh, nhp);
 
   ros::spin();
   return 0;
