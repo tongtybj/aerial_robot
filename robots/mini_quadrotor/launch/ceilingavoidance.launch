@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <launch>
   ###########  launch config  ###########
-  <arg name="max_height" default="5.0" />
-  <arg name="min_height" default="0.0" />
+  <arg name="max_height" default="4.0" />
+  <arg name="min_height" default="0.3" />
   <arg name="ascend_speed" default="0.01" />
   <arg name="avoid_distance" default="0.1" />
-  <arg name="thresh_distance" default="0.1" />
-  <arg name="main_rate" default="0.05" />
+  <arg name="thresh_distance" default="0.2" />
+  <arg name="main_rate" default="20.0" /> <!-- Hz -->
   ###########  Base Platform  ###########
   <node pkg="mini_quadrotor" type="ceiling_avoid.py" name="pointcloud_ceiling_avoidance" output="screen" >
     <param name="max_height" value="$(arg max_height)" />
