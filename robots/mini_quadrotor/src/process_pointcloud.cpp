@@ -39,11 +39,10 @@ public:
           min_pos_z = position_z;
         }
 
-    // ROS_INFO("min position z(the distance to ceiling) is %f ", min_pos_z);
-    std_msgs::Float32 dist_msg;
-    dist_msg.data = min_pos_z;
-    pub_.publish(dist_msg);
-
+      // ROS_INFO("min position z(the distance to ceiling) is %f ", min_pos_z);
+      std_msgs::Float32 dist_msg;
+      dist_msg.data = min_pos_z;
+      pub_.publish(dist_msg);
 
     }
 
