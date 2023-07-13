@@ -9,8 +9,8 @@ public:
 
     nhp_.param("theta_thresh", theta_thresh_, 40.0); // deg
     theta_thresh_ *= (M_PI / 180.0);
-    nhp_.param("circle_thresh_", circle_thresh_, 10.0); // deg
-    circle_thresh_*= 0.3;
+    nhp_.param("circle_thresh_", circle_thresh_,55.0); // field
+    circle_thresh_*= (M_PI / 180.0);
 
     pub_= nh_.advertise<std_msgs::Float32>("/quadrotor/ceiling/min_distance",10);
     sub_= nh_.subscribe("/quadrotor/livox/scan",1, &CeilingDistance::pointcloudCallback,this);
@@ -30,9 +30,9 @@ public:
       float position_z = livox_msg->points.at(i).z;
       float theta = atan2(position_z, sqrt(position_y * position_y + position_x * position_x));
 
-      if (theta > max_theta) {
-        max_theta = theta;
-      }
+      // if (theta > max_theta) {
+      //   max_theta = theta;
+      // }
 
       if (theta < theta_thresh_) {
         continue;
@@ -41,14 +41,16 @@ public:
       // get the pos_z of the valid point
 
       // get the minimum position z when target point in circle 
-      if (position_z < min_pos_z && pow(position_x,2) < pow(circle_thresh_,2) &&pow(position_y,2) < pow(circle_thresh_,2))
+      if (position_z < min_pos_z && theta_thresh_ < circle_thresh_// pow(position_x,2) < pow(circle_thresh_,2) &&pow(position_y,2) < pow(circle_thresh_,2)
+          )
         {
           // ROS_INFO("OK");
           min_pos_z = position_z;
         }
     }
 
-    ROS_INFO("max theta is : %f, min_pos_z: %f", max_theta, min_pos_z);
+    // ROS_INFO("max theta is : %f, min_pos_z: %f", max_theta, min_pos_z);
+    ROS_INFO("min_pos_z: %f",min_pos_z);
 
     // ROS_INFO("min position z(the distance to ceiling) is %f ", min_pos_z);
     std_msgs::Float32 dist_msg;
@@ -90,7 +92,7 @@ public:
           min_pos_z = position_z;
         }
     }
-    ROS_INFO("OK")
+    // ROS_INFO("OK")
     // ROS_INFO("min position z(the distance to ceiling) is %f ", min_pos_z);
     std_msgs::Float32 dist_msg;
     dist_msg.data = min_pos_z;
