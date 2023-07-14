@@ -9,8 +9,12 @@ public:
 
     nhp_.param("theta_thresh", theta_thresh_, 40.0); // deg
     theta_thresh_ *= (M_PI / 180.0);
-    nhp_.param("circle_thresh_", circle_thresh_,55.0); // field
-    circle_thresh_*= (M_PI / 180.0);
+    nhp_.param("ring_thresh_", ring_thresh_,55.0); // deg of ring
+    ring_thresh_*= (M_PI / 180.0);
+    nhp_.param("circle_thresh_", circle_thresh_,0.6); // diameter of circle
+    circle_thresh_*=circle_thresh_;
+    nhp_.param("thresh_field_", thresh_field_,5.0); // deg of ring
+    thresh_field_*= (M_PI / 180.0);
 
     pub_= nh_.advertise<std_msgs::Float32>("/quadrotor/ceiling/min_distance",10);
     sub_= nh_.subscribe("/quadrotor/livox/scan",1, &CeilingDistance::pointcloudCallback,this);
@@ -21,9 +25,42 @@ public:
 
   ~CeilingDistance(){}
   void customMsg_transformCallback(const livox_ros_driver2::CustomMsg::ConstPtr& livox_msg){
-    // ROS_INFO("get livox custom msg");
+    ROS_INFO("get livox custom msg");
     float min_pos_z = 1e6;
     float max_theta = 0;
+#if 1 //
+    // TODO:
+    // Adaptive threshold for theta
+    // ROS_INFO("OK");
+    for(int i=0; i < livox_msg->points.size(); i++){
+      float position_x = livox_msg->points.at(i).x;
+      float position_y = livox_msg->points.at(i).y;
+      float position_z = livox_msg->points.at(i).z;
+      float theta = atan2(position_z, sqrt(position_y * position_y + position_x * position_x));
+      if (theta > max_theta){
+        max_theta = theta;
+        // ROS_INFO("OK");
+      }
+    }
+    
+    for(int i=0; i < livox_msg->points.size(); i++){
+      float position_x = livox_msg->points.at(i).x;
+      float position_y = livox_msg->points.at(i).y;
+      float position_z = livox_msg->points.at(i).z;
+      float theta = atan2(position_z, sqrt(position_y * position_y + position_x * position_x));
+      if ( theta > max_theta - thresh_field_  && position_z < min_pos_z){
+        min_pos_z = position_z;
+      }
+    }
+    ROS_INFO("min_pos_z: %f",min_pos_z);
+
+    std_msgs::Float32 dist_msg;
+    dist_msg.data = min_pos_z;
+    pub_.publish(dist_msg);
+
+
+#else // based on constant theta_thresh and distance_thresh
+
     for(int i=0; i < livox_msg->points.size(); i++){
       float position_x = livox_msg->points.at(i).x;
       float position_y = livox_msg->points.at(i).y;
@@ -34,14 +71,14 @@ public:
       //   max_theta = theta;
       // }
 
-      if (theta < theta_thresh_) {
+      if (theta < theta_thresh_ || theta > ring_thresh_) {
         continue;
       }
 
       // get the pos_z of the valid point
 
       // get the minimum position z when target point in circle 
-      if (position_z < min_pos_z && theta_thresh_ < circle_thresh_// pow(position_x,2) < pow(circle_thresh_,2) &&pow(position_y,2) < pow(circle_thresh_,2)
+      if (position_z < min_pos_z // &&  pow(position_x,2) < circle_thresh_ && pow(position_y,2) < circle_thresh_
           )
         {
           // ROS_INFO("OK");
@@ -56,7 +93,7 @@ public:
     std_msgs::Float32 dist_msg;
     dist_msg.data = min_pos_z;
     pub_.publish(dist_msg);
-
+#endif
   }
   void pointcloudCallback(const sensor_msgs::PointCloud::ConstPtr& msg){
      // ROS_INFO("time stamp is: %f, point size is %d ",msg->header.stamp.toSec(), msg->points.size());
@@ -108,6 +145,8 @@ private:
   ros::Subscriber sub_trans_;
   double circle_thresh_;
   double theta_thresh_;
+  double ring_thresh_;
+  double thresh_field_;
 };
 
 int main(int argc, char  *argv[])
