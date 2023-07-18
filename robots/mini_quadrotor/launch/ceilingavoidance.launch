@@ -2,7 +2,7 @@
 <launch>
   ###########  launch config  ###########
   <arg name="max_height" default="4.0" />
-  <arg name="min_height" default="0.3" />
+  <arg name="min_height" default="1.0" />
   <arg name="ascend_speed" default="0.01" />
   <arg name="avoid_distance" default="0.1" />
   <arg name="thresh_distance" default="0.2" />

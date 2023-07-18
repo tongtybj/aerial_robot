@@ -26,14 +26,15 @@ class Ceilingavoid():
     self.ceiling_avoid_sub = rospy.Subscriber("/quadrotor/ceiling/min_distance", Float32, self.doceiling_avoidCb)
     self.flag = 0
     self.now_z = 0
+    self.now_distance = 0
     self.hovering_flag = True
     # self.now_z = None
 
     time.sleep(0.5)
 
   def doceiling_avoidCb(self,msg):
-    now_distance = msg.data
-    if now_distance <= self.thresh_distance:
+    self.now_distance = msg.data
+    if self.now_distance <= self.thresh_distance:
       self.flag = 2
 
   def odomCb(self, msg):
@@ -58,7 +59,7 @@ class Ceilingavoid():
           msg.target_pos_z = self.min_height
           self.linear_move_pub.publish(msg)
         elif self.flag == 0:
-          rospy.loginfo_throttle(1.0, "ascend")
+          rospy.loginfo_throttle(1.0, "ascend, distance: %f", self.now_distance)
           # rospy.loginfo("thresh distance is %f",self.thresh_distance)
           msg.pos_z_nav_mode = msg.VEL_MODE
           msg.target_pos_diff_z = self.ascend_speed
