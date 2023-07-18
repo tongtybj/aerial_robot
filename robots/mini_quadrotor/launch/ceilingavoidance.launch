@@ -7,6 +7,11 @@
   <arg name="avoid_distance" default="0.1" />
   <arg name="thresh_distance" default="0.2" />
   <arg name="main_rate" default="20.0" /> <!-- Hz -->
+  <arg name="theta_thresh" default="40.0" />
+  <arg name="ring_thresh" default="57.0" />
+  <arg name="circle_thresh" default="0.6" />
+  <arg name="thresh_field" default="5.0" />
+
   ###########  Base Platform  ###########
   <node pkg="mini_quadrotor" type="ceiling_avoid.py" name="pointcloud_ceiling_avoidance" output="screen" >
     <param name="max_height" value="$(arg max_height)" />
@@ -17,6 +22,12 @@
     <param name="main_rate" value="$(arg main_rate)"/>
   </node>
 
-    <node pkg="mini_quadrotor" type="process_pointcloud" name="pointcloud_procession" />
+  <node pkg="mini_quadrotor" type="process_pointcloud" name="pointcloud_procession" >
+    <param name="theta_thresh" value="$(arg theta_thresh)" />
+    <param name="ring_thresh" value="$(arg ring_thresh)" />
+    <param name="circle_thresh" value="$(arg circle_thresh)" />
+    <param name="thresh_field" value="$(arg thresh_field)" />
+  </node>
+  
 </launch>
 

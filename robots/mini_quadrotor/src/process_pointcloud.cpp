@@ -9,11 +9,11 @@ public:
 
     nhp_.param("theta_thresh", theta_thresh_, 40.0); // deg
     theta_thresh_ *= (M_PI / 180.0);
-    nhp_.param("ring_thresh_", ring_thresh_,55.0); // deg of ring
+    nhp_.param("ring_thresh", ring_thresh_,57.0); // deg of ring
     ring_thresh_*= (M_PI / 180.0);
-    nhp_.param("circle_thresh_", circle_thresh_,0.6); // diameter of circle
+    nhp_.param("circle_thresh", circle_thresh_,0.6); // diameter of circle
     circle_thresh_*=circle_thresh_;
-    nhp_.param("thresh_field_", thresh_field_,5.0); // deg of ring
+    nhp_.param("thresh_field", thresh_field_,5.0); // deg of ring
     thresh_field_*= (M_PI / 180.0);
 
     pub_= nh_.advertise<std_msgs::Float32>("/quadrotor/ceiling/min_distance",10);
@@ -25,7 +25,7 @@ public:
 
   ~CeilingDistance(){}
   void customMsg_transformCallback(const livox_ros_driver2::CustomMsg::ConstPtr& livox_msg){
-    ROS_INFO("get livox custom msg");
+    // ROS_INFO("get livox custom msg");
     float min_pos_z = 1e6;
     float max_theta = 0;
 #if 1 //
