@@ -1,16 +1,16 @@
 <?xml version="1.0"?>
 <launch>
   ###########  launch config  ###########
-  <arg name="max_height" default="4.0" />
+  <arg name="max_height" default="5.0" />
   <arg name="min_height" default="1.0" />
   <arg name="ascend_speed" default="0.01" />
   <arg name="avoid_distance" default="0.1" />
-  <arg name="thresh_distance" default="0.2" />
+  <arg name="thresh_distance" default="0.5" />
   <arg name="main_rate" default="20.0" /> <!-- Hz -->
   <arg name="theta_thresh" default="40.0" />
   <arg name="ring_thresh" default="57.0" />
   <arg name="circle_thresh" default="0.6" />
-  <arg name="thresh_field" default="5.0" />
+  <arg name="thresh_field" default="10.0" />
 
   ###########  Base Platform  ###########
   <node pkg="mini_quadrotor" type="ceiling_avoid.py" name="pointcloud_ceiling_avoidance" output="screen" >
