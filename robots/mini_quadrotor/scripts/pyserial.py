@@ -18,6 +18,7 @@ if __name__=="__main__":
     pub = rospy.Publisher('acid_vol', Float32, queue_size=10)
 
     v_ref = 2.048
+    v_bias = 0.87813
 
     while not rospy.is_shutdown():
 
@@ -42,7 +43,7 @@ if __name__=="__main__":
         value_int16 = struct.unpack('h', bytes)[0]
         #print(value_int16)
 
-        value_float = value_int16 * v_ref / 32768.0 - 1.233
+        value_float = value_int16 * v_ref / 32768.0 - v_bias
         #print(value_float)
 
         msg =Float32(value_float)
