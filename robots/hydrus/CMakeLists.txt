@@ -58,6 +58,13 @@ add_library(hydrus_controller_pluginlib
 target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES})
 add_dependencies(hydrus_controller_pluginlib aerial_robot_msgs_generate_messages_cpp spinal_generate_messages_cpp)
 
+# sample
+find_package(NLopt REQUIRED)
+include_directories(${NLOPT_INCLUDE_DIRS})
+add_executable(optimize_pose_sample src/optimize_pose_sample.cpp)
+target_link_libraries(optimize_pose_sample ${catkin_LIBRARIES} ${NLOPT_LIBRARIES})
+
+
 # test
 # pre-build test code
 add_library(hydrus_numerical_jacobians test/hydrus/numerical_jacobians.cpp)

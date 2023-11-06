@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+  ###########  launch config  ###########
+  <arg name="type" default="quad" />
+  <arg name="onboards_model" default="default_mode_201907" />
+  <arg name="headless" default="True" />
+  <arg name="robot_ns" value="hydrus" />
+  <arg name="config_dir" default="$(find hydrus)/config/$(arg type)" />
+
+
+  ###########  Optimize Pose  ###########
+  <node pkg="hydrus" type="optimize_pose_sample" name="optimize_pose_sample" ns="$(arg robot_ns)"  >
+    <param name="fc_t_min_thresh" value="0.5"/>
+    <param name="delta_angle_range" value="0.4"/>
+    <param name="robot_model" value="hydrus_tilted_robot_model"/>
+    <remap from="opt_joint_angles" to="joint_states" />
+  </node>
+
+  ###########  Visualization  ###########
+  <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
+    <arg name="headless" value="$(arg headless)" />
+    <arg name="robot_model" value="$(find hydrus)/robots/$(arg type)/$(arg onboards_model)/robot.urdf.xacro" />
+    <arg name="robot_ns" value="$(arg robot_ns)" />
+    <arg name="rviz_config" value="$(find hydrus)/config/rviz_config" />
+    <arg name="rviz_init_pose" value="$(arg config_dir)/RvizInit.yaml" />
+    <arg name="need_joint_state" value="false" />
+  </include>
+
+</launch>
