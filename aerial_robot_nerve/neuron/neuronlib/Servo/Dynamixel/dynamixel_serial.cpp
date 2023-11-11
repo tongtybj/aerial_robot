@@ -124,6 +124,7 @@ void DynamixelSerial::ping()
 void DynamixelSerial::reboot(uint8_t servo_index)
 {
 	cmdReboot(servo_[servo_index].id_);
+	servo_[servo_index].first_get_pos_flag_ = true;
 }
 
 void DynamixelSerial::setTorque(uint8_t servo_index, bool torque_enable)
