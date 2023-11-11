@@ -52,9 +52,6 @@ void Servo::receiveDataCallback(uint8_t message_id, uint32_t DLC, uint8_t* data)
                                 if (!s.force_servo_off_) {
                                   if (s.torque_enable_ != torque_enable) {
                                     s.torque_enable_ = torque_enable;
-                                    if(s.external_encoder_flag_) {
-                                      s.first_get_pos_flag_ = true; // reset the internal offset
-                                    }
                                     servo_handler_.setTorque(i);
                                   }
                                 }
