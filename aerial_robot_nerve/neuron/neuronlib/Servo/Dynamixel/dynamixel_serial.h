@@ -313,13 +313,14 @@ public:
 	ServoData(){}
 	ServoData(uint8_t id):
           id_(id),
-          torque_enable_(false),
-          first_get_pos_flag_(true),
+          goal_current_(0),
           internal_offset_(0),
-          force_servo_off_(false),
-          hardware_error_status_(0),
           operating_mode_(0),
-          goal_current_(0)
+          hardware_error_status_(0),
+          torque_enable_(false),
+          force_servo_off_(false),
+          send_goal_position_(false),
+          first_get_pos_flag_(true)
   {}
 
 	uint8_t id_;
@@ -348,12 +349,13 @@ public:
 	bool led_;
 	bool torque_enable_;
   	bool force_servo_off_;
+	bool send_goal_position_;
 	bool first_get_pos_flag_;
 
 	int32_t getNewHomingOffset() const {return calib_value_ + homing_offset_ - present_position_;}
-	void setPresentPosition(int32_t present_position) {present_position_ = present_position + internal_offset_;}
 	int32_t getPresentPosition() const {return present_position_;}
-	void setGoalPosition(int32_t goal_position) {goal_position_ = resolution_ratio_ * goal_position - internal_offset_;}
+	void setGoalPosition(int32_t goal_position) {goal_position_ = goal_position;}
+  	int32_t getInternalGoalPosition() const {return resolution_ratio_ * goal_position_ - internal_offset_;}
 	int32_t getGoalPosition() const {return goal_position_;}
 	void setGoalCurrent(int16_t goal_current) {goal_current_ = goal_current;}
 	int16_t getGoalCurrent() const { return goal_current_;}
@@ -369,7 +371,7 @@ public:
   void ping();
   HAL_StatusTypeDef read(uint8_t* data,  uint32_t timeout);
   void reboot(uint8_t servo_index);
-  void setTorque(uint8_t servo_index);
+  void setTorque(uint8_t servo_index, bool torque_enable);
   void setHomingOffset(uint8_t servo_index);
   void setPositionGains(uint8_t servo_index);
   void setProfileVelocity(uint8_t servo_index);
