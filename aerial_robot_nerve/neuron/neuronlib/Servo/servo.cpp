@@ -49,11 +49,8 @@ void Servo::receiveDataCallback(uint8_t message_id, uint32_t DLC, uint8_t* data)
 				s.setGoalPosition(goal_pos);
 				bool torque_enable = (((data[i * 2 + 1] >> 7) & 0x01) != 0) ? true : false;
 				if (s.torque_enable_ != torque_enable) {
-                                  s.torque_enable_ = torque_enable;
-                                  if(s.external_encoder_flag_) {
-                                    s.first_get_pos_flag_ = true; // reset the internal offset
-                                  }
-                                  servo_handler_.setTorque(i);
+					s.torque_enable_ = torque_enable;
+					servo_handler_.setTorque(i);
 				}
 			}
 			break;
