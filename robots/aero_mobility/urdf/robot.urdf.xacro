@@ -148,6 +148,29 @@
     </inertial>
   </xacro:extra_module>
 
+  <!-- livox mid360 -->
+  <xacro:extra_module name = "lidar_imu" parent = "main_body" visible = "0" > 
+    <origin xyz="${rotor_x_middle + 0.011} ${0.14 + 0.02329} ${0.015 + 0.047 - 0.04412}" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "00" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.0" ixy="0.0" ixz="0.0"
+          iyy="0.0" iyz="0.0" izz="0.0"/>
+    </inertial>
+  </xacro:extra_module>
+
+  <xacro:extra_module name = "livox_link" parent = "main_body" visible = "0" > 
+    <origin xyz="${rotor_x_middle} 0.14 ${0.015 + 0.047}" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "0" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.0" ixy="0.0" ixz="0.0"
+          iyy="0.0" iyz="0.0" izz="0.0"/>
+    </inertial>
+  </xacro:extra_module>
+
 
   <!-- propellers -->
   <xacro:propeller_module id = "1" x = "${rotor_x_front}" y = "${rotor_y}" z = "${rotor_z}" roll="0" pitch="${rotor_p_tilt}" yaw="0" direction = "1" />
