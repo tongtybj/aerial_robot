@@ -4,16 +4,14 @@ project(hydrus_xi)
 add_compile_options(-std=c++17)
 
 find_package(catkin REQUIRED COMPONENTS
-  aerial_robot_base
+  angles
   aerial_robot_control
   aerial_robot_model
   aerial_robot_msgs
-  angles
   hydrus
   mujoco_ros_control
+  pluginlib
   roscpp
-  rospy
-  spinal
   )
 
 find_package(NLopt REQUIRED)
