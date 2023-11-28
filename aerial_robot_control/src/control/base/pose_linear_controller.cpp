@@ -302,6 +302,7 @@ namespace aerial_robot_control
     pid_msg_.x.err_p = target_pos_.x() - pos_.x();
     pid_msg_.x.target_d = target_vel_.x();
     pid_msg_.x.err_d = target_vel_.x() - vel_.x();
+    pid_msg_.x.offset_acc = target_acc_.x();
 
     pid_msg_.y.total.at(0) = pid_controllers_.at(Y).result();
     pid_msg_.y.p_term.at(0) = pid_controllers_.at(Y).getPTerm();
@@ -311,6 +312,7 @@ namespace aerial_robot_control
     pid_msg_.y.err_p = target_pos_.y() - pos_.y();
     pid_msg_.y.target_d = target_vel_.y();
     pid_msg_.y.err_d = target_vel_.y() - vel_.y();
+    pid_msg_.y.offset_acc = target_acc_.y();
 
     pid_msg_.z.total.at(0) = pid_controllers_.at(Z).result();
     pid_msg_.z.p_term.at(0) = pid_controllers_.at(Z).getPTerm();
@@ -320,6 +322,7 @@ namespace aerial_robot_control
     pid_msg_.z.err_p = target_pos_.z() - pos_.z();
     pid_msg_.z.target_d = target_vel_.z();
     pid_msg_.z.err_d = target_vel_.z() - vel_.z();
+    pid_msg_.z.offset_acc = target_acc_.z();
 
     // omit roll, pitch here
 

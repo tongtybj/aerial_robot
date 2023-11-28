@@ -6,6 +6,7 @@ float32 target_p
 float32 err_p
 float32 target_d
 float32 err_d
+float32 offset_acc
 
 
 
