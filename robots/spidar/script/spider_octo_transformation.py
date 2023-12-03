@@ -58,6 +58,7 @@ if __name__ == '__main__':
     if len(args.q) == 4:
         args.q = args.q * 4
 
+    args.q = list(map(float, args.q))
     print("taget joint angles are {}".format(args.q))
 
     node = SpiderOctoTransformation()
