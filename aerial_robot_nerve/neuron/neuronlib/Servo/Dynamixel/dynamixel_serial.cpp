@@ -686,6 +686,7 @@ int8_t DynamixelSerial::readStatusPacket(uint8_t status_packet_instruction)
                     else {
                       s->hardware_error_status_ |= 1 << ENCODER_CONNECT_ERROR; // |= 0b10000000:  encoder is not connected
                     }
+                    s->present_current_ = present_position;
                   }
                   else {
                     if (s->first_get_pos_flag_) {
@@ -704,7 +705,7 @@ int8_t DynamixelSerial::readStatusPacket(uint8_t status_packet_instruction)
 	}
 	case INST_GET_PRESENT_CURRENT:
 		if (s != servo_.end()) {
-			s->present_current_ = ((parameters[1] << 8) & 0xFF00) | (parameters[0] & 0xFF);
+			int16_t present_current = ((parameters[1] << 8) & 0xFF00) | (parameters[0] & 0xFF);
 		}
 		return 0;
 	case INST_GET_PRESENT_TEMPERATURE:
