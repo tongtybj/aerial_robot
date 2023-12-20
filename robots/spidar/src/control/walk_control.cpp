@@ -100,6 +100,8 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   for (int i = 0; i < motor_num_; i++) {
     fw_i_terms_.push_back(Eigen::Vector3d::Zero());
   }
+
+  pusedo_baselink_wrench_ = Eigen::VectorXd::Zero(6);
 }
 
 void WalkController::rosParamInit()
@@ -405,6 +407,7 @@ void WalkController::thrustControl()
   // assign to target wrench
   target_wrench.head(3) = Eigen::Vector3d(target_acc.x(), target_acc.y(), target_acc.z());
 
+  pusedo_baselink_wrench_ = -target_wrench;
 
   // ros pub
   pid_msg_.x.total.at(0) =  walk_pid_controllers_.at(X).result();
@@ -453,9 +456,9 @@ void WalkController::thrustControl()
   }
   auto q_mat_inv = aerial_robot_model::pseudoinverse(q_mat);
   Eigen::VectorXd fb_vectoring_f = q_mat_inv * target_wrench; // feed-back control
-  for(int i = 0; i < motor_num_ / 2; i++) {
-    target_vectoring_f_.segment(3 * 2 * i, 3) += fb_vectoring_f.segment(3 * i, 3);
-  }
+  // for(int i = 0; i < motor_num_ / 2; i++) {
+  //   target_vectoring_f_.segment(3 * 2 * i, 3) += fb_vectoring_f.segment(3 * i, 3);
+  // }
   // ROS_INFO_STREAM_THROTTLE(1.0, "[fb control] fb vectoring f: " << fb_vectoring_f.transpose());
   // ROS_INFO_STREAM("[Spider] [Control] fb vectoring f: " << fb_vectoring_f.transpose());
   // ROS_INFO_STREAM("[Spider] [Control] total thrust vector after fc center: " << target_vectoring_f_.transpose());
@@ -976,6 +979,13 @@ void WalkController::calcStaticBalance()
     b1_all -= jac.rightCols(joint_num).transpose() * g;
     b2 += jac.leftCols(6).transpose() * g;
   }
+
+  Eigen::MatrixXd jac = robot_model_->orig::getJacobian(gimbal_processed_joint, "center_link");
+  jac.topRows(3) = rot * jac.topRows(3);
+  jac.bottomRows(3) = rot * jac.bottomRows(3);
+  b1_all -= jac.rightCols(joint_num).transpose() * pusedo_baselink_wrench_;
+  b2 += jac.leftCols(6).transpose() * pusedo_baselink_wrench_;
+
 
   // only consider link joint
   Eigen::MatrixXd A1_fe = Eigen::MatrixXd::Zero(link_joint_num, fe_ndof);

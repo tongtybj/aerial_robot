@@ -161,6 +161,8 @@ namespace aerial_robot_control
       double link_rot_f_control_i_thresh_;
       std::vector<Eigen::Vector3d> fw_i_terms_;
 
+      Eigen::VectorXd pusedo_baselink_wrench_;
+
       void rosParamInit();
       virtual void sendCmd() override;
 
