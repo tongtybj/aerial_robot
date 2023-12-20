@@ -33,6 +33,11 @@ void DragonFullVectoringController::initialize(ros::NodeHandle nh, ros::NodeHand
   rotor_interfere_wrench_pub_ = nh_.advertise<geometry_msgs::WrenchStamped>("rotor_interfere_wrench", 1);
   interfrence_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("interference_markers", 1);
 
+
+  rpy_gain_pub_ = nh_.advertise<spinal::RollPitchYawTerms>("rpy/gain", 1);
+  torque_allocation_matrix_inv_pub_ = nh_.advertise<spinal::TorqueAllocationMatrixInv>("torque_allocation_matrix_inv", 1);
+  torque_allocation_matrix_inv_pub_stamp_ = 0;
+
   rotor_interfere_comp_wrench_ = Eigen::VectorXd::Zero(6); // reset
   est_external_wrench_ = Eigen::VectorXd::Zero(6);
   init_sum_momentum_ = Eigen::VectorXd::Zero(6);
@@ -960,6 +965,8 @@ void DragonFullVectoringController::sendCmd()
   gimbal_control_pub_.publish(gimbal_control_msg);
 
 
+  sendTorqueAllocationMatrixInv();
+
   std_msgs::Float32MultiArray target_vectoring_force_msg;
   for(int i = 0; i < target_vectoring_f_.size(); i++)
     target_vectoring_force_msg.data.push_back(target_vectoring_f_(i));
@@ -980,9 +987,57 @@ void DragonFullVectoringController::sendCmd()
     force_msg.axes.push_back(rotor_interfere_force_(i));
 }
 
+void DragonFullVectoringController::sendTorqueAllocationMatrixInv()
+{
+  if (ros::Time::now().toSec() - torque_allocation_matrix_inv_pub_stamp_ > torque_allocation_matrix_inv_pub_interval_)
+    {
+      torque_allocation_matrix_inv_pub_stamp_ = ros::Time::now().toSec();
+
+
+      //wrench allocation matrix
+      double mass_inv =  1 / robot_model_for_control_->getMass();
+      Eigen::Matrix3d inertia_inv = robot_model_for_control_->getInertia<Eigen::Matrix3d>().inverse();
+      Eigen::MatrixXd q_mat = robot_model_for_control_->calcWrenchMatrixOnCoG();
+      q_mat.topRows(3) =  mass_inv * q_mat.topRows(3);
+      q_mat.bottomRows(3) =  inertia_inv * q_mat.bottomRows(3);
+      Eigen::MatrixXd q_mat_inv = aerial_robot_model::pseudoinverse(q_mat.middleRows(2,3));
+
+      spinal::TorqueAllocationMatrixInv torque_allocation_matrix_inv_msg;
+      torque_allocation_matrix_inv_msg.rows.resize(motor_num_);
+      Eigen::MatrixXd torque_allocation_matrix_inv = q_mat_inv.rightCols(2);
+
+      if (torque_allocation_matrix_inv.cwiseAbs().maxCoeff() > INT16_MAX * 0.001f)
+        ROS_ERROR("Torque Allocation Matrix overflow");
+      for (unsigned int i = 0; i < motor_num_; i++)
+        {
+          torque_allocation_matrix_inv_msg.rows.at(i).x = torque_allocation_matrix_inv(i,0) * 1000;
+          torque_allocation_matrix_inv_msg.rows.at(i).y = torque_allocation_matrix_inv(i,1) * 1000;
+          torque_allocation_matrix_inv_msg.rows.at(i).z = 0;
+        }
+      torque_allocation_matrix_inv_pub_.publish(torque_allocation_matrix_inv_msg);
+    }
+}
+
+void DragonFullVectoringController::setAttitudeGains()
+{
+  spinal::RollPitchYawTerms rpy_gain_msg; //for rosserial
+  /* to flight controller via rosserial scaling by 1000 */
+  rpy_gain_msg.motors.resize(1);
+  rpy_gain_msg.motors.at(0).roll_p = pid_controllers_.at(ROLL).getPGain() * 1000;
+  rpy_gain_msg.motors.at(0).roll_i = pid_controllers_.at(ROLL).getIGain() * 1000;
+  rpy_gain_msg.motors.at(0).roll_d = pid_controllers_.at(ROLL).getDGain() * 1000;
+  rpy_gain_msg.motors.at(0).pitch_p = pid_controllers_.at(PITCH).getPGain() * 1000;
+  rpy_gain_msg.motors.at(0).pitch_i = pid_controllers_.at(PITCH).getIGain() * 1000;
+  rpy_gain_msg.motors.at(0).pitch_d = pid_controllers_.at(PITCH).getDGain() * 1000;
+  rpy_gain_msg.motors.at(0).yaw_d = 0;
+  rpy_gain_pub_.publish(rpy_gain_msg);
+}
+
 void DragonFullVectoringController::reset() {
   PoseLinearController::reset();
   on_ground_ = true;
+
+  setAttitudeGains();
 }
 
 
@@ -1022,6 +1077,8 @@ void DragonFullVectoringController::rosParamInit()
   getParam<double>(control_nh, "thrust_force_weight", thrust_force_weight_, 1.0);
   getParam<double>(control_nh, "joint_torque_weight", joint_torque_weight_, 1.0);
   getParam<double>(control_nh, "joint_torque_thresh", joint_torque_thresh_, 1.0);
+
+  getParam<double>(control_nh, "torque_allocation_matrix_inv_pub_interval", torque_allocation_matrix_inv_pub_interval_, 0.1);
 }
 
 /* plugin registration */

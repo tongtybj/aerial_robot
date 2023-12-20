@@ -40,6 +40,7 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include <spinal/FourAxisCommand.h>
 #include <spinal/RollPitchYawTerm.h>
+#include <spinal/RollPitchYawTerms.h>
 #include <spinal/TorqueAllocationMatrixInv.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <tf_conversions/tf_eigen.h>
@@ -73,6 +74,9 @@ namespace aerial_robot_control
     ros::Publisher estimate_external_wrench_pub_;
     ros::Publisher rotor_interfere_wrench_pub_;
     ros::Publisher interfrence_marker_pub_;
+
+    ros::Publisher rpy_gain_pub_;
+    ros::Publisher torque_allocation_matrix_inv_pub_;
 
     boost::shared_ptr<Dragon::FullVectoringRobotModel> dragon_robot_model_;
     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_for_control_;
@@ -122,6 +126,9 @@ namespace aerial_robot_control
     double joint_torque_thresh_;
     bool on_ground_;
 
+    double torque_allocation_matrix_inv_pub_stamp_;
+    double torque_allocation_matrix_inv_pub_interval_;
+
     void externalWrenchEstimate();
     const Eigen::VectorXd getTargetWrenchAccCog()
     {
@@ -139,5 +146,8 @@ namespace aerial_robot_control
     void rotorInterfereCompensate(Eigen::VectorXd& target_wrench_acc);
     void rosParamInit();
     void sendCmd();
+
+    void sendTorqueAllocationMatrixInv();
+    void setAttitudeGains();
   };
 };

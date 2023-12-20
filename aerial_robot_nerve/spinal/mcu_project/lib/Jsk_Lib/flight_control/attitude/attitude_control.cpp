@@ -368,6 +368,17 @@ void AttitudeController::update(void)
                 base_thrust_term_[i] -= (base_thrust_term_[i] / average_thrust * FORCE_LANDING_INTEGRAL);
             }
         }
+      else
+        {
+          if (target_angle_[X] == 0 && target_angle_[X] == 0 && extra_yaw_pi_term_[0] == 0)
+            {
+              for(int i = 0; i < motor_number_; i++)
+                {
+                  roll_pitch_term_[i] = 0;
+                  yaw_term_[i] = 0;
+                }
+            }
+        }
     }
 
   /* target thrust -> target pwm -> HAL */
