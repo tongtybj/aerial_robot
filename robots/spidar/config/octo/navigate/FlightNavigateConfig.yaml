@@ -10,7 +10,7 @@ navigation:
   # Attitude Control Mode: 4
 
   verbose: false
-  takeoff_height: 1.2
+  takeoff_height: 1.0
   outdoor_takeoff_height: 1.5
 
   # teleop operation
