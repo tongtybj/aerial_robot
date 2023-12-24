@@ -57,6 +57,7 @@ controller:
       limit_p: 20.0
       limit_i: 20.0
       limit_d: 20.0
+      offset: 2.0
 
     link:
       p_gain: 0.0 # N/rad: 0.2 rad -> 5 N

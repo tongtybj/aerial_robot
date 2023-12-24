@@ -123,6 +123,7 @@ namespace aerial_robot_control
       double servo_torque_change_rate_;
       double servo_angle_bias_;
       double servo_angle_bias_torque_;
+      double z_offset_;
 
       double angle_scale_;
       double torque_load_scale_;

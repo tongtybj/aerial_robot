@@ -172,6 +172,7 @@ void WalkController::rosParamInit()
   walk_pid_reconf_servers_.back()->setCallback(boost::bind(&WalkController::cfgPidCallback, this, _1, _2, xy_indices));
 
   loadParam(z_nh);
+  getParam<double>(z_nh, "offset", z_offset_, 0.0); // N
   walk_pid_controllers_.push_back(PID("z", p_gain, i_gain, d_gain, limit_sum, limit_p, limit_i, limit_d, limit_err_p, limit_err_i, limit_err_d));
   walk_pid_reconf_servers_.push_back(boost::make_shared<PidControlDynamicConfig>(z_nh));
   std::vector<int> z_indices = {Z};
@@ -397,7 +398,7 @@ void WalkController::thrustControl()
   walk_pid_controllers_.at(Y).update(pos_err.y(), du, vel_err.y());
 
   // z
-  walk_pid_controllers_.at(Z).update(pos_err.z(), du, vel_err.z());
+  walk_pid_controllers_.at(Z).update(pos_err.z(), du, vel_err.z(), z_offset_);
 
   // w.r.t. world frame
   tf::Vector3 target_acc(walk_pid_controllers_.at(X).result(),
