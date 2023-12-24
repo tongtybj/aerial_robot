@@ -41,11 +41,11 @@ controller:
 
 
     xy:
-      p_gain: 0.0 # N/m:
+      p_gain: 100.0 # N/m:
       i_gain: 0.0 #
       d_gain: 0.0
-      limit_sum: 0.0
-      limit_p: 0.0
+      limit_sum: 10.0
+      limit_p: 10.0
       limit_i: 0.0
       limit_d: 0.0
 
