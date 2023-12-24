@@ -410,6 +410,10 @@ void WalkController::thrustControl()
 
   pusedo_baselink_wrench_ = -target_wrench;
 
+  target_wrench(0) = 0; // no x control
+  target_wrench(1) = 0; // no y control
+  pusedo_baselink_wrench_(2) =  0; // on z control
+
   // ros pub
   pid_msg_.x.total.at(0) =  walk_pid_controllers_.at(X).result();
   pid_msg_.x.p_term.at(0) = walk_pid_controllers_.at(X).getPTerm();
@@ -457,9 +461,9 @@ void WalkController::thrustControl()
   }
   auto q_mat_inv = aerial_robot_model::pseudoinverse(q_mat);
   Eigen::VectorXd fb_vectoring_f = q_mat_inv * target_wrench; // feed-back control
-  // for(int i = 0; i < motor_num_ / 2; i++) {
-  //   target_vectoring_f_.segment(3 * 2 * i, 3) += fb_vectoring_f.segment(3 * i, 3);
-  // }
+  for(int i = 0; i < motor_num_ / 2; i++) {
+    target_vectoring_f_.segment(3 * 2 * i, 3) += fb_vectoring_f.segment(3 * i, 3);
+  }
   // ROS_INFO_STREAM_THROTTLE(1.0, "[fb control] fb vectoring f: " << fb_vectoring_f.transpose());
   // ROS_INFO_STREAM("[Spider] [Control] fb vectoring f: " << fb_vectoring_f.transpose());
   // ROS_INFO_STREAM("[Spider] [Control] total thrust vector after fc center: " << target_vectoring_f_.transpose());
