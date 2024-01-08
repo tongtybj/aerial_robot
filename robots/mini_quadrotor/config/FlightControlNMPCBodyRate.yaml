@@ -31,3 +31,15 @@ controller:
 
     is_attitude_ctrl: true
     is_body_rate_ctrl: true
+
+  xy:
+    i_gain: 0.5
+    limit_i: 1.5
+
+  z:
+    i_gain: 1.0
+    limit_i: 5 # m / s^2
+
+  yaw:
+    i_gain: 0.1
+    limit_i: 4.0

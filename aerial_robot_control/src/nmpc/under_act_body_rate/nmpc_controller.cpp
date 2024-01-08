@@ -7,7 +7,11 @@
 
 using namespace aerial_robot_control;
 
-nmpc_under_act_body_rate::NMPCController::NMPCController() : target_roll_(0), target_pitch_(0), candidate_yaw_term_(0)
+nmpc_under_act_body_rate::NMPCController::NMPCController() :
+  PoseLinearController(),
+  target_roll_(0),
+  target_pitch_(0),
+  candidate_yaw_term_(0)
 {
 }
 
@@ -16,7 +20,7 @@ void nmpc_under_act_body_rate::NMPCController::initialize(
     boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
     boost::shared_ptr<aerial_robot_navigation::BaseNavigator> navigator, double ctrl_loop_du)
 {
-  ControlBase::initialize(nh, nhp, robot_model, estimator, navigator, ctrl_loop_du);
+  PoseLinearController::initialize(nh, nhp, robot_model, estimator, navigator, ctrl_loop_du);
 
   ros::NodeHandle control_nh(nh_, "controller");
 
@@ -88,7 +92,7 @@ bool nmpc_under_act_body_rate::NMPCController::update()
 
 void nmpc_under_act_body_rate::NMPCController::reset()
 {
-  ControlBase::reset();
+  PoseLinearController::reset();
 
   sendRPYGain();                // tmp for angular gains  TODO: change to angular gains only
   sendRotationalInertiaComp();  // tmp for inertia
@@ -145,6 +149,8 @@ nav_msgs::Odometry nmpc_under_act_body_rate::NMPCController::getOdom()
 
 void nmpc_under_act_body_rate::NMPCController::controlCore()
 {
+  PoseLinearController::controlCore();
+
   /* get odom information */
   nav_msgs::Odometry odom_now = getOdom();
 
@@ -233,11 +239,43 @@ void nmpc_under_act_body_rate::NMPCController::controlCore()
 
     flight_cmd_.base_thrust[i] = static_cast<float>(target_thrusts(i));
   }
+
+  /* I term to compensate the model error */
+  tf::Vector3 target_acc_w(pid_controllers_.at(X).getITerm(),
+                           pid_controllers_.at(Y).getITerm(),
+                           pid_controllers_.at(Z).getITerm());
+
+  double yaw = rpy_.z();
+  tf::Vector3 target_acc_dash = (tf::Matrix3x3(tf::createQuaternionFromYaw(yaw))).inverse() * target_acc_w;
+
+  Eigen::VectorXd target_thrust_z_term;
+  // hovering approximation
+  // x & y
+  double i_term_pitch = target_acc_dash.x() / aerial_robot_estimation::G;
+  double i_term_roll = -target_acc_dash.y() / aerial_robot_estimation::G;
+  flight_cmd_.angles[0] += static_cast<float>(i_term_pitch);
+  flight_cmd_.angles[1] += static_cast<float>(i_term_roll);
+
+  // z
+  Eigen::VectorXd f = robot_model_->getStaticThrust();
+  Eigen::VectorXd allocate_scales = f / g.norm();
+  Eigen::VectorXd i_term_thrust = allocate_scales * target_acc_w.length();
+  for (int i = 0; i < motor_num_; i++)
+  {
+    flight_cmd_.base_thrust.at(i) += static_cast<float>(i_term_thrust(i));
+  }
+
+  // yaw
+  Eigen::Matrix3d inertia = robot_model_->getInertia<Eigen::Matrix3d>();
+  double i_term_yaw = inertia(2,2) * pid_controllers_.at(YAW).getITerm();
+  flight_cmd_.angles[2] += static_cast<float>(i_term_yaw);
 }
 
 void nmpc_under_act_body_rate::NMPCController::sendCmd()
 {
   pub_flight_cmd_.publish(flight_cmd_);
+
+  PoseLinearController::sendCmd();
 }
 
 /**

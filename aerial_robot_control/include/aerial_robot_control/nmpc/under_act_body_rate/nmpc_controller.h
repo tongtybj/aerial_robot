@@ -11,6 +11,7 @@
 #pragma once
 
 #include "aerial_robot_control/control/base/base.h"
+#include <aerial_robot_control/control/base/pose_linear_controller.h>
 #include "aerial_robot_control/nmpc/under_act_body_rate/mpc_solver.h"
 // #include <aerial_robot_control/control/utils/pid.h>
 // #include <aerial_robot_control/PIDConfig.h>
@@ -42,7 +43,7 @@ namespace aerial_robot_control
 namespace nmpc_under_act_body_rate
 {
 
-class NMPCController : public ControlBase
+class NMPCController : public PoseLinearController
 {
 public:
   NMPCController();  // note that constructor should not have arguments as the rule of rospluginlib
