@@ -226,23 +226,6 @@ void nmpc_under_act_body_rate::NMPCController::controlCore()
   // constraint the change of thrust, preventing sudden thrust increasing during taking off
   for (int i = 0; i < motor_num_; i++)
   {
-    if (navigator_->getNaviState() == aerial_robot_navigation::TAKEOFF_STATE)
-    {
-      float max_thrust_change = 10.0 / 40.0;
-
-      if (target_thrusts(i) > flight_cmd_.base_thrust[i] + max_thrust_change)
-      {
-        flight_cmd_.base_thrust[i] = flight_cmd_.base_thrust[i] + max_thrust_change;
-        continue;
-      }
-
-      if (target_thrusts(i) < flight_cmd_.base_thrust[i] - max_thrust_change)
-      {
-        flight_cmd_.base_thrust[i] = flight_cmd_.base_thrust[i] - max_thrust_change;
-        continue;
-      }
-    }
-
     flight_cmd_.base_thrust[i] = static_cast<float>(target_thrusts(i));
   }
 
