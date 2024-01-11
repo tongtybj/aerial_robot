@@ -37,7 +37,7 @@ controller:
     limit_i: 1.5
 
   z:
-    i_gain: 1.0
+    i_gain: 2.0
     limit_i: 5 # m / s^2
 
   yaw:
