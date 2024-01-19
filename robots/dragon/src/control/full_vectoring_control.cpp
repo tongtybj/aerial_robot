@@ -1989,7 +1989,7 @@ void DragonFullVectoringController::sendCmd()
   flight_command_data.base_thrust.resize(motor_num_);
   for(int i = 0; i < motor_num_; i++)
     flight_command_data.base_thrust.at(i) = target_base_thrust_.at(i); // double -> float
-  flight_cmd_pub_.publish(flight_command_data);
+  //flight_cmd_pub_.publish(flight_command_data);
 
   /* send gimbal control command */
   sensor_msgs::JointState gimbal_control_msg;
