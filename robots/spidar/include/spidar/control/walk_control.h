@@ -176,7 +176,7 @@ namespace aerial_robot_control
       void calcStaticBalance();
       void jointControl();
       void armControl();
-      void singleArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id);
+      void singleArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all);
       void allArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, bool baselink_balance);
       void jointSoftComplianceControl();
       void thrustControl();

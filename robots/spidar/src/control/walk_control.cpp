@@ -240,7 +240,7 @@ bool WalkController::update()
   // calcStaticBalance();
 
   // thrust control
-  thrustControl();
+  // thrustControl();
 
 
   // send control command to robot
@@ -632,15 +632,39 @@ void WalkController::armControl()
   // ROS_INFO_STREAM_ONCE("b1: \n" << b1);
   // ROS_INFO_STREAM_ONCE("b2: \n" << b1);
 
-  int joint_id = 0; // TODO: param
-  singleArmControl(A1, b1, A2, b2, joint_id);
+  Eigen::VectorXd f_all = Eigen::VectorXd::Zero(3 * motor_num_);
+
+  bool raise_flag = spidar_walk_navigator_->getRaiseLegFlag();
+  int free_leg_id = spidar_walk_navigator_->getFreeleg();
+  if (free_leg_id != -1) {
+    singleArmControl(A1, b1, A2, b2, free_leg_id, f_all);
+  }
+
+  // publish thrust force and vectoring angles
+  std_msgs::Float32MultiArray msg;
+  for(int i = 0; i < f_all.size(); i++) msg.data.push_back(f_all(i));
+  link_rot_thrust_force_pub_.publish(msg);
+
+  // 4. target lambda and gimbal angles
+  for(int i = 0; i < motor_num_; i++) {
+    Eigen::Vector3d f = f_all.segment(3 * i, 3);
+    double lambda = f.norm();
+    double roll = atan2(-f.y(), f.z());
+    double pitch = atan2(f.x(), -f.y() * sin(roll) + f.z() * cos(roll));
+
+    target_base_thrust_.at(i)= lambda;
+    target_gimbal_angles_.at(2 * i) = roll;
+    target_gimbal_angles_.at(2 * i + 1) = pitch;
+  }
+
+  return;
 
   allArmControl(A1, b1, A2, b2, false);
 
   allArmControl(A1, b1, A2, b2, true);
 }
 
-void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id)
+void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all)
 {
   int r_ndof = 2;
   int j_ndof = 4; // two joint modules (2DoF x 2)
@@ -717,6 +741,10 @@ void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::Ve
 
   Eigen::MatrixXd A2_j = A2.middleCols(joint_id * f_ndof, f_ndof);
   ROS_INFO_STREAM_ONCE(prefix << " Baselink Wrench: " << (A2_j * f).transpose());
+
+
+  f_all = Eigen::VectorXd::Zero(3 * spidar_robot_model_->getRotorNum());
+  f_all.segment(joint_id * f_ndof, f_ndof) = f;
 }
 
 
@@ -897,30 +925,30 @@ void WalkController::jointControl()
       target_joint_torques_.effort.push_back(tor);
     }
 
-    // special process raise leg
-    if (raise_flag && !raise_converge) {
-      // inside pitch joint of the free leg
-      int i = free_leg_id * 4 + 1;
-      if (free_leg_torque_mode_) {
+    // // special process raise leg
+    // if (raise_flag && !raise_converge) {
+    //   // inside pitch joint of the free leg
+    //   int i = free_leg_id * 4 + 1;
+    //   if (free_leg_torque_mode_) {
 
-        target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-        if (!raise_transition_) {
-          int j = free_leg_id * 2;
-          target_joint_torques_.effort.at(j) = static_joint_torque_(i);
-        }
-      }
+    //     target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+    //     if (!raise_transition_) {
+    //       int j = free_leg_id * 2;
+    //       target_joint_torques_.effort.at(j) = static_joint_torque_(i);
+    //     }
+    //   }
 
-      if (raise_separate_motion_) {
-        if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
-          // inside yaw joint of the free leg
-          i = free_leg_id * 4;
-          target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-          // outside pitch joint of the free leg
-          i = free_leg_id * 4 + 3;
-          target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-        }
-      }
-    }
+    //   if (raise_separate_motion_) {
+    //     if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
+    //       // inside yaw joint of the free leg
+    //       i = free_leg_id * 4;
+    //       target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+    //       // outside pitch joint of the free leg
+    //       i = free_leg_id * 4 + 3;
+    //       target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+    //     }
+    //   }
+    // }
 
     if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE &&
         !set_init_servo_torque_) {
