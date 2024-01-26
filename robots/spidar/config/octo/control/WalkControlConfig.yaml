@@ -13,7 +13,7 @@ controller:
     servo_torque_change_rate: 2.0
 
     thrust_force_weight: 1.0
-    joint_torque_weight: 1.0 # 10.0 ~ 20.0
+    joint_torque_weight: 0.0 # 0.1 # 10.0 ~ 20.0
     joint_static_torque_limit: 3.0
     raise_joint_static_torque_limit: 1.5 # < joint_static_torque_limit
 
