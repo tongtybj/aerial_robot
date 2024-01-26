@@ -98,6 +98,7 @@ namespace aerial_robot_control
 
       std::vector<float> target_base_thrust_;
       std::vector<double> target_gimbal_angles_;
+      std::vector<std::string> target_gimbal_names_;
       Eigen::VectorXd target_vectoring_f_;
       Eigen::VectorXd target_extra_joint_torque_;
 

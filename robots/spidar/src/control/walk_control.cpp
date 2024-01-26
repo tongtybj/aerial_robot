@@ -70,6 +70,12 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   /* initialize the gimbal target angles */
   target_base_thrust_.resize(motor_num_);
   target_gimbal_angles_.resize(motor_num_ * 2, 0);
+  std::stringstream ss;
+  for(int i = 0; i < motor_num_; i++) {
+    std::string gimbal_name = std::string("gimbal") + std::to_string(i+1);
+    target_gimbal_names_.push_back(gimbal_name + std::string("_roll"));
+    target_gimbal_names_.push_back(gimbal_name + std::string("_pitch"));
+  }
   target_joint_angles_.position.resize(0);
   target_joint_angles_.name.resize(0);
   target_vectoring_f_ = Eigen::VectorXd::Zero(3 * motor_num_);
@@ -1416,6 +1422,7 @@ void WalkController::sendCmd()
 
     for(int i = 0; i < motor_num_ * 2; i++)
       gimbal_control_msg.position.push_back(target_gimbal_angles_.at(i));
+    gimbal_control_msg.name = target_gimbal_names_;
 
     gimbal_control_pub_.publish(gimbal_control_msg);
   }
