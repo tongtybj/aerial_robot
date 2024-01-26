@@ -14,7 +14,7 @@ controller:
 
     thrust_force_weight: 1.0
     joint_torque_weight: 0.0 # 0.1 # 10.0 ~ 20.0
-    joint_static_torque_limit: 3.0
+    joint_static_torque_limit: 1.0
     raise_joint_static_torque_limit: 1.5 # < joint_static_torque_limit
 
     all_joint_position_control: true
