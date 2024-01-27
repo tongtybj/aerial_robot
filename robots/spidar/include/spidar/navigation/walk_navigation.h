@@ -123,6 +123,9 @@ namespace aerial_robot_navigation
       double check_interval_;
       double converge_time_thresh_;
 
+      double contact_check_start_t_, contact_check_prev_t_;
+      std::vector<double> contact_check_prev_joint_angles_;
+
       bool walk_flag_;
       int walk_total_cycle_;
       int walk_cycle_cnt_;
@@ -184,6 +187,7 @@ namespace aerial_robot_navigation
       void lowerLeg();
       void contactLeg();
 
+      void freeLegAction();
       void failSafeAction();
 
       void simulate();

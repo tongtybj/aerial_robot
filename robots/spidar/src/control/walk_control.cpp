@@ -637,8 +637,18 @@ void WalkController::armControl()
   bool raise_flag = spidar_walk_navigator_->getRaiseLegFlag();
   int free_leg_id = spidar_walk_navigator_->getFreeleg();
   if (free_leg_id != -1) {
-    singleArmControl(A1, b1, A2, b2, free_leg_id, f_all);
+
+    int leg_num = rotor_num / 2;
+
+    if (free_leg_id == leg_num) {
+      // raise all legs
+      bool baselink_balance_flag = true;
+      allArmControl(A1, b1, A2, b2, baselink_balance_flag, f_all);
+    } else {
+      singleArmControl(A1, b1, A2, b2, free_leg_id, f_all);
+    }
   }
+
 
   // publish thrust force and vectoring angles
   std_msgs::Float32MultiArray msg;
@@ -656,12 +666,6 @@ void WalkController::armControl()
     target_gimbal_angles_.at(2 * i) = roll;
     target_gimbal_angles_.at(2 * i + 1) = pitch;
   }
-
-  return;
-
-  allArmControl(A1, b1, A2, b2, false);
-
-  allArmControl(A1, b1, A2, b2, true);
 }
 
 void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all)
@@ -748,7 +752,7 @@ void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::Ve
 }
 
 
-void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, bool baselink_balance)
+void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, bool baselink_balance, Eigen::VectorXd& f_all)
 {
   const int link_joint_num = spidar_robot_model_->getLinkJointIndices().size();
   const int rotor_num = spidar_robot_model_->getRotorNum();
@@ -839,6 +843,8 @@ void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::Vecto
   ROS_INFO_STREAM_ONCE(prefix << " Joint Torque: " << tor.transpose());
   ROS_INFO_STREAM_ONCE(prefix << " Thrust force lambda: " << lambda.transpose());
   ROS_INFO_STREAM_ONCE(prefix << " Baselink Wrench: " << (A2 * f).transpose());
+
+  f_all = f;
 }
 
 

@@ -359,6 +359,7 @@ void WalkNavigator::update()
 
     // set target joint angles
     target_joint_state_.position = getCurrentJointAngles();
+
   }
 
   auto current_joint_angles = getCurrentJointAngles();
@@ -514,56 +515,10 @@ void WalkNavigator::update()
     }
 
     // special process for raising leg
-    if (i == free_leg_id_) {
+    if (i == free_leg_id_ || leg_num == free_leg_id_) {
 
-      double current_angle = current_joint_angles.at(4 * i + 1);
-
-      // raise leg
-      if (raise_leg_flag_) {
-        theta1 -= raise_angle_;
-
-        if (current_angle - theta1 < raise_converge_thresh_) {
-
-          if (!raise_converge_) {
-            ROS_WARN_STREAM("[Spider] leg" << i + 1 << " reach the raise goal, joint" << i * 2 +1 << "_pitch" << ", curr angle: " << current_angle << "; target angle: " << theta1 << ", raise_converge_threshold: " << raise_converge_thresh_);
-          }
-
-          raise_converge_ = true;
-        }
-      }
-
-      // lower leg
-      if (lower_leg_flag_) {
-
-        bool contact = false;
-        double t = ros::Time::now().toSec();
-        static double start_t = t;
-        static double prev_t = t;
-        static double prev_v = current_angle;
-
-        if (t - prev_t > check_interval_) {
-          // touch detection by
-          // - small delta angle around the touch-down target angle
-          // - constant angle for a while
-          if (theta1 - current_angle < lower_touchdown_thresh_ &&
-              fabs(current_angle - prev_v) < constant_angle_thresh_) {
-            if (t - start_t > converge_time_thresh_) {
-              contact = true;
-            }
-          }
-          else {
-            start_t = t;
-          }
-
-          prev_v = current_angle;
-          prev_t = t;
-        }
-
-        if (contact) {
-          ROS_WARN_STREAM("[Spider][Walk][Navigator] leg" << i + 1 << " touches the ground, joint" << i * 2 +1 << "_pitch" << ", curr angle: " << current_angle << "; target angle: " << theta1);
-          contactLeg();
-        }
-      }
+      // simple action
+      if (raise_leg_flag_) theta1 -= raise_angle_;
     }
 
     target_angles.at(4 * i) = angle;
@@ -591,6 +546,8 @@ void WalkNavigator::update()
     KDL::Frame fw_target_link = fw_target_baselink * fb_target_link;
     target_link_rots_.at(i) = fw_target_link.M;
   }
+
+  freeLegAction();
 
   failSafeAction();
 
@@ -665,6 +622,97 @@ void WalkNavigator::simulate()
 
   simulate_joint_angles_pub_.publish(joint_msg);
 }
+
+void WalkNavigator::freeLegAction()
+{
+  if (free_leg_id_ == -1) return;
+
+  const int leg_num = spidar_robot_model_->getRotorNum() / 2;
+  const auto current_joint_angles = getCurrentJointAngles();
+
+
+  // raise leg
+  if (raise_leg_flag_) {
+
+    bool all_raise_converge = false;
+
+    for (int i = 0; i < leg_num; i++) {
+
+      if (free_leg_id_ != i && free_leg_id_ != leg_num) continue;
+
+      double curr_angle = current_joint_angles.at(4 * i + 1);
+      double target_angle = target_joint_state_.position.at(4 * i + 1);
+
+      if (curr_angle - target_angle > raise_converge_thresh_) {
+        all_raise_converge = false;
+        continue;
+      }
+
+      // converge to the raise leg
+      all_raise_converge = true;
+
+
+      if (!raise_converge_) {
+        ROS_INFO_STREAM("[Spider][Walk][Navigator] leg" << i + 1 << " reach the raise goal, joint" << i * 2 +1 << "_pitch" << ", curr angle: " << curr_angle << "; target angle: " << target_angle << ", raise_converge_threshold: " << raise_converge_thresh_);
+      }
+    }
+
+    if (all_raise_converge && !raise_converge_) {
+      ROS_INFO_STREAM("[Spider][Walk][Navigator] all legs raise to the desicred joint angles");
+      raise_converge_ = true;
+    }
+  }
+
+  // lower leg
+  if (lower_leg_flag_) {
+
+    bool all_contact = false;
+    double t = ros::Time::now().toSec();
+
+    if (t - contact_check_prev_t_ > check_interval_) {
+
+      for (int i = 0; i < leg_num; i++) {
+
+        double curr_angle = current_joint_angles.at(4 * i + 1);
+        double prev_angle = contact_check_prev_joint_angles_.at(4 * i + 1);
+        double target_angle = target_joint_state_.position.at(4 * i + 1);
+
+        if (free_leg_id_ != i && free_leg_id_ != leg_num) continue;
+
+        // touch detection rule:
+        // - small delta angle around the touch-down target angle
+        // - constant angle for a while
+        // - certain duration from start time
+        if (target_angle - curr_angle < lower_touchdown_thresh_ &&
+            fabs(curr_angle - prev_angle) < constant_angle_thresh_) {
+
+          if (t - contact_check_start_t_ > converge_time_thresh_) {
+            all_contact = true;
+
+            ROS_INFO_STREAM("[Spider][Walk][Navigator] leg" << i + 1 << " touches the ground, joint" << i * 2 +1 << "_pitch" << ", curr angle: " << curr_angle << "; target angle: " << target_angle);
+            continue;
+          }
+        } else {
+          contact_check_start_t_ = t;
+        }
+
+        all_contact = false;
+
+      }
+
+      contact_check_prev_joint_angles_ = current_joint_angles;
+      contact_check_prev_t_ = t;
+
+    }
+
+    if (all_contact) {
+      ROS_INFO_STREAM("[Spider][Walk][Navigator] all legs contact to the ground");
+      contactLeg();
+    }
+
+  }
+}
+
 
 void WalkNavigator::failSafeAction()
 {
@@ -783,7 +831,13 @@ void WalkNavigator::lowerLeg()
   lower_leg_flag_ = true;
   raise_leg_flag_ = false;
   raise_converge_ = false;
-  walk_controller_->startLowerLeg();
+
+  // reset contact variables
+  contact_check_prev_joint_angles_ = getCurrentJointAngles();
+  contact_check_start_t_ = ros::Time::now().toSec();
+  contact_check_prev_t_ = ros::Time::now().toSec();
+
+  //walk_controller_->startLowerLeg();
 }
 
 void WalkNavigator::contactLeg()
@@ -792,7 +846,7 @@ void WalkNavigator::contactLeg()
   raise_leg_flag_ = false;
   raise_converge_ = false;
   spidar_robot_model_->resetFreeleg();
-  walk_controller_->startContactTransition(free_leg_id_);
+  // walk_controller_->startContactTransition(free_leg_id_);
   free_leg_id_ = -1;
 }
 
@@ -1071,7 +1125,7 @@ void WalkNavigator::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
       prev_joy_cmd = joy_cmd;
       return;
     }
-  } else {
+  } else if (joy_cmd.buttons[PS3_BUTTON_REAR_RIGHT_1] == 1) {
 
     /* raise/lower test */
     if(joy_cmd.buttons[PS3_BUTTON_CROSS_UP] == 1) {
@@ -1081,7 +1135,42 @@ void WalkNavigator::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      ROS_INFO("[Joy, raise leg1 up test]");
+      ROS_INFO("[Joy, raise all legs test]");
+
+      int leg_num = spidar_robot_model_->getRotorNum() / 2;
+      raiseLeg(leg_num);
+
+      return;
+    }
+
+    /* lower test */
+    if(joy_cmd.buttons[PS3_BUTTON_CROSS_DOWN] == 1) {
+      if (lower_leg_flag_) {
+        return;
+      }
+
+      if (!raise_leg_flag_) {
+        return;
+      }
+
+      ROS_INFO("[Joy, lower leg1 down test]");
+      lowerLeg();
+
+      return;
+    }
+
+  }else {
+
+    /* raise/lower test */
+    if(joy_cmd.buttons[PS3_BUTTON_CROSS_UP] == 1) {
+
+      /* raise test */
+      if (raise_leg_flag_) {
+        return;
+      }
+
+      ROS_INFO("[Joy, raise leg1 test]");
+
       raiseLeg(0);
 
       return;
