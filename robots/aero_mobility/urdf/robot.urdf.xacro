@@ -114,7 +114,8 @@
   <!-- main_body -->
   <link name="main_body">
     <inertial>
-      <mass value = "${24.05 - 2.6 * 4}" />
+      <mass value = "${24.05}" />
+      <!-- <mass value = "${24.05 - 2.6 * 4}" /> -->
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <inertia
           ixx="9.596" ixy="0.004" ixz="0.0"
