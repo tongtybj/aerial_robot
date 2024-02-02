@@ -8,7 +8,43 @@ motor_info: # TODO: update
         vel_ref_num: 1
         ref1:
                 voltage: 50
-                max_thrust: 80 #150 # N
-                polynominal2: 0.778514483 # 0.07983707 # x10
-                polynominal1: -83.356154265 # -6.627443098 # x10
-                polynominal0: 222.7523230182 # 12.3593793002 # x1
+                max_thrust: 80 # 150 # N
+                polynominal2: 0.778514483 # 0.0778514483 x10
+                polynominal1: -83.356154265 # -8.3356154265 x10
+                polynominal0: 222.7523230182 # 222.7523230182 x1
+        ref2:
+                voltage: 49
+                max_thrust: 80 # 150 # N
+                polynominal2: 0.760059772 # 0.0760059772 x10
+                polynominal1: -81.831011497 # -8.1831011497 x10
+                polynominal0: 220.2641252868 # x1
+        ref3:
+                voltage: 48
+                max_thrust: 80 # 150 # N
+                polynominal2: 0.732005368 # 0.0732005368 x10
+                polynominal1: -78.775405869 # -7.8775405869 x10
+                polynominal0: 211.8699961971 # x1
+        ref4:
+                voltage: 47
+                max_thrust: 80 # 150 # N
+                polynominal2: 0.683123436 # 0.0683123436 x10
+                polynominal1: -72.761407128 # -7.2761407128 x10
+                polynominal0: 193.1138492759 # x1
+        ref5:
+                voltage: 46
+                max_thrust: 80 # 150 # N
+                polynominal2: 0.658396903 # 0.0658396903 x10
+                polynominal1: -70.272749861 # -7.0272749861 x10
+                polynominal0: 187.0711353307 # x1
+        ref6:
+                voltage: 45
+                max_thrust: 80 # 150 # N
+                polynominal2: 0.633767641 # 0.0633767641 x10
+                polynominal1: -67.726276302 # -6.7726276302 x10
+                polynominal0: 180.4734687116 # x1
+        ref7:
+                voltage: 44
+                max_thrust: 80 # 150 # N
+                polynominal2: 0.599804544 # 0.0599804544 x10
+                polynominal1: -63.877898547 # -6.3877898547 x10
+                polynominal0: 169.5035594068 # x1
