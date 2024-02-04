@@ -172,6 +172,56 @@
     </inertial>
   </xacro:extra_module>
 
+  
+  <!-- batteries -->
+  <xacro:extra_module name = "battery1" parent = "main_body" visible = "0" >
+    <origin xyz="0.18 0.5 0" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "2.6" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.01" ixy="0.0" ixz="0.0"
+          iyy="0.01" iyz="0.0"
+          izz="0.02"/>
+    </inertial>
+  </xacro:extra_module>
+
+  <xacro:extra_module name = "battery2" parent = "main_body" visible = "0" >
+    <origin xyz="-0.18 0.5 0" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "2.6" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.01" ixy="0.0" ixz="0.0"
+          iyy="0.01" iyz="0.0"
+          izz="0.02"/>
+    </inertial>
+  </xacro:extra_module>
+
+  <xacro:extra_module name = "battery3" parent = "main_body" visible = "0" >
+    <origin xyz="-0.18 -0.5 0" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "2.6" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.01" ixy="0.0" ixz="0.0"
+          iyy="0.01" iyz="0.0"
+          izz="0.02"/>
+    </inertial>
+  </xacro:extra_module>
+
+  <xacro:extra_module name = "battery4" parent = "main_body" visible = "0" >
+    <origin xyz="0.18 -0.5 0" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "2.6" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.01" ixy="0.0" ixz="0.0"
+          iyy="0.01" iyz="0.0"
+          izz="0.02"/>
+    </inertial>
+  </xacro:extra_module>
+
 
   <!-- propellers -->
   <xacro:propeller_module id = "1" x = "${rotor_x_front}" y = "${rotor_y}" z = "${rotor_z}" roll="0" pitch="${rotor_p_tilt}" yaw="0" direction = "-1" />
