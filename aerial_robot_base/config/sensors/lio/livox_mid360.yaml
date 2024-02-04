@@ -12,5 +12,5 @@ sensor_plugin:
     time_sync: false
     reset_duration: 0.5
 
-    fusion_mode: 2 # ONLY_POS_MODE = 0, ONLY_VEL_MODE = 1, POS_VEL_MODE = 2
+    fusion_mode: 0 # ONLY_POS_MODE = 0, ONLY_VEL_MODE = 1, POS_VEL_MODE = 2
     #param_verbose: true
