@@ -112,20 +112,17 @@
 
   <group if = "$(eval arg('onboards_model') == 'v1_leg')">
     <group ns="$(arg robot_ns)/servo_controller/joints">
-      <param name="controller02/simulation/init_value" value="-0.6" />
-      <param name="controller04/simulation/init_value" value="1.57" />
-      <param name="controller06/simulation/init_value" value="-0.6" />
+      <param name="controller02/simulation/init_value" value="-0.4" />
+      <param name="controller04/simulation/init_value" value="0.8" />
+      <param name="controller06/simulation/init_value" value="-0.7" />
       <param name="controller08/simulation/init_value" value="1.57" />
-      <param name="controller10/simulation/init_value" value="-0.6" />
+      <param name="controller10/simulation/init_value" value="-0.7" />
       <param name="controller12/simulation/init_value" value="1.57" />
-      <param name="controller14/simulation/init_value" value="-0.6" />
-      <param name="controller16/simulation/init_value" value="1.57" />
+      <param name="controller14/simulation/init_value" value="-0.4" />
+      <param name="controller16/simulation/init_value" value="0.8" />
     </group>
 
     <node pkg="spidar" type="gazebo_quick_init_pose.py" name="gazebo_quick_init_pose" ns="$(arg robot_ns)" output="screen" if = "$(eval arg('simulation') and not arg('real_machine'))">
-      <rosparam subst_value="true">
-        init_pos: [0, -0.6, 1.57]
-      </rosparam>
     </node>
   </group>
 

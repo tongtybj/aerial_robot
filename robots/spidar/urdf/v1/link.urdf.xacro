@@ -68,6 +68,12 @@
         </inertial>
         <xacro:leg_collision_model/>
       </xacro:extra_module_with_collision>
+
+      <gazebo reference="joint_junction_leg${self}">
+        <mu1>100</mu1>
+        <mu2>50</mu2>
+      </gazebo>
+
     </xacro:if>
 
   </xacro:macro>
@@ -112,6 +118,7 @@
       </collision>
     </link>
     <xacro:friction link="center_link"/>
+
     <xacro:damping_factor link="center_link"/>
 
     <xacro:spidar_joint_junction_link self="${child1}" child="link${child1}" leg="${leg}" type="large_pitch_pulley"/>

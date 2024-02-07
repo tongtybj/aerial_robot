@@ -40,5 +40,5 @@ motor_info:
 
   # for simualtion
   rotor_damping_rate: 0.1 # = 0.001 / (0.01 + 0.001); 0.01: time constant; 0.001: dt
-  rotor_force_noise: 0.1 # not sure, but good performance in gazebo
-  dual_rotor_moment_noise: 0.2 # not sure, but good performance in gazebo (0.5 OK)
+  rotor_force_noise: 0 # 0.1 # not sure, but good performance in gazebo
+  dual_rotor_moment_noise: 0 # 0.2 # not sure, but good performance in gazebo (0.5 OK)

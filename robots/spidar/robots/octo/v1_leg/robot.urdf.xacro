@@ -58,11 +58,15 @@
         <geometry> <sphere radius="0.04"/> </geometry>
       </collision>
     </link>
+    <gazebo reference="${parent}_foot">
+      <mu1>0</mu1>
+      <mu2>0</mu2>
+    </gazebo>
+
   </xacro:macro>
 
   <xacro:foot_ball parent="link2" />
   <xacro:foot_ball parent="link4" />
   <xacro:foot_ball parent="link6" />
   <xacro:foot_ball parent="link8" />
-
 </robot>
