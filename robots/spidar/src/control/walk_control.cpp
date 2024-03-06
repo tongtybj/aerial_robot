@@ -792,12 +792,16 @@ void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::Vecto
   Eigen::VectorXd lower_bound = Eigen::VectorXd::Zero(5 + link_joint_num);
   Eigen::VectorXd upper_bound = Eigen::VectorXd::Zero(5 + link_joint_num);
 
+  // also consider the gravity effect on wrench of baselink
+  Eigen::VectorXd b2_dash = Eigen::VectorXd::Zero(5);
+  b2_dash.head(2) = b2.head(2);
+  b2_dash.tail(3) = b2.tail(3);
   double pose_cons = 0.1;
   if (!baselink_balance) {
     pose_cons = 1e6;
   }
-  lower_bound.head(5) = -pose_cons * Eigen::VectorXd::Ones(5);
-  upper_bound.head(5) = -lower_bound.head(5);
+  lower_bound.head(5) = -b2_dash - pose_cons * Eigen::VectorXd::Ones(5);
+  upper_bound.head(5) = -b2_dash + pose_cons * Eigen::VectorXd::Ones(5);
 
   // jont torque constraints
   // tor - A1 * fr - b1 = 0
