@@ -595,14 +595,18 @@ void WalkController::armControl()
     A2.middleCols(3 * i, 3) = jac.leftCols(6).transpose() * r;
   }
 
+  const tf::Vector3 rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
+  Eigen::MatrixXd rot
+    = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(rpy.x(), rpy.y(), 0)); // no yaw
+
   Eigen::VectorXd b1_all = Eigen::VectorXd::Zero(joint_num);
   Eigen::VectorXd b2 = Eigen::VectorXd::Zero(6);
   for(const auto& inertia : spidar_robot_model_->getInertiaMap()) {
 
     Eigen::MatrixXd jac
-      = (robot_model_->orig::getJacobian(gimbal_processed_joint,
-                                         inertia.first,
-                                         inertia.second.getCOG())).topRows(3);
+      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint,
+                                              inertia.first,
+                                              inertia.second.getCOG())).topRows(3);
 
     Eigen::VectorXd g = inertia.second.getMass() * (-spidar_robot_model_->getGravity3d());
     b1_all -= jac.rightCols(joint_num).transpose() * g;
@@ -643,7 +647,7 @@ void WalkController::armControl()
     if (free_leg_id == leg_num) {
       // raise all legs
       bool baselink_balance_flag = true;
-      allArmControl(A1, b1, A2, b2, baselink_balance_flag, f_all);
+      allArmControl(A1, b1, A2, b2, rot, baselink_balance_flag, f_all);
     } else {
       singleArmControl(A1, b1, A2, b2, free_leg_id, f_all);
     }
@@ -752,7 +756,7 @@ void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::Ve
 }
 
 
-void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, bool baselink_balance, Eigen::VectorXd& f_all)
+void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const Eigen::MatrixXd& rot, bool baselink_balance, Eigen::VectorXd& f_all)
 {
   const int link_joint_num = spidar_robot_model_->getLinkJointIndices().size();
   const int rotor_num = spidar_robot_model_->getRotorNum();
@@ -782,8 +786,8 @@ void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::Vecto
 
   /* inequality constraint: only joint torque */
   Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(5 + link_joint_num, fr_ndof);
-  constraints.topRows(2) = A2.topRows(2); // baselink pos xy
-  constraints.middleRows(2,3) = A2.bottomRows(3); // baselink rot rpy
+  constraints.topRows(2) = (rot * A2.topRows(3)).topRows(2); // baselink pos xy w.r.t. world frame
+  constraints.middleRows(2,3) = A2.bottomRows(3); // baselink rot rpy w.r.t baselink frame
   constraints.bottomRows(link_joint_num) = A1;
   Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
   qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
@@ -794,7 +798,7 @@ void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::Vecto
 
   // also consider the gravity effect on wrench of baselink
   Eigen::VectorXd b2_dash = Eigen::VectorXd::Zero(5);
-  b2_dash.head(2) = b2.head(2);
+  b2_dash.head(2) = (rot * b2.head(3)).head(2);
   b2_dash.tail(3) = b2.tail(3);
   double pose_cons = 0.1;
   if (!baselink_balance) {
