@@ -149,6 +149,7 @@ void WalkController::rosParamInit()
 
   ros::NodeHandle xy_nh(walk_control_nh, "xy");
   ros::NodeHandle z_nh(walk_control_nh, "z");
+  ros::NodeHandle rot_nh(walk_control_nh, "rot");
 
   double limit_sum, limit_p, limit_i, limit_d;
   double limit_err_p, limit_err_i, limit_err_d;
@@ -184,12 +185,20 @@ void WalkController::rosParamInit()
   std::vector<int> z_indices = {Z};
   walk_pid_reconf_servers_.back()->setCallback(boost::bind(&WalkController::cfgPidCallback, this, _1, _2, z_indices));
 
+  loadParam(rot_nh);
+  walk_pid_controllers_.push_back(PID("roll", p_gain, i_gain, d_gain, limit_sum, limit_p, limit_i, limit_d, limit_err_p, limit_err_i, limit_err_d));
+  walk_pid_controllers_.push_back(PID("pitch", p_gain, i_gain, d_gain, limit_sum, limit_p, limit_i, limit_d, limit_err_p, limit_err_i, limit_err_d));
+  walk_pid_controllers_.push_back(PID("yaw", p_gain, i_gain, d_gain, limit_sum, limit_p, limit_i, limit_d, limit_err_p, limit_err_i, limit_err_d));
+  walk_pid_reconf_servers_.push_back(boost::make_shared<PidControlDynamicConfig>(rot_nh));
+  std::vector<int> rot_indices = {ROLL, PITCH, YAW};
+  walk_pid_reconf_servers_.back()->setCallback(boost::bind(&WalkController::cfgPidCallback, this, _1, _2, rot_indices));
+
   // for link-wise rotation control
   ros::NodeHandle link_nh(walk_control_nh, "link");
   loadParam(link_nh);
   walk_pid_controllers_.push_back(PID("link", p_gain, i_gain, d_gain, limit_sum, limit_p, limit_i, limit_d, limit_err_p, limit_err_i, limit_err_d));
   walk_pid_reconf_servers_.push_back(boost::make_shared<PidControlDynamicConfig>(link_nh));
-  std::vector<int> link_indices = {Z+1};
+  std::vector<int> link_indices = {YAW+1};
   walk_pid_reconf_servers_.back()->setCallback(boost::bind(&WalkController::cfgPidCallback, this, _1, _2, link_indices));
 
 
@@ -762,6 +771,42 @@ void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::Vecto
   const int rotor_num = spidar_robot_model_->getRotorNum();
   const int fr_ndof = 3 * rotor_num;
 
+
+  // feed-back control: baselink rotation control
+  tf::Vector3 baselink_rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
+  tf::Vector3 baselink_target_rpy = spidar_walk_navigator_->getTargetBaselinkRpy();
+  tf::Vector3 rpy_err = baselink_target_rpy - baselink_rpy;
+  double du = ros::Time::now().toSec() - control_timestamp_;
+
+  walk_pid_controllers_.at(ROLL).update(rpy_err.x(), du, 0); // roll
+  walk_pid_controllers_.at(PITCH).update(rpy_err.y(), du, 0); // pitch
+  walk_pid_controllers_.at(YAW).update(rpy_err.z(), du, 0); // yaw
+  Eigen::Vector3d target_torque(walk_pid_controllers_.at(ROLL).result(),
+                                 walk_pid_controllers_.at(PITCH).result(),
+                                 walk_pid_controllers_.at(YAW).result());
+
+  // ros pub
+  pid_msg_.roll.total.at(0) =  walk_pid_controllers_.at(ROLL).result();
+  pid_msg_.roll.p_term.at(0) = walk_pid_controllers_.at(ROLL).getPTerm();
+  pid_msg_.roll.i_term.at(0) = walk_pid_controllers_.at(ROLL).getITerm();
+  pid_msg_.roll.d_term.at(0) = walk_pid_controllers_.at(ROLL).getDTerm();
+  pid_msg_.roll.target_p = baselink_target_rpy.x();
+  pid_msg_.roll.err_p = rpy_err.x();
+  pid_msg_.pitch.total.at(0) =  walk_pid_controllers_.at(PITCH).result();
+  pid_msg_.pitch.p_term.at(0) = walk_pid_controllers_.at(PITCH).getPTerm();
+  pid_msg_.pitch.i_term.at(0) = walk_pid_controllers_.at(PITCH).getITerm();
+  pid_msg_.pitch.d_term.at(0) = walk_pid_controllers_.at(PITCH).getDTerm();
+  pid_msg_.pitch.target_p = baselink_target_rpy.y();
+  pid_msg_.pitch.err_p = rpy_err.y();
+  pid_msg_.yaw.total.at(0) =  walk_pid_controllers_.at(YAW).result();
+  pid_msg_.yaw.p_term.at(0) = walk_pid_controllers_.at(YAW).getPTerm();
+  pid_msg_.yaw.i_term.at(0) = walk_pid_controllers_.at(YAW).getITerm();
+  pid_msg_.yaw.d_term.at(0) = walk_pid_controllers_.at(YAW).getDTerm();
+  pid_msg_.yaw.target_p = baselink_target_rpy.z();
+  pid_msg_.yaw.err_p = rpy_err.z();
+
+
+
   // all arms
   Eigen::MatrixXd W1 = thrust_force_weight_ * Eigen::MatrixXd::Identity(fr_ndof, fr_ndof);
   Eigen::MatrixXd W2 = joint_torque_weight_ * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
@@ -799,7 +844,7 @@ void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::Vecto
   // also consider the gravity effect on wrench of baselink
   Eigen::VectorXd b2_dash = Eigen::VectorXd::Zero(5);
   b2_dash.head(2) = (rot * b2.head(3)).head(2);
-  b2_dash.tail(3) = b2.tail(3);
+  b2_dash.tail(3) = b2.tail(3) - target_torque;
   double pose_cons = 0.1;
   if (!baselink_balance) {
     pose_cons = 1e6;
