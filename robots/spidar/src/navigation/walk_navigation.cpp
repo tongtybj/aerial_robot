@@ -497,6 +497,7 @@ void WalkNavigator::update()
       continue;
     }
 
+    angle_limit = 1.7;
     if(fabs(theta1) > angle_limit ) {
       ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_pitch exceeds the valid range, angle is " << theta1);
       continue;
