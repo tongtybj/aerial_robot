@@ -496,7 +496,7 @@ void WalkNavigator::update()
     double theta2 = theta2_d - theta1;
 
     // check validity
-    double angle_limit = 1.65;
+    double angle_limit = 1.74;
     if(fabs(angle) > angle_limit ) {
       ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
       continue;
