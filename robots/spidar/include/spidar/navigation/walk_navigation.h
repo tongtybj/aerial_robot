@@ -36,6 +36,7 @@
 #pragma once
 
 #include <aerial_robot_control/flight_navigation.h>
+#include <spidar/navigation/baselink_motion.h>
 #include <spidar/model/ground_robot_model.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseArray.h>
@@ -68,8 +69,6 @@ namespace aerial_robot_navigation
 {
   namespace Spider
   {
-    class BaselinkMotion;
-
     class WalkNavigator : public BaseNavigator
     {
     public:

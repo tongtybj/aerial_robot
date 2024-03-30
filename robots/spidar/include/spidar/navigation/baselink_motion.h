@@ -33,58 +33,61 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
+#pragma once
 
-#include <spidar/navigation/walk_navigation.h>
+#include <ros/ros.h>
 
-using namespace aerial_robot_navigation::Spider;
-
-enum
-  {
-   PHASE0, // idle
-   PHASE1, // raise
-   PHASE2, // horizon move
-   PHASE3, // descend
-   PHASE4, // servo off
-  };
-
-
-namespace aerial_robot_navigation::Spider
+namespace aerial_robot_navigation
 {
-  class BaselinkMotion
+  namespace Spider
   {
-  public:
-    BaselinkMotion() {};
-    BaselinkMotion(ros::NodeHandle nh, WalkNavigator* navigator);
-    ~BaselinkMotion(){}
+    class WalkNavigator;
 
-    void stop();
-    void set(tf::Transform pose);
-    void set(tf::Vector3 pos, double yaw = 0);
-    void update();
-    void reset();
-    bool getMoveFlag() const;
+    class BaselinkMotion
+    {
+      enum
+        {
+          PHASE0, // idle
+          PHASE1, // raise
+          PHASE2, // horizon move
+          PHASE3, // descend
+          PHASE4, // servo off
+        };
 
-  private:
-    ros::NodeHandle nh_, nhp_;
-    WalkNavigator* navigator_;
+    public:
+      BaselinkMotion() {};
+      BaselinkMotion(ros::NodeHandle nh, WalkNavigator* navigator);
+      ~BaselinkMotion(){}
 
-    uint8_t phase_;
-    bool move_flag_;
-    bool preempt_flag_;
+      void stop();
+      void set(tf::Transform pose);
+      void set(tf::Vector3 pos, double yaw = 0);
+      void update();
+      void reset();
+      bool getMoveFlag() const;
 
-    tf::Vector3 target_pos_;
-    tf::Vector3 init_pos_;
-    tf::Vector3 prev_pos_;
-    double target_yaw_;
-    double prev_t_;
+    private:
+      ros::NodeHandle nh_, nhp_;
+      WalkNavigator* navigator_;
 
-    // param
-    double raise_height_;
-    double raise_thresh_;
-    double move_thresh_;
-    double descend_thresh_;
-    double duration_;
+      uint8_t phase_;
+      bool move_flag_;
+      bool preempt_flag_;
 
+      tf::Vector3 target_pos_;
+      tf::Vector3 init_pos_;
+      tf::Vector3 prev_pos_;
+      double target_yaw_;
+      double prev_t_;
+
+      // param
+      double raise_height_;
+      double raise_thresh_;
+      double move_thresh_;
+      double descend_thresh_;
+      double duration_;
+
+    };
   };
 };
 
