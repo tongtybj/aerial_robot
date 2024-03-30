@@ -11,7 +11,8 @@ namespace aerial_robot_navigation
       prev_t_(0)
     {
       ros::NodeHandle baselink_nh(nh_, "navigation/baselink");
-      baselink_nh.param("duration", duration_, 0.1);
+      baselink_nh.param("loop_duration", loop_duration_, 0.1);
+      baselink_nh.param("servo_switch_duration", servo_switch_duration_, 0.5);
       baselink_nh.param("raise_height", raise_height_, 0.1);
       baselink_nh.param("raise_thresh", raise_thresh_, 0.05);
       baselink_nh.param("move_thresh", move_thresh_, 0.05);
@@ -59,7 +60,7 @@ namespace aerial_robot_navigation
       tf::Vector3 target_pos = navigator_->getTargetBaselinkPos();
       double t = ros::Time::now().toSec();
 
-      if (t - prev_t_ < duration_) {
+      if (t - prev_t_ < loop_duration_) {
         return;
       }
 
@@ -147,6 +148,7 @@ namespace aerial_robot_navigation
             else
               ROS_ERROR_STREAM(prefix << "Failed to call service joint_pitch/torque_enable");
 
+            servo_switch_t_ = t;
             phase_ ++;
             ROS_INFO_STREAM(prefix << " shift to PHASE4 for final fit");
           }
@@ -156,6 +158,10 @@ namespace aerial_robot_navigation
       case PHASE4:
         {
           std::string prefix("[Spider][Baselink][Phase4]");
+
+          if (t - servo_switch_t_ < servo_switch_duration_) {
+            break;
+          }
 
           double diff = curr_pos.z() - prev_pos_.z();
 
@@ -173,7 +179,11 @@ namespace aerial_robot_navigation
               ROS_ERROR_STREAM(prefix << "Failed to call service joint_pitch/torque_enable");
 
             phase_ = PHASE0;
-            ROS_INFO_STREAM(prefix << " shift to PHASE0");
+            move_flag_ = false;
+            ROS_INFO_STREAM(prefix << " finish moving");
+          } else {
+            ROS_INFO_STREAM_THROTTLE(0.1, prefix << " baselink cannot be fitted. curr z: "
+                                     << curr_pos.z() << ", z: " << target_pos.z());
           }
 
           break;

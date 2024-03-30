@@ -79,13 +79,15 @@ namespace aerial_robot_navigation
       tf::Vector3 prev_pos_;
       double target_yaw_;
       double prev_t_;
+      double servo_switch_t_;
 
       // param
       double raise_height_;
       double raise_thresh_;
       double move_thresh_;
       double descend_thresh_;
-      double duration_;
+      double loop_duration_;
+      double servo_switch_duration_;
 
     };
   };
