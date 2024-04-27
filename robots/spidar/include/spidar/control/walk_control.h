@@ -68,6 +68,7 @@ namespace aerial_robot_control
       void startContactTransition(int leg_id);
 
       bool getContactTransition();
+      void setOldQuadrupedWalkMode(bool flag);
 
     private:
 
@@ -109,6 +110,10 @@ namespace aerial_robot_control
       double joint_ctrl_rate_;
       double tor_kp_;
 
+      bool pedipulate_mode_;
+      bool old_quadruped_walk_mode_;
+
+
       bool joint_soft_compliance_;
       double joint_compliance_end_t_;
 
@@ -120,6 +125,7 @@ namespace aerial_robot_control
       double joint_torque_control_thresh_;
       double joint_static_torque_limit_;
       double raise_joint_static_torque_limit_;
+      double pedipulate_joint_static_torque_limit_;
       double servo_max_torque_;
       double servo_torque_change_rate_;
       double servo_angle_bias_;
@@ -175,11 +181,15 @@ namespace aerial_robot_control
 
       void calcStaticBalance();
       void jointControl();
-      void armControl();
-      void singleArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all);
-      void allArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const Eigen::MatrixXd& rot, bool baselink_balance, Eigen::VectorXd& f_all);
       void jointSoftComplianceControl();
-      void thrustControl();
+
+      void pedipulateThrustControl();
+      void pedipulateSingleArmThrustControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all);
+      void pedipulateAllArmThrustControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const Eigen::MatrixXd& rot, bool baselink_balance, Eigen::VectorXd& f_all);
+
+      void quadrupedThrustControl();
+      void quadrupedCalcStaticBalance();
+
 
       // utils
       void setJointIndexMap();

@@ -113,6 +113,8 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 void WalkController::rosParamInit()
 {
   ros::NodeHandle walk_control_nh(nh_, "controller/walk");
+  getParam<bool>(walk_control_nh, "pedipulate_mode", pedipulate_mode_, false);
+  getParam<bool>(walk_control_nh, "old_quadruped_walk_mode", old_quadruped_walk_mode_, false);
   getParam<double>(walk_control_nh, "joint_ctrl_rate", joint_ctrl_rate_, 1.0); // 1 Hz
   getParam<double>(walk_control_nh, "joint_torque_control_thresh", joint_torque_control_thresh_, 2.0); // 2 Nm
   getParam<double>(walk_control_nh, "servo_angle_bias", servo_angle_bias_, 0.02); // 0.02 rad
@@ -120,6 +122,7 @@ void WalkController::rosParamInit()
   getParam<double>(walk_control_nh, "servo_max_torque", servo_max_torque_, 6.0); // 6.0 Nm
   getParam<double>(walk_control_nh, "joint_static_torque_limit", joint_static_torque_limit_, 3.0); // 3.0 Nm
   getParam<double>(walk_control_nh, "raise_joint_static_torque_limit", raise_joint_static_torque_limit_, 3.0); // 3.0 Nm
+  getParam<double>(walk_control_nh, "pedipulate_joint_static_torque_limit", pedipulate_joint_static_torque_limit_, 3.0); // 3.0 Nm
   getParam<double>(walk_control_nh, "servo_torque_change_rate", servo_torque_change_rate_, 1.5); // rate
   getParam<double>(walk_control_nh, "link_rot_f_control_i_thresh", link_rot_f_control_i_thresh_, 0.06); // rad
   getParam<double>(walk_control_nh, "raise_leg_force_i_gain", raise_leg_force_i_gain_, 1.0); // / s
@@ -239,18 +242,17 @@ bool WalkController::update()
     control_timestamp_ = ros::Time::now().toSec();
   }
 
-  // arm control
-  armControl();
-
-  // joint control
+  // common joint control
   jointControl();
 
-  // static balance
-  // calcStaticBalance();
-
   // thrust control
-  // thrustControl();
+  if (pedipulate_mode_) {
+    pedipulateThrustControl();
+  }
 
+  if (old_quadruped_walk_mode_) {
+    quadrupedThrustControl();
+  }
 
   // send control command to robot
   sendCmd();
@@ -258,8 +260,210 @@ bool WalkController::update()
   return true;
 }
 
-void WalkController::thrustControl()
+void WalkController::quadrupedCalcStaticBalance()
 {
+  using orig = aerial_robot_model::RobotModel;
+  const KDL::JntArray gimbal_processed_joint = spidar_robot_model_->getGimbalProcessedJoint<KDL::JntArray>();
+  const std::vector<KDL::Rotation> links_rotation_from_cog = spidar_robot_model_->getLinksRotationFromCog<KDL::Rotation>();
+  const int joint_num = spidar_robot_model_->getJointNum();
+  const int link_joint_num = spidar_robot_model_->getLinkJointIndices().size();
+  const int rotor_num = spidar_robot_model_->getRotorNum();
+  const int fr_ndof = 3 * rotor_num;
+
+  Eigen::MatrixXd A1_fr_all = Eigen::MatrixXd::Zero(joint_num, fr_ndof);
+  Eigen::MatrixXd A2_fr = Eigen::MatrixXd::Zero(6, fr_ndof);
+
+  for (int i = 0; i < rotor_num; i++) {
+    std::string seg_name = std::string("thrust") + std::to_string(i + 1);
+    Eigen::MatrixXd jac
+      = spidar_robot_model_->orig::getJacobian(gimbal_processed_joint, seg_name).topRows(3);
+    Eigen::MatrixXd r = aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i));
+    // describe force w.r.t. local (link) frame
+    A1_fr_all.middleCols(3 * i, 3) = -jac.rightCols(joint_num).transpose() * r;
+    A2_fr.middleCols(3 * i, 3) = jac.leftCols(6).transpose() * r;
+  }
+
+  const int leg_num = rotor_num / 2;
+  int free_leg_id = spidar_walk_navigator_->getFreeleg();
+  if (free_leg_id >= leg_num)
+    {
+      ROS_WARN_ONCE("[Spider][Walk][Static] the untouch leg ID exceeds the total leg number, force reset to -1");
+      free_leg_id = -1;
+    }
+  const int fe_num =  leg_num - (int)(free_leg_id >= 0);
+  const int fe_ndof = 3 * fe_num;
+
+  Eigen::MatrixXd A1_fe_all = Eigen::MatrixXd::Zero(joint_num, fe_ndof);
+  Eigen::MatrixXd A2_fe = Eigen::MatrixXd::Zero(6, fe_ndof);
+  const tf::Vector3 rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
+  Eigen::MatrixXd rot
+    = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(rpy.x(), rpy.y(), 0)); // no yaw
+  //rot = Eigen::Matrix3d::Identity(); // debug. No consideration of baselink rotation
+  // ROS_INFO_STREAM_THROTTLE(1.0, "baselink rotation, roll: " << rpy.x() << ", pitch: " << rpy.y());
+
+  int cnt = 0;
+  for (int i = 0; i < leg_num; i++) {
+
+    if (free_leg_id == i) continue;
+
+    std::string name = std::string("link") + std::to_string((i + 1) *2) + std::string("_foot");
+
+    // describe jacobian w.r.t the world frame, thus need baselink rotation
+    Eigen::MatrixXd jac
+      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint, name)).topRows(3);
+
+    A1_fe_all.middleCols(3 * cnt, 3) = -jac.rightCols(joint_num).transpose();
+    A2_fe.middleCols(3 * cnt, 3) = jac.leftCols(6).transpose();
+
+    cnt ++;
+  }
+
+  Eigen::VectorXd b1_all = Eigen::VectorXd::Zero(joint_num);
+  Eigen::VectorXd b2 = Eigen::VectorXd::Zero(6);
+  for(const auto& inertia : spidar_robot_model_->getInertiaMap()) {
+
+    // describe jacobian w.r.t the world frame, thus need baselink rotation
+    Eigen::MatrixXd jac
+      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint,
+                                         inertia.first,
+                                         inertia.second.getCOG())).topRows(3);
+
+    Eigen::VectorXd g = inertia.second.getMass() * (-spidar_robot_model_->getGravity3d());
+    b1_all -= jac.rightCols(joint_num).transpose() * g;
+    b2 += jac.leftCols(6).transpose() * g;
+  }
+
+  Eigen::MatrixXd jac = robot_model_->orig::getJacobian(gimbal_processed_joint, "center_link");
+  jac.topRows(3) = rot * jac.topRows(3);
+  jac.bottomRows(3) = rot * jac.bottomRows(3);
+  b1_all -= jac.rightCols(joint_num).transpose() * pusedo_baselink_wrench_;
+  b2 += jac.leftCols(6).transpose() * pusedo_baselink_wrench_;
+
+
+  // only consider link joint
+  Eigen::MatrixXd A1_fe = Eigen::MatrixXd::Zero(link_joint_num, fe_ndof);
+  Eigen::MatrixXd A1_fr = Eigen::MatrixXd::Zero(link_joint_num, fr_ndof);
+  Eigen::VectorXd b1 = Eigen::VectorXd::Zero(link_joint_num);
+
+  cnt = 0;
+  for(int i = 0; i < joint_num; i++) {
+    if(spidar_robot_model_->getJointNames().at(i) == spidar_robot_model_->getLinkJointNames().at(cnt))
+      {
+        A1_fe.row(cnt) = A1_fe_all.row(i);
+        A1_fr.row(cnt) = A1_fr_all.row(i);
+        b1(cnt) = b1_all(i);
+        cnt++;
+      }
+    if(cnt == link_joint_num) break;
+  }
+
+
+  Eigen::MatrixXd A1 = Eigen::MatrixXd::Zero(link_joint_num, fr_ndof + fe_ndof);
+  A1.leftCols(fr_ndof) = A1_fr;
+  A1.rightCols(fe_ndof) = A1_fe;
+
+  Eigen::MatrixXd A2 = Eigen::MatrixXd::Zero(6, fr_ndof + fe_ndof);
+  A2.leftCols(fr_ndof) = A2_fr;
+  A2.rightCols(fe_ndof) = A2_fe;
+
+  Eigen::MatrixXd W1 = Eigen::MatrixXd::Zero(fr_ndof + fe_ndof, fr_ndof + fe_ndof);
+  W1.topLeftCorner(fr_ndof, fr_ndof) = thrust_force_weight_ * Eigen::MatrixXd::Identity(fr_ndof, fr_ndof);
+  Eigen::MatrixXd W2 = joint_torque_weight_ * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
+
+  // 4. use thrust force and joint torque, cost and constraint for joint torque
+  OsqpEigen::Solver qp_solver;
+  qp_solver.settings()->setVerbosity(false);
+  qp_solver.settings()->setWarmStart(true);
+  qp_solver.data()->setNumberOfVariables(fr_ndof + fe_ndof);
+  qp_solver.data()->setNumberOfConstraints(6 + link_joint_num);
+
+  /*
+    cost function:
+    f_all^T W1 f_all + (A1 f_all + b1)^T W2 (A1 f_all + b1)
+    = f^T (W1 + A1^T W2 A1) f + 2 b1^T A1 f + cons
+  */
+  Eigen::MatrixXd hessian = W1 + A1.transpose() * W2 * A1;
+  Eigen::SparseMatrix<double> hessian_sparse = hessian.sparseView();
+  Eigen::VectorXd gradient = b1.transpose() * W2 * A1;
+  qp_solver.data()->setHessianMatrix(hessian_sparse);
+  qp_solver.data()->setGradient(gradient);
+
+  /* equality constraint: zero total wnrech */
+  Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(6 + link_joint_num, fr_ndof + fe_ndof);
+  constraints.topRows(6) = A2;
+  constraints.bottomRows(link_joint_num) = A1;
+  Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
+  qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
+
+  Eigen::VectorXd b = Eigen::VectorXd::Zero(6 + link_joint_num);
+  b.head(6) = -b2;
+  // tor - A1 * f_all_neq - b1 = 0
+  // tor = A1 * f_all_neq + b1
+  // - max_torque <  A1 * f_all_neq + b1 < max_torque
+  // -b - max_torque < A1 * f_all_neq < -b + max_torque
+
+  // tor - A1 * f_all_neq - b1 - target_extra_joint_torque_ = 0
+  // tor - A1 * f_all_neq - b1 = target_extra_joint_torque_
+  // tor = A1 * f_all_neq + b1 + target_extra_joint_torque_
+  // - max_torque <  A1 * f_all_neq + b1 + target_extra_joint_torque_ < max_torque
+  // -b - target_extra_joint_torque_ - max_torque < A1 * f_all_neq < -b - target_extra_joint_torque_+ max_torque
+  b.tail(link_joint_num) = -b1 - target_extra_joint_torque_;
+  Eigen::VectorXd max_torque = Eigen::VectorXd::Zero(6 + link_joint_num);
+  max_torque.tail(link_joint_num) = joint_static_torque_limit_ * Eigen::VectorXd::Ones(link_joint_num);
+
+  if (free_leg_id != -1) {
+    max_torque.tail(link_joint_num) = raise_joint_static_torque_limit_ * Eigen::VectorXd::Ones(link_joint_num);
+  }
+  Eigen::VectorXd lower_bound = b - max_torque;
+  Eigen::VectorXd upper_bound = b + max_torque;
+  qp_solver.data()->setLowerBound(lower_bound);
+  qp_solver.data()->setUpperBound(upper_bound);
+
+  std::string prefix("[Spider][Walk][Static]");
+  if(!qp_solver.initSolver()) {
+    ROS_ERROR_STREAM(prefix << " can not initialize qp solver");
+    return;
+  }
+
+  double s_t = ros::Time::now().toSec();
+  bool res = qp_solver.solve();
+  ROS_INFO_STREAM_ONCE(prefix << " QP solve time: " << ros::Time::now().toSec() - s_t);
+
+  if(!res) {
+    ROS_ERROR_STREAM(prefix << "can not solve QP");
+    return;
+  }
+
+  Eigen::VectorXd f_all_neq = qp_solver.getSolution();
+  Eigen::VectorXd fr = f_all_neq.head(fr_ndof);
+  Eigen::VectorXd fe = f_all_neq.tail(fe_ndof);
+  Eigen::VectorXd tor = A1 * f_all_neq + b1 + target_extra_joint_torque_;
+  Eigen::VectorXd lambda = Eigen::VectorXd::Zero(rotor_num);
+  for(int i = 0; i < rotor_num; i++) {
+    lambda(i) = fr.segment(3 * i, 3).norm();
+  }
+
+  ROS_INFO_STREAM_ONCE(prefix << " Thrust force for stand: " << fr.transpose());
+  ROS_INFO_STREAM_ONCE(prefix << " Contact force for stand: " << fe.transpose());
+  ROS_INFO_STREAM_ONCE(prefix << " Joint Torque: " << tor.transpose());
+  ROS_INFO_STREAM_ONCE(prefix << " Wrench: " << (A2 * f_all_neq + b2).transpose());
+  ROS_INFO_STREAM_ONCE(prefix << " Thrust force lambda: " << lambda.transpose());
+
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Thrust force for stand: " << fr.transpose());
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Contact force for stand: " << fe.transpose());
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Joint Torque: " << (A1 * f_all_neq + b1).transpose());
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Wrench: " << (A2 * f_all_neq + b2).transpose());
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Thrust force lambda: " << lambda.transpose());
+
+  // set static thrust force and joint torque
+  static_thrust_force_ = fr;
+  static_joint_torque_ = tor;
+}
+
+void WalkController::quadrupedThrustControl()
+{
+  quadrupedCalcStaticBalance();
+
   if (navigator_->getNaviState() != aerial_robot_navigation::ARM_ON_STATE) {
     return;
   }
@@ -581,7 +785,7 @@ void WalkController::thrustControl()
   }
 }
 
-void WalkController::armControl()
+void WalkController::pedipulateThrustControl()
 {
   using orig = aerial_robot_model::RobotModel;
   const KDL::JntArray gimbal_processed_joint = spidar_robot_model_->getGimbalProcessedJoint<KDL::JntArray>();
@@ -656,9 +860,9 @@ void WalkController::armControl()
     if (free_leg_id == leg_num) {
       // raise all legs
       bool baselink_balance_flag = true;
-      allArmControl(A1, b1, A2, b2, rot, baselink_balance_flag, f_all);
+      pedipulateAllArmThrustControl(A1, b1, A2, b2, rot, baselink_balance_flag, f_all);
     } else {
-      singleArmControl(A1, b1, A2, b2, free_leg_id, f_all);
+      pedipulateSingleArmThrustControl(A1, b1, A2, b2, free_leg_id, f_all);
     }
   }
 
@@ -681,7 +885,7 @@ void WalkController::armControl()
   }
 }
 
-void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all)
+void WalkController::pedipulateSingleArmThrustControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all)
 {
   int r_ndof = 2;
   int j_ndof = 4; // two joint modules (2DoF x 2)
@@ -724,7 +928,7 @@ void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::Ve
   // tor = A1 * fr + b1
   // - max_torque <  A1 * fr + b1 < max_torque
   // -b - max_torque < A1 * fr < -b + max_torque
-  Eigen::VectorXd max_torque = joint_static_torque_limit_ * Eigen::VectorXd::Ones(j_ndof);
+  Eigen::VectorXd max_torque = pedipulate_joint_static_torque_limit_ * Eigen::VectorXd::Ones(j_ndof);
   Eigen::VectorXd lower_bound = -b1_j - max_torque;
   Eigen::VectorXd upper_bound = -b1_j + max_torque;
   qp_solver.data()->setLowerBound(lower_bound);
@@ -764,8 +968,7 @@ void WalkController::singleArmControl(const Eigen::MatrixXd& A1, const Eigen::Ve
   f_all.segment(joint_id * f_ndof, f_ndof) = f;
 }
 
-
-void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const Eigen::MatrixXd& rot, bool baselink_balance, Eigen::VectorXd& f_all)
+void WalkController::pedipulateAllArmThrustControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const Eigen::MatrixXd& rot, bool baselink_balance, Eigen::VectorXd& f_all)
 {
   const int link_joint_num = spidar_robot_model_->getLinkJointIndices().size();
   const int rotor_num = spidar_robot_model_->getRotorNum();
@@ -857,7 +1060,7 @@ void WalkController::allArmControl(const Eigen::MatrixXd& A1, const Eigen::Vecto
   // tor = A1 * fr + b1
   // - max_torque <  A1 * fr + b1 < max_torque
   // -b - max_torque < A1 * fr < -b + max_torque
-  Eigen::VectorXd max_torque = joint_static_torque_limit_ * Eigen::VectorXd::Ones(link_joint_num);
+  Eigen::VectorXd max_torque = pedipulate_joint_static_torque_limit_ * Eigen::VectorXd::Ones(link_joint_num);
   lower_bound.tail(link_joint_num) = -b1 - max_torque;
   upper_bound.tail(link_joint_num) = -b1 + max_torque;
   qp_solver.data()->setLowerBound(lower_bound);
@@ -984,30 +1187,31 @@ void WalkController::jointControl()
       target_joint_torques_.effort.push_back(tor);
     }
 
-    // // special process raise leg
-    // if (raise_flag && !raise_converge) {
-    //   // inside pitch joint of the free leg
-    //   int i = free_leg_id * 4 + 1;
-    //   if (free_leg_torque_mode_) {
+    // special process raise leg
+    if (old_quadruped_walk_mode_ &&
+        raise_flag && !raise_converge) {
+      // inside pitch joint of the free leg
+      int i = free_leg_id * 4 + 1;
+      if (free_leg_torque_mode_) {
 
-    //     target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-    //     if (!raise_transition_) {
-    //       int j = free_leg_id * 2;
-    //       target_joint_torques_.effort.at(j) = static_joint_torque_(i);
-    //     }
-    //   }
+        target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+        if (!raise_transition_) {
+          int j = free_leg_id * 2;
+          target_joint_torques_.effort.at(j) = static_joint_torque_(i);
+        }
+      }
 
-    //   if (raise_separate_motion_) {
-    //     if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
-    //       // inside yaw joint of the free leg
-    //       i = free_leg_id * 4;
-    //       target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-    //       // outside pitch joint of the free leg
-    //       i = free_leg_id * 4 + 3;
-    //       target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-    //     }
-    //   }
-    // }
+      if (raise_separate_motion_) {
+        if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
+          // inside yaw joint of the free leg
+          i = free_leg_id * 4;
+          target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+          // outside pitch joint of the free leg
+          i = free_leg_id * 4 + 3;
+          target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+        }
+      }
+    }
 
     if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE &&
         !set_init_servo_torque_) {
@@ -1065,7 +1269,7 @@ void WalkController::jointControl()
     return;
   }
 
-
+  // @depreacated
   // use torque control for joints that needs large torque load
   for(int i = 0; i < joint_num; i++) {
 
@@ -1250,205 +1454,6 @@ void WalkController::jointControl()
   }
 }
 
-void WalkController::calcStaticBalance()
-{
-  using orig = aerial_robot_model::RobotModel;
-  const KDL::JntArray gimbal_processed_joint = spidar_robot_model_->getGimbalProcessedJoint<KDL::JntArray>();
-  const std::vector<KDL::Rotation> links_rotation_from_cog = spidar_robot_model_->getLinksRotationFromCog<KDL::Rotation>();
-  const int joint_num = spidar_robot_model_->getJointNum();
-  const int link_joint_num = spidar_robot_model_->getLinkJointIndices().size();
-  const int rotor_num = spidar_robot_model_->getRotorNum();
-  const int fr_ndof = 3 * rotor_num;
-
-  Eigen::MatrixXd A1_fr_all = Eigen::MatrixXd::Zero(joint_num, fr_ndof);
-  Eigen::MatrixXd A2_fr = Eigen::MatrixXd::Zero(6, fr_ndof);
-
-  for (int i = 0; i < rotor_num; i++) {
-    std::string seg_name = std::string("thrust") + std::to_string(i + 1);
-    Eigen::MatrixXd jac
-      = spidar_robot_model_->orig::getJacobian(gimbal_processed_joint, seg_name).topRows(3);
-    Eigen::MatrixXd r = aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i));
-    // describe force w.r.t. local (link) frame
-    A1_fr_all.middleCols(3 * i, 3) = -jac.rightCols(joint_num).transpose() * r;
-    A2_fr.middleCols(3 * i, 3) = jac.leftCols(6).transpose() * r;
-  }
-
-  const int leg_num = rotor_num / 2;
-  int free_leg_id = spidar_walk_navigator_->getFreeleg();
-  if (free_leg_id >= leg_num)
-    {
-      ROS_WARN_ONCE("[Spider][Walk][Static] the untouch leg ID exceeds the total leg number, force reset to -1");
-      free_leg_id = -1;
-    }
-  const int fe_num =  leg_num - (int)(free_leg_id >= 0);
-  const int fe_ndof = 3 * fe_num;
-
-  Eigen::MatrixXd A1_fe_all = Eigen::MatrixXd::Zero(joint_num, fe_ndof);
-  Eigen::MatrixXd A2_fe = Eigen::MatrixXd::Zero(6, fe_ndof);
-  const tf::Vector3 rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
-  Eigen::MatrixXd rot
-    = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(rpy.x(), rpy.y(), 0)); // no yaw
-  //rot = Eigen::Matrix3d::Identity(); // debug. No consideration of baselink rotation
-  // ROS_INFO_STREAM_THROTTLE(1.0, "baselink rotation, roll: " << rpy.x() << ", pitch: " << rpy.y());
-
-  int cnt = 0;
-  for (int i = 0; i < leg_num; i++) {
-
-    if (free_leg_id == i) continue;
-
-    std::string name = std::string("link") + std::to_string((i + 1) *2) + std::string("_foot");
-
-    // describe jacobian w.r.t the world frame, thus need baselink rotation
-    Eigen::MatrixXd jac
-      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint, name)).topRows(3);
-
-    A1_fe_all.middleCols(3 * cnt, 3) = -jac.rightCols(joint_num).transpose();
-    A2_fe.middleCols(3 * cnt, 3) = jac.leftCols(6).transpose();
-
-    cnt ++;
-  }
-
-  Eigen::VectorXd b1_all = Eigen::VectorXd::Zero(joint_num);
-  Eigen::VectorXd b2 = Eigen::VectorXd::Zero(6);
-  for(const auto& inertia : spidar_robot_model_->getInertiaMap()) {
-
-    // describe jacobian w.r.t the world frame, thus need baselink rotation
-    Eigen::MatrixXd jac
-      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint,
-                                         inertia.first,
-                                         inertia.second.getCOG())).topRows(3);
-
-    Eigen::VectorXd g = inertia.second.getMass() * (-spidar_robot_model_->getGravity3d());
-    b1_all -= jac.rightCols(joint_num).transpose() * g;
-    b2 += jac.leftCols(6).transpose() * g;
-  }
-
-  Eigen::MatrixXd jac = robot_model_->orig::getJacobian(gimbal_processed_joint, "center_link");
-  jac.topRows(3) = rot * jac.topRows(3);
-  jac.bottomRows(3) = rot * jac.bottomRows(3);
-  b1_all -= jac.rightCols(joint_num).transpose() * pusedo_baselink_wrench_;
-  b2 += jac.leftCols(6).transpose() * pusedo_baselink_wrench_;
-
-
-  // only consider link joint
-  Eigen::MatrixXd A1_fe = Eigen::MatrixXd::Zero(link_joint_num, fe_ndof);
-  Eigen::MatrixXd A1_fr = Eigen::MatrixXd::Zero(link_joint_num, fr_ndof);
-  Eigen::VectorXd b1 = Eigen::VectorXd::Zero(link_joint_num);
-
-  cnt = 0;
-  for(int i = 0; i < joint_num; i++) {
-    if(spidar_robot_model_->getJointNames().at(i) == spidar_robot_model_->getLinkJointNames().at(cnt))
-      {
-        A1_fe.row(cnt) = A1_fe_all.row(i);
-        A1_fr.row(cnt) = A1_fr_all.row(i);
-        b1(cnt) = b1_all(i);
-        cnt++;
-      }
-    if(cnt == link_joint_num) break;
-  }
-
-
-  Eigen::MatrixXd A1 = Eigen::MatrixXd::Zero(link_joint_num, fr_ndof + fe_ndof);
-  A1.leftCols(fr_ndof) = A1_fr;
-  A1.rightCols(fe_ndof) = A1_fe;
-
-  Eigen::MatrixXd A2 = Eigen::MatrixXd::Zero(6, fr_ndof + fe_ndof);
-  A2.leftCols(fr_ndof) = A2_fr;
-  A2.rightCols(fe_ndof) = A2_fe;
-
-  Eigen::MatrixXd W1 = Eigen::MatrixXd::Zero(fr_ndof + fe_ndof, fr_ndof + fe_ndof);
-  W1.topLeftCorner(fr_ndof, fr_ndof) = thrust_force_weight_ * Eigen::MatrixXd::Identity(fr_ndof, fr_ndof);
-  Eigen::MatrixXd W2 = joint_torque_weight_ * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
-
-  // 4. use thrust force and joint torque, cost and constraint for joint torque
-  OsqpEigen::Solver qp_solver;
-  qp_solver.settings()->setVerbosity(false);
-  qp_solver.settings()->setWarmStart(true);
-  qp_solver.data()->setNumberOfVariables(fr_ndof + fe_ndof);
-  qp_solver.data()->setNumberOfConstraints(6 + link_joint_num);
-
-  /*
-    cost function:
-    f_all^T W1 f_all + (A1 f_all + b1)^T W2 (A1 f_all + b1)
-    = f^T (W1 + A1^T W2 A1) f + 2 b1^T A1 f + cons
-  */
-  Eigen::MatrixXd hessian = W1 + A1.transpose() * W2 * A1;
-  Eigen::SparseMatrix<double> hessian_sparse = hessian.sparseView();
-  Eigen::VectorXd gradient = b1.transpose() * W2 * A1;
-  qp_solver.data()->setHessianMatrix(hessian_sparse);
-  qp_solver.data()->setGradient(gradient);
-
-  /* equality constraint: zero total wnrech */
-  Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(6 + link_joint_num, fr_ndof + fe_ndof);
-  constraints.topRows(6) = A2;
-  constraints.bottomRows(link_joint_num) = A1;
-  Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
-  qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
-
-  Eigen::VectorXd b = Eigen::VectorXd::Zero(6 + link_joint_num);
-  b.head(6) = -b2;
-  // tor - A1 * f_all_neq - b1 = 0
-  // tor = A1 * f_all_neq + b1
-  // - max_torque <  A1 * f_all_neq + b1 < max_torque
-  // -b - max_torque < A1 * f_all_neq < -b + max_torque
-
-  // tor - A1 * f_all_neq - b1 - target_extra_joint_torque_ = 0
-  // tor - A1 * f_all_neq - b1 = target_extra_joint_torque_
-  // tor = A1 * f_all_neq + b1 + target_extra_joint_torque_
-  // - max_torque <  A1 * f_all_neq + b1 + target_extra_joint_torque_ < max_torque
-  // -b - target_extra_joint_torque_ - max_torque < A1 * f_all_neq < -b - target_extra_joint_torque_+ max_torque
-  b.tail(link_joint_num) = -b1 - target_extra_joint_torque_;
-  Eigen::VectorXd max_torque = Eigen::VectorXd::Zero(6 + link_joint_num);
-  max_torque.tail(link_joint_num) = joint_static_torque_limit_ * Eigen::VectorXd::Ones(link_joint_num);
-
-  if (free_leg_id != -1) {
-    max_torque.tail(link_joint_num) = raise_joint_static_torque_limit_ * Eigen::VectorXd::Ones(link_joint_num);
-  }
-  Eigen::VectorXd lower_bound = b - max_torque;
-  Eigen::VectorXd upper_bound = b + max_torque;
-  qp_solver.data()->setLowerBound(lower_bound);
-  qp_solver.data()->setUpperBound(upper_bound);
-
-  std::string prefix("[Spider][Walk][Static]");
-  if(!qp_solver.initSolver()) {
-    ROS_ERROR_STREAM(prefix << " can not initialize qp solver");
-    return;
-  }
-
-  double s_t = ros::Time::now().toSec();
-  bool res = qp_solver.solve();
-  ROS_INFO_STREAM_ONCE(prefix << " QP solve time: " << ros::Time::now().toSec() - s_t);
-
-  if(!res) {
-    ROS_ERROR_STREAM(prefix << "can not solve QP");
-    return;
-  }
-
-  Eigen::VectorXd f_all_neq = qp_solver.getSolution();
-  Eigen::VectorXd fr = f_all_neq.head(fr_ndof);
-  Eigen::VectorXd fe = f_all_neq.tail(fe_ndof);
-  Eigen::VectorXd tor = A1 * f_all_neq + b1 + target_extra_joint_torque_;
-  Eigen::VectorXd lambda = Eigen::VectorXd::Zero(rotor_num);
-  for(int i = 0; i < rotor_num; i++) {
-    lambda(i) = fr.segment(3 * i, 3).norm();
-  }
-
-  ROS_INFO_STREAM_ONCE(prefix << " Thrust force for stand: " << fr.transpose());
-  ROS_INFO_STREAM_ONCE(prefix << " Contact force for stand: " << fe.transpose());
-  ROS_INFO_STREAM_ONCE(prefix << " Joint Torque: " << tor.transpose());
-  ROS_INFO_STREAM_ONCE(prefix << " Wrench: " << (A2 * f_all_neq + b2).transpose());
-  ROS_INFO_STREAM_ONCE(prefix << " Thrust force lambda: " << lambda.transpose());
-
-  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Thrust force for stand: " << fr.transpose());
-  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Contact force for stand: " << fe.transpose());
-  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Joint Torque: " << (A1 * f_all_neq + b1).transpose());
-  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Wrench: " << (A2 * f_all_neq + b2).transpose());
-  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Thrust force lambda: " << lambda.transpose());
-
-  // set static thrust force and joint torque
-  static_thrust_force_ = fr;
-  static_joint_torque_ = tor;
-}
 
 void WalkController::jointSoftComplianceControl()
 {
@@ -1539,20 +1544,25 @@ void WalkController::startLowerLeg()
     ROS_ERROR_STREAM("[Spider][Walk][Thrust Control] no valid leg to lower, leg id is " << leg_id);
   }
 
-  prev_v_ = current_angles.at(4 * leg_id + 1); // hard-coding for pitch angle
-
-  ROS_INFO_STREAM("[Spider][Walk][Thrust Control] start lower leg, start angle is " << prev_v_);
+  int leg_num = spidar_robot_model_->getRotorNum();
+  if (leg_id < leg_num && old_quadruped_walk_mode_) {
+    prev_v_ = current_angles.at(4 * leg_id + 1); // hard-coding for pitch angle
+    ROS_INFO_STREAM("[Spider][Walk][Thrust Control][Old Quadruped Mode] start lower leg, start angle of  is " << prev_v_);
+  }
 }
 
 void WalkController::startContactTransition(int leg_id)
 {
-  contact_transition_ = true;
-  contact_transtion_init_ratio_ = free_leg_force_ratio_;
-  contact_leg_id_ = leg_id;
-  raise_static_thrust_force_ = static_thrust_force_; // record the thrust force for raise
-  raise_static_thrust_force_.segment(6 * contact_leg_id_, 6) *= contact_transtion_init_ratio_;
+  if (old_quadruped_walk_mode_) {
 
-  ROS_INFO_STREAM("[Spider][Walk][Thrust Control] start contact transition");
+    contact_transition_ = true;
+    contact_transtion_init_ratio_ = free_leg_force_ratio_;
+    contact_leg_id_ = leg_id;
+    raise_static_thrust_force_ = static_thrust_force_; // record the thrust force for raise
+    raise_static_thrust_force_.segment(6 * contact_leg_id_, 6) *= contact_transtion_init_ratio_;
+
+    ROS_INFO_STREAM("[Spider][Walk][Thrust Control][Old Quadruped Mode] start contact transition");
+  }
 }
 
 

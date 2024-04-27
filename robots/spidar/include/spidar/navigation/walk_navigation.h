@@ -185,6 +185,7 @@ namespace aerial_robot_navigation
 
       void raiseLeg(int leg_id);
       void lowerLeg();
+      void resetContactStatus();
       void contactLeg();
 
       void freeLegAction();

@@ -359,7 +359,6 @@ void WalkNavigator::update()
 
     // set target joint angles
     target_joint_state_.position = getCurrentJointAngles();
-
   }
 
   auto current_joint_angles = getCurrentJointAngles();
@@ -832,13 +831,9 @@ void WalkNavigator::lowerLeg()
   lower_leg_flag_ = true;
   raise_leg_flag_ = false;
   raise_converge_ = false;
+  walk_controller_->startLowerLeg();
 
-  // reset contact variables
-  contact_check_prev_joint_angles_ = getCurrentJointAngles();
-  contact_check_start_t_ = ros::Time::now().toSec();
-  contact_check_prev_t_ = ros::Time::now().toSec();
-
-  //walk_controller_->startLowerLeg();
+  resetContactStatus(); // reset contact variables
 }
 
 void WalkNavigator::contactLeg()
@@ -847,9 +842,17 @@ void WalkNavigator::contactLeg()
   raise_leg_flag_ = false;
   raise_converge_ = false;
   spidar_robot_model_->resetFreeleg();
-  // walk_controller_->startContactTransition(free_leg_id_);
+  walk_controller_->startContactTransition(free_leg_id_);
   free_leg_id_ = -1;
 }
+
+void WalkNavigator::resetContactStatus()
+{
+  contact_check_prev_joint_angles_ = getCurrentJointAngles();
+  contact_check_start_t_ = ros::Time::now().toSec();
+  contact_check_prev_t_ = ros::Time::now().toSec();
+}
+
 
 void WalkNavigator::rosParamInit()
 {
