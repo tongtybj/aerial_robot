@@ -6,6 +6,8 @@
   <arg name="real_machine" default="$(arg rm)"/>
   <arg name="simulation" default="$(arg sim)"/>
   <arg name="ground_mode"  default= "true" />
+  <arg name="pedipulate_mode"  default= "true" />
+  <arg name="old_quadruped_walk_mode"  default= "false" />
   <arg name="full_vectoring_mode"  default= "true" />
   <arg name="type" default="octo"/>
   <arg name="onboards_model" default="v1_leg"/>
@@ -39,6 +41,11 @@
     <rosparam file="$(arg config_dir)/model/GroundRobotModel.yaml" command="load" if="$(arg ground_mode)" />
     <rosparam file="$(arg config_dir)/model/FullVectoringRobotModel.yaml" command="load" if="$(eval not arg('ground_mode') and arg('full_vectoring_mode'))" />
     <rosparam file="$(arg config_dir)/model/HydrusLikeRobotModel.yaml" command="load" if="$(eval not arg('ground_mode') and not arg('full_vectoring_mode'))" />
+
+    <group ns="controller/walk">
+      <param name="pedipulate_mode" value="$(arg pedipulate_mode)" />
+      <param name="old_quadruped_walk_mode" value="$(arg old_quadruped_walk_mode)" />
+    </group>
 
 
     ###########  Motor Config  ###########
