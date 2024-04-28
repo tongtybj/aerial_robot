@@ -36,6 +36,7 @@
 #pragma once
 
 #include <aerial_robot_control/flight_navigation.h>
+#include <spidar/navigation/baselink_motion.h>
 #include <spidar/model/ground_robot_model.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseArray.h>
@@ -80,6 +81,8 @@ namespace aerial_robot_navigation
 
       void update() override;
 
+      tf::Vector3 getCurrentBaselinkPos();
+
       inline tf::Vector3 getTargetBaselinkPos() {return target_baselink_pos_;}
       inline tf::Vector3 getTargetBaselinkRpy() {return target_baselink_rpy_;}
       inline tf::Vector3 getTargetBaselinkVel() {return target_baselink_vel_;}
@@ -89,10 +92,12 @@ namespace aerial_robot_navigation
       inline bool getLowerLegFlag() const { return lower_leg_flag_; }
       inline bool isRaiseLegConverge() const { return raise_converge_; }
       inline int getFreeleg() const { return free_leg_id_; }
+      inline void setTargetBaselinkPos(tf::Vector3 pos) { target_baselink_pos_ = pos; }
 
       void setController(aerial_robot_control::Spider::WalkController* controller){
         walk_controller_ = controller;
       }
+
 
     private:
 
@@ -149,6 +154,7 @@ namespace aerial_robot_navigation
 
       ros::Subscriber target_baselink_pos_sub_;
       ros::Subscriber target_baselink_delta_pos_sub_;
+
       ros::Subscriber raise_leg_sub_;
       ros::Subscriber lower_leg_sub_;
       ros::Subscriber walk_sub_;
@@ -163,6 +169,8 @@ namespace aerial_robot_navigation
       boost::shared_ptr<::Spider::GroundRobotModel> spidar_robot_model_;
       boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_for_nav_;
       aerial_robot_control::Spider::WalkController* walk_controller_;
+
+      aerial_robot_navigation::Spider::BaselinkMotion* baselink_motion_;
 
       void halt() override;
 

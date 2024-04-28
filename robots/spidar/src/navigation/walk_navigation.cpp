@@ -1,4 +1,5 @@
 #include <spidar/navigation/walk_navigation.h>
+#include <spidar/navigation/baselink_motion.h>
 #include <spidar/control/walk_control.h>
 
 using namespace aerial_robot_model;
@@ -33,6 +34,8 @@ void WalkNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 
   spidar_robot_model_ = boost::dynamic_pointer_cast<::Spider::GroundRobotModel>(robot_model);
   robot_model_for_nav_ = boost::make_shared<aerial_robot_model::RobotModel>();
+
+  baselink_motion_ = new BaselinkMotion(nh, this);
 
 
   target_baselink_pos_sub_ = nh_.subscribe("walk/baselink/traget/pos", 1, &WalkNavigator::targetBaselinkPosCallback, this);
@@ -340,6 +343,9 @@ void WalkNavigator::update()
 
   walkPattern();
 
+  // baselink motion
+  baselink_motion_->update();
+
   // TODO: add new states for walk/stand.
   // e.g., idle stand state, joint move state, fee joint end state
 
@@ -490,7 +496,7 @@ void WalkNavigator::update()
     double theta2 = theta2_d - theta1;
 
     // check validity
-    double angle_limit = 1.65;
+    double angle_limit = 1.74;
     if(fabs(angle) > angle_limit ) {
       ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
       continue;
@@ -782,6 +788,11 @@ void WalkNavigator::setJointIndexMap()
   }
 }
 
+tf::Vector3 WalkNavigator::getCurrentBaselinkPos()
+{
+  return estimator_->getPos(Frame::BASELINK, estimate_mode_);
+}
+
 std::vector<double> WalkNavigator::getCurrentJointAngles()
 {
   const auto joint_state = spidar_robot_model_->getGimbalProcessedJoint<sensor_msgs::JointState>();
@@ -902,6 +913,16 @@ void WalkNavigator::targetBaselinkPosCallback(const geometry_msgs::Vector3Stampe
 
 void WalkNavigator::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
 {
+  // WIP: move baselink from ground
+  if (msg->vector.z < -10) {
+    tf::Vector3 delta_pos;
+    tf::vector3MsgToTF(msg->vector, delta_pos);
+    delta_pos.setZ(0);
+    tf::Vector3 target_pos = target_baselink_pos_ + delta_pos;
+    baselink_motion_->set(target_pos);
+    return;
+  }
+
   tf::Vector3 delta_pos;
   tf::vector3MsgToTF(msg->vector, delta_pos);
   target_baselink_pos_ += delta_pos;
