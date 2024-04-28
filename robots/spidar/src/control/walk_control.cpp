@@ -43,11 +43,8 @@ WalkController::WalkController():
   walk_pid_controllers_(0),
   joint_torque_controllers_(0),
   joint_index_map_(0),
-  joint_soft_compliance_(false),
-  joint_compliance_end_t_(0),
   prev_navi_target_joint_angles_(0),
   free_leg_force_ratio_(0),
-  raise_transition_(false),
   contact_transition_(false),
   set_init_servo_torque_(false),
   contact_leg_id_(-1)
@@ -86,13 +83,11 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   joint_torque_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_torque_ctrl", 1);
   flight_cmd_pub_ = nh_.advertise<spinal::FourAxisCommand>("four_axes/command", 1);
   target_vectoring_force_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("debug/target_vectoring_force", 1);
-  link_rot_thrust_force_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("debug/link_rot_thrust_force", 1);
   extra_joint_torque_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("debug/extra_joint_torque", 1);
 
   joint_servo_enable_pub_ = nh_.advertise<spinal::ServoTorqueCmd>("servo/torque_enable", 1);
   joint_yaw_torque_srv_ = nh_.advertiseService<std_srvs::SetBool::Request, std_srvs::SetBool::Response>("joint_yaw/torque_enable", boost::bind(&WalkController::servoTorqueCtrlCallback, this, _1, _2, "yaw"));
   joint_pitch_torque_srv_ = nh_.advertiseService<std_srvs::SetBool::Request, std_srvs::SetBool::Response>("joint_pitch/torque_enable", boost::bind(&WalkController::servoTorqueCtrlCallback, this, _1, _2, "pitch"));
-  joint_force_compliance_sub_ = nh_.subscribe<std_msgs::Empty>("joint_force_compliance", 1, &WalkController::jointSoftComplianceCallback, this);
 
   target_joint_angles_.name = spidar_robot_model_->getLinkJointNames();
   int joint_num = spidar_robot_model_->getLinkJointNames().size();
@@ -103,9 +98,6 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   target_joint_torques_.position.resize(0);
   static_joint_torque_ = Eigen::VectorXd::Zero(joint_num);
 
-  for (int i = 0; i < motor_num_; i++) {
-    fw_i_terms_.push_back(Eigen::Vector3d::Zero());
-  }
 
   pusedo_baselink_wrench_ = Eigen::VectorXd::Zero(6);
 }
@@ -116,33 +108,13 @@ void WalkController::rosParamInit()
   getParam<bool>(walk_control_nh, "pedipulate_mode", pedipulate_mode_, false);
   getParam<bool>(walk_control_nh, "old_quadruped_walk_mode", old_quadruped_walk_mode_, false);
   getParam<double>(walk_control_nh, "joint_ctrl_rate", joint_ctrl_rate_, 1.0); // 1 Hz
-  getParam<double>(walk_control_nh, "joint_torque_control_thresh", joint_torque_control_thresh_, 2.0); // 2 Nm
   getParam<double>(walk_control_nh, "servo_angle_bias", servo_angle_bias_, 0.02); // 0.02 rad
   getParam<double>(walk_control_nh, "servo_angle_bias_torque", servo_angle_bias_torque_, 4.0); // 4.0 Nm
   getParam<double>(walk_control_nh, "servo_max_torque", servo_max_torque_, 6.0); // 6.0 Nm
   getParam<double>(walk_control_nh, "joint_static_torque_limit", joint_static_torque_limit_, 3.0); // 3.0 Nm
   getParam<double>(walk_control_nh, "raise_joint_static_torque_limit", raise_joint_static_torque_limit_, 3.0); // 3.0 Nm
-  getParam<double>(walk_control_nh, "pedipulate_joint_static_torque_limit", pedipulate_joint_static_torque_limit_, 3.0); // 3.0 Nm
-  getParam<double>(walk_control_nh, "servo_torque_change_rate", servo_torque_change_rate_, 1.5); // rate
-  getParam<double>(walk_control_nh, "link_rot_f_control_i_thresh", link_rot_f_control_i_thresh_, 0.06); // rad
-  getParam<double>(walk_control_nh, "raise_leg_force_i_gain", raise_leg_force_i_gain_, 1.0); // / s
-  getParam<double>(walk_control_nh, "modify_leg_force_i_gain", modify_leg_force_i_gain_, 1.0); // / s
-  getParam<double>(walk_control_nh, "lower_leg_force_i_gain", lower_leg_force_i_gain_, 1.0); // / s
+  getParam<double>(walk_control_nh, "pedipulate_joint_static_torque_limit", pedipulate_joint_static_torque_limit_, 1.0); // 1.0 Nm
   getParam<double>(walk_control_nh, "contact_leg_force_i_gain", contact_leg_force_i_gain_, 1.0); // / s
-  getParam<double>(walk_control_nh, "lower_leg_force_ratio_thresh", lower_leg_force_ratio_thresh_, 0.9);
-  getParam<double>(walk_control_nh, "modify_leg_force_ratio_thresh", modify_leg_force_ratio_thresh_, 0.9);
-  getParam<double>(walk_control_nh, "modify_leg_force_margin", modify_leg_force_margin_, 0.05); // rad
-
-  getParam<double>(walk_control_nh, "raise_leg_burst_p_gain", raise_leg_burst_p_gain_, 0.5); // max_ratio / max_error
-  getParam<double>(walk_control_nh, "raise_leg_burst_thresh", raise_leg_burst_thresh_, 0.1);
-  getParam<double>(walk_control_nh, "raise_leg_burst_bias", raise_leg_burst_bias_, 0.1);
-
-  getParam<bool>(walk_control_nh, "all_joint_position_control", all_joint_position_control_, true);
-  getParam<bool>(walk_control_nh, "opposite_free_leg_joint_torque_control_mode", opposite_free_leg_joint_torque_control_mode_, true);
-  getParam<bool>(walk_control_nh, "free_leg_torque_mode", free_leg_torque_mode_, false);
-  getParam<bool>(walk_control_nh, "raise_separate_motion", raise_separate_motion_, false);
-  getParam<bool>(walk_control_nh, "raise_leg_large_torque_control", raise_leg_large_torque_control_, true);
-  getParam<double>(walk_control_nh, "lower_leg_speed", lower_leg_speed_, 0.5);
 
   getParam<double>(walk_control_nh, "thrust_force_weight", thrust_force_weight_, 1.0);
   getParam<double>(walk_control_nh, "joint_torque_weight", joint_torque_weight_, 1.0);
@@ -195,15 +167,6 @@ void WalkController::rosParamInit()
   walk_pid_reconf_servers_.push_back(boost::make_shared<PidControlDynamicConfig>(rot_nh));
   std::vector<int> rot_indices = {ROLL, PITCH, YAW};
   walk_pid_reconf_servers_.back()->setCallback(boost::bind(&WalkController::cfgPidCallback, this, _1, _2, rot_indices));
-
-  // for link-wise rotation control
-  ros::NodeHandle link_nh(walk_control_nh, "link");
-  loadParam(link_nh);
-  walk_pid_controllers_.push_back(PID("link", p_gain, i_gain, d_gain, limit_sum, limit_p, limit_i, limit_d, limit_err_p, limit_err_i, limit_err_d));
-  walk_pid_reconf_servers_.push_back(boost::make_shared<PidControlDynamicConfig>(link_nh));
-  std::vector<int> link_indices = {YAW+1};
-  walk_pid_reconf_servers_.back()->setCallback(boost::bind(&WalkController::cfgPidCallback, this, _1, _2, link_indices));
-
 
   // for joint pid control
   ros::NodeHandle joint_nh(walk_control_nh, "joint");
@@ -482,28 +445,7 @@ void WalkController::quadrupedThrustControl()
   target_vectoring_f_ = static_thrust_force_;
   //ROS_INFO_STREAM("[Spider] [Control] total thrust vector init: " << static_thrust_force_.transpose());
 
-  // transition in different phase
-
-  // a) transition from fully contact to raise mode
-  if (raise_transition_) {
-    free_leg_force_ratio_ += raise_leg_force_i_gain_ * du;
-
-    // TODO: determine the complete of transition by leg raise or leave ground.
-
-    if (free_leg_force_ratio_ > 1) {
-      // complete transition
-
-      free_leg_force_ratio_ = 1;
-      raise_transition_ = false;
-      ROS_INFO("[Spider][Walk][Thrust Control] complete raise transition");
-    }
-
-    // do transition
-    Eigen::VectorXd delta_vec = static_thrust_force_ - raise_static_thrust_force_;
-    target_vectoring_f_ = raise_static_thrust_force_ + free_leg_force_ratio_ * delta_vec;
-  }
-
-  // b) transition from lower to fully contact mode
+  // transition from lower to fully contact mode
   if (contact_transition_) {
     free_leg_force_ratio_ -= contact_leg_force_i_gain_ * du;
 
@@ -517,88 +459,8 @@ void WalkController::quadrupedThrustControl()
 
     // do transition
     Eigen::VectorXd delta_vec = raise_static_thrust_force_ - static_thrust_force_;
-    double ratio = free_leg_force_ratio_ / contact_transtion_init_ratio_;
-    target_vectoring_f_ = static_thrust_force_ + ratio * delta_vec;
+    target_vectoring_f_ = static_thrust_force_ + free_leg_force_ratio_ * delta_vec;
   }
-
-  // constant modification in raise different case
-  // a) raise phase
-  if (spidar_walk_navigator_->getRaiseLegFlag() && !raise_transition_) {
-
-    int leg_id = spidar_walk_navigator_->getFreeleg();
-    int j = 4 * leg_id + 1;
-    double angle = getCurrentJointAngles().at(j);
-    double target_angle = spidar_walk_navigator_->getTargetJointState().position.at(j);
-    bool raise_converge = spidar_walk_navigator_->isRaiseLegConverge();
-
-    double t = ros::Time::now().toSec();
-    if (t - prev_t_ > check_interval_) {
-      if (target_angle - angle > modify_leg_force_margin_ && raise_converge) {
-        // only consider the over raised situation
-        free_leg_force_ratio_ -= modify_leg_force_i_gain_ * (t - prev_t_);
-
-        if (free_leg_force_ratio_ < modify_leg_force_ratio_thresh_) {
-          free_leg_force_ratio_ = modify_leg_force_ratio_thresh_;
-        }
-
-        ROS_INFO_STREAM("[Spider][Walk][Thrust Control] raise leg" << leg_id+1 << " is over raised, target angle of " << target_joint_angles_.name.at(j) << " is " << target_angle << ", current angle is " << angle << ", force ratio is " << free_leg_force_ratio_);
-      }
-      prev_t_ = t;
-    }
-
-    // only modifiy the rotors in free leg
-    target_vectoring_f_.segment(6 * leg_id, 6) *= free_leg_force_ratio_;
-  }
-
-  // b) lower phase
-  if (spidar_walk_navigator_->getLowerLegFlag()) {
-
-    int leg_id = spidar_walk_navigator_->getFreeleg();
-    int j = 4 * leg_id + 1;
-    double angle = getCurrentJointAngles().at(j);
-    double target_angle = target_joint_angles_.position.at(j);
-
-    double t = ros::Time::now().toSec();
-    if (t - prev_t_ > check_interval_) {
-      if (angle - prev_v_ < lower_leg_speed_ * check_interval_) {
-        free_leg_force_ratio_ -= lower_leg_force_i_gain_ * (t - prev_t_);
-
-        if (free_leg_force_ratio_ < lower_leg_force_ratio_thresh_) {
-          free_leg_force_ratio_ = lower_leg_force_ratio_thresh_;
-        }
-
-        ROS_INFO_STREAM("[Spider][Walk][Thrust Control] lower leg" << leg_id+1 << ", previous joint angle of " << target_joint_angles_.name.at(j)  << " is " << prev_v_ << ", current angle is " << angle <<  ", target angle is " << target_angle << ", force ratio is " << free_leg_force_ratio_);
-      }
-
-      prev_v_ = angle;
-      prev_t_ = t;
-    }
-
-    // only modifiy the rotors in free leg
-    target_vectoring_f_.segment(6 * leg_id, 6) *= free_leg_force_ratio_;
-  }
-
-  // c) burst thrust force for better raising
-  if (spidar_walk_navigator_->getRaiseLegFlag() &&
-      !spidar_walk_navigator_->isRaiseLegConverge()) {
-    int leg_id = spidar_walk_navigator_->getFreeleg();
-    int j = 4 * leg_id + 1;
-    double angle = getCurrentJointAngles().at(j);
-    double target_angle = spidar_walk_navigator_->getTargetJointState().position.at(j);
-
-    double err = angle - target_angle - raise_leg_burst_bias_;
-    err = std::max(err, 0.0); // err should be non-nengative
-    double burst_force_ratio = raise_leg_burst_p_gain_ * err;
-    burst_force_ratio = std::min(raise_leg_burst_thresh_, burst_force_ratio);
-
-    Eigen::VectorXd orig_vec = target_vectoring_f_.segment(6 * leg_id, 6);
-    target_vectoring_f_.segment(6 * leg_id, 6) += burst_force_ratio * static_thrust_force_.segment(6 * leg_id, 6);
-    if (raise_leg_burst_p_gain_ > 0) {
-      ROS_INFO_STREAM_THROTTLE(check_interval_, "[Spider][Walk][Thrust Control] burst raise for leg" << leg_id+1 << ", " << target_joint_angles_.name.at(j) << ", current angle is " << angle <<  ", target angle is " << target_angle << ", burst force ratio is " << burst_force_ratio);
-      //ROS_INFO_STREAM_THROTTLE(check_interval_, "[Spider][Walk][Thrust Control] burst raise for leg" << leg_id+1 << ", " << target_joint_angles_.name.at(j) << ", current angle is " << angle <<  ", target angle is " << target_angle << ", burst force ratio is " << burst_force_ratio << ", orig force vector force free leg: " << orig_vec.transpose() << ", bursted thrust: " << target_vectoring_f_.segment(6 * leg_id, 6).transpose());
-    }
-  }
-
 
   // 2. feed-back control:  baselink position control
   Eigen::VectorXd target_wrench = Eigen::VectorXd::Zero(6);
@@ -690,88 +552,7 @@ void WalkController::quadrupedThrustControl()
   // ROS_INFO_STREAM("[Spider] [Control] fb vectoring f: " << fb_vectoring_f.transpose());
   // ROS_INFO_STREAM("[Spider] [Control] total thrust vector after fc center: " << target_vectoring_f_.transpose());
 
-
-  // 3. feed-back control: link-wise rotation control
-  Eigen::VectorXd fb_vectoring_l = Eigen::VectorXd::Zero(3 * motor_num_);
-  auto target_link_rots = spidar_walk_navigator_->getTargetLinkRots();
-  const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
-  KDL::Frame fr_baselink = seg_tf_map.at(spidar_robot_model_->getBaselinkName());
-  tf::Transform tf_w_baselink(estimator_->getOrientation(Frame::BASELINK, estimate_mode_), baselink_pos);
-  KDL::Frame fw_baselink;
-  tf::transformTFToKDL(tf_w_baselink, fw_baselink);
-  double p_gain = walk_pid_controllers_.back().getPGain();
-  double i_gain = walk_pid_controllers_.back().getIGain();
-  double limit_sum = walk_pid_controllers_.back().getLimitSum();
-  double limit_p = walk_pid_controllers_.back().getLimitP();
-  double limit_i = walk_pid_controllers_.back().getLimitI();
-
-  // ROS_INFO_STREAM("p gain: " << p_gain << "; i gain: " << i_gain << "; limit sum: " << limit_sum << "; limit p: " << limit_p << "; limit i: " << limit_i);
-  std::stringstream ss;
-  for(int i = 0; i < motor_num_; i++) {
-    std::string link_name = std::string("link") + std::to_string(i+1);
-    KDL::Frame fr_link = seg_tf_map.at(link_name);
-    KDL::Frame fb_link = fr_baselink.Inverse() * fr_link;
-    KDL::Frame fw_link = fw_baselink * fb_link;
-
-    // calculate the control vector from
-    // negative means the pivot point is the leg end point
-    int direct = -1;
-
-    if (i / 2 == spidar_walk_navigator_->getFreeleg()) {
-      // no contorl for free leg which may induce unstability
-      continue;
-    }
-
-    if (i % 2 == 1) {
-      // outer link (e.g., link2)
-      // no control for outer link since the effector is too small
-      continue;
-    }
-
-    Eigen::Vector3d a = direct * aerial_robot_model::kdlToEigen(fw_link.M.UnitX());
-    Eigen::Vector3d b = direct * aerial_robot_model::kdlToEigen(target_link_rots.at(i).UnitX());
-    Eigen::Vector3d c = a.cross(b);
-    Eigen::Vector3d d = c.cross(a);
-    Eigen::Vector3d d_temp = b - a;
-    double theta = asin(c.norm());
-
-    // PI control
-    // P term
-    Eigen::Vector3d fw_p_term = clamp(p_gain * d, limit_p);
-
-    // I term
-    if (fabs(theta) > link_rot_f_control_i_thresh_) {
-      fw_i_terms_.at(i) = clamp(fw_i_terms_.at(i) + i_gain * d, limit_i);
-    }
-
-    Eigen::Vector3d fw = clamp(fw_p_term + fw_i_terms_.at(i), limit_sum);
-    Eigen::Vector3d fb = aerial_robot_model::kdlToEigen(fw_link.M.Inverse()) * fw;
-
-    if (i % 2 == 0) {
-      // inner link (e.g., link1)
-      // no downward force in world frame
-      if (fb.z() < 0) fb.z() = 0;
-    }
-
-    fb_vectoring_l.segment(3 * i, 3) = fb;
-
-    // ROS_INFO_STREAM("link" << i+1 << ", a: " << a.transpose() << ", b:" << b.transpose() << ", d: " << d.transpose() << ", d_temp: " << d_temp.transpose() << ", fb " << fb.transpose() << ", theta: " << theta);
-  }
-  target_vectoring_f_ += fb_vectoring_l;
-  //ROS_INFO_STREAM_THROTTLE(1.0, "[Spider][Control] thrust control for link-wise rotation, thrust vector: " << fb_vectoring_l.transpose());
-  //ROS_INFO_STREAM_THROTTLE(1.0, "[Spider] [Control] [Link Rot] theta: " << ss.str());
-  // ROS_INFO_STREAM("[Spider][Control] thrust control for link-wise rotation, thrust vector: " << fb_vectoring_l.transpose());
-  // ROS_INFO_STREAM("[Spider] [Control] [Link Rot] theta: " << ss.str());
-  // ROS_INFO_STREAM("[Spider] [Control] total thrust vector after fc link: " << target_vectoring_f_.transpose());
-
-  std_msgs::Float32MultiArray msg;
-  for(int i = 0; i < fb_vectoring_l.size(); i++) {
-    msg.data.push_back(fb_vectoring_l(i));
-  }
-  link_rot_thrust_force_pub_.publish(msg);
-
-
-  // 4. target lambda and gimbal angles
+  // 3. target lambda and gimbal angles
   for(int i = 0; i < motor_num_; i++) {
     Eigen::Vector3d f = target_vectoring_f_.segment(3 * i, 3);
 
@@ -865,12 +646,6 @@ void WalkController::pedipulateThrustControl()
       pedipulateSingleArmThrustControl(A1, b1, A2, b2, free_leg_id, f_all);
     }
   }
-
-
-  // publish thrust force and vectoring angles
-  std_msgs::Float32MultiArray msg;
-  for(int i = 0; i < f_all.size(); i++) msg.data.push_back(f_all(i));
-  link_rot_thrust_force_pub_.publish(msg);
 
   // 4. target lambda and gimbal angles
   for(int i = 0; i < motor_num_; i++) {
@@ -1110,12 +885,6 @@ void WalkController::jointControl()
   target_joint_torques_.name.resize(0);
   target_joint_torques_.effort.resize(0);
 
-  // do joint soft compliance control
-  if (joint_soft_compliance_) {
-    jointSoftComplianceControl();
-    return;
-  }
-
   // basically, use position control for all joints
   auto navi_target_joint_angles = spidar_walk_navigator_->getTargetJointState().position;
   target_joint_angles_.position = navi_target_joint_angles;
@@ -1145,331 +914,114 @@ void WalkController::jointControl()
   int joint_num = names.size();
   int leg_num = joint_num / 4;
 
-  // use position control for all joints
-  if (all_joint_position_control_) {
+  // joint position-based control
+  // modification for target joint angle
+  bool raise_flag = spidar_walk_navigator_->getRaiseLegFlag();
+  bool raise_converge = spidar_walk_navigator_->isRaiseLegConverge();
+  int free_leg_id = spidar_walk_navigator_->getFreeleg();
 
-    // modification for target joint angle
-
-    bool raise_flag = spidar_walk_navigator_->getRaiseLegFlag();
-    bool raise_converge = spidar_walk_navigator_->isRaiseLegConverge();
-    int free_leg_id = spidar_walk_navigator_->getFreeleg();
-
-    for(int i = 0; i < joint_num; i++) {
-      double tor = static_joint_torque_(i);
-      std::string name = names.at(i);
-      int j = atoi(name.substr(5,1).c_str()) - 1; // start from 0
-      int leg_id = j / 2;
-
-      // WIP: add extra delta angle to deal with pulley strench
-      // TODO: move this function to
-      //       1. servo_bridge
-      //       2. neuron
-      double bias = tor / servo_angle_bias_torque_ * servo_angle_bias_;
-      if (contact_transition_ && leg_id == contact_leg_id_ && j % 2 == 1) {
-        // no extra angle error for outer joint pitch in free leg in contact transition
-        // e.g., joint2_pitch
-        bias = 0.0;
-      }
-      target_angles.at(i) += bias;
-
-      // set the servo limit torque
-      tor = servo_max_torque_;
-      if (navigator_->getNaviState() != aerial_robot_navigation::ARM_ON_STATE) {
-        continue;
-      }
-
-      // only consider the yaw angle in the initialize phase
-      if (name.find("yaw") != std::string::npos && set_init_servo_torque_) {
-        continue;
-      }
-
-      target_joint_torques_.name.push_back(name);
-      target_joint_torques_.effort.push_back(tor);
-    }
-
-    // special process raise leg
-    if (old_quadruped_walk_mode_ &&
-        raise_flag && !raise_converge) {
-      // inside pitch joint of the free leg
-      int i = free_leg_id * 4 + 1;
-      if (free_leg_torque_mode_) {
-
-        target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-        if (!raise_transition_) {
-          int j = free_leg_id * 2;
-          target_joint_torques_.effort.at(j) = static_joint_torque_(i);
-        }
-      }
-
-      if (raise_separate_motion_) {
-        if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
-          // inside yaw joint of the free leg
-          i = free_leg_id * 4;
-          target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-          // outside pitch joint of the free leg
-          i = free_leg_id * 4 + 3;
-          target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-        }
-      }
-    }
-
-    if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE &&
-        !set_init_servo_torque_) {
-      set_init_servo_torque_ = true;
-    }
-
-    // feedback control about joint torque
-    if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE) {
-      double du = ros::Time::now().toSec() - control_timestamp_;
-      for(int i = 0; i < joint_num; i++) {
-        std::string name = names.at(i);
-        int j = atoi(name.substr(5,1).c_str()) - 1; // start from 0
-        int leg_id = j / 2;
-
-        double current_angle = current_angles.at(i);
-        double target_angle  = target_angles.at(i);
-        double err = target_angle - current_angle;
-        double tor = static_joint_torque_(i);
-
-        // TODO: consider whether skip yaw joint
-        // if (name.find("yaw") != std::string::npos) {
-        //   target_extra_joint_torque_(i) = 0;
-        //   continue;
-        // }
-
-        // skip the free leg
-        if (leg_id == free_leg_id) {
-          joint_torque_controllers_.at(i).reset();
-          target_extra_joint_torque_(i) = 0;
-          continue;
-        }
-
-        // skip if angle error is too small
-        if (fabs(err) < joint_error_angle_thresh_) {
-          target_extra_joint_torque_(i) = 0;
-          continue;
-        }
-
-        // only consider if the joint servo torque is potentially saturated
-        if (err * tor  < joint_error_angle_thresh_) {
-          target_extra_joint_torque_(i) = 0;
-          continue;
-        }
-
-        joint_torque_controllers_.at(i).update(err, du, 0);
-        target_extra_joint_torque_(i) = joint_torque_controllers_.at(i).result();
-      }
-      std_msgs::Float32MultiArray msg;
-      for(int i = 0; i < target_extra_joint_torque_.size(); i++) {
-        msg.data.push_back(target_extra_joint_torque_(i));
-      }
-      extra_joint_torque_pub_.publish(msg);
-    }
-
-    return;
-  }
-
-  // @depreacated
-  // use torque control for joints that needs large torque load
   for(int i = 0; i < joint_num; i++) {
-
-    double current_angle = current_angles.at(i);
-    double navi_target_angle  = navi_target_joint_angles.at(i);
-    double prev_navi_target_angle  = prev_navi_target_joint_angles_.at(i);
     double tor = static_joint_torque_(i);
     std::string name = names.at(i);
     int j = atoi(name.substr(5,1).c_str()) - 1; // start from 0
     int leg_id = j / 2;
 
-    // no joint torque control if robot is not armed
+    // WIP: add extra delta angle to deal with pulley strench
+    // TODO: move this function to
+    //       1. servo_bridge
+    //       2. neuron
+    double bias = tor / servo_angle_bias_torque_ * servo_angle_bias_;
+    if (contact_transition_ && leg_id == contact_leg_id_ && j % 2 == 1) {
+      // no extra angle error for outer joint pitch in free leg in contact transition
+      // e.g., joint2_pitch
+      bias = 0.0;
+    }
+    target_angles.at(i) += bias;
+
+    // set the servo limit torque
+    tor = servo_max_torque_;
     if (navigator_->getNaviState() != aerial_robot_navigation::ARM_ON_STATE) {
-      return;
-    }
-
-    // position control for yaw joints
-    if (name.find("yaw") != std::string::npos) {
-      // ROS_INFO_STREAM("position control for: " << name);
       continue;
     }
 
-    // heuristic rule for joints in free leg
-    if (leg_id == spidar_walk_navigator_->getFreeleg()) {
-
-      prev_navi_target_joint_angles_.at(i) = navi_target_joint_angles.at(i);
-      bool lower_flag = spidar_walk_navigator_->getLowerLegFlag();
-      bool raise_flag = spidar_walk_navigator_->getRaiseLegFlag();
-      std::string status = raise_flag?std::string("raise"):std::string("lower");
-
-      if (j % 2 == 0) {
-        // inner joint (e.g., joint1_pitch)
-        // torque rule: set the torque bound as the static torque (small value) for raise and max torque for lower.
-        //              joint is expected to raise / lower quick,
-        // angle rule: basic position control
-
-        // set joint torque
-        target_joint_torques_.name.push_back(name);
-        if (lower_flag && lower_leg_force_i_gain_ == 0) {
-          // use large torque to lower leg instead of decrease thrust force
-          tor = servo_max_torque_;
-          double extra_angle_err = servo_angle_bias_; // workaround: for enough margin to touch ground
-          target_angles.at(i) += (tor / fabs(tor) * extra_angle_err);
-        }
-        target_joint_torques_.effort.push_back(tor);
-
-        ROS_INFO_STREAM(" " << name << ", " << status << ", torque:" << tor  << "; target angle: " << target_angles.at(i) << "; current angle: " << current_angle);
-      }
-
-      if (j % 2 == 1) {
-        // outer joint (e.g., joint2_pitch)
-        // torque rule: set the largest one
-        // angle rule: basic position control
-
-        // set joint torque
-        target_joint_torques_.name.push_back(name);
-        target_joint_torques_.effort.push_back(servo_max_torque_);
-
-        ROS_INFO_STREAM(" " << name << ", " << status << ", torque:" << servo_max_torque_ << "; target angle: " << target_angles.at(i) << "; current angle: " << current_angle);
-      }
-
+    // only consider the yaw angle in the initialize phase
+    if (name.find("yaw") != std::string::npos && set_init_servo_torque_) {
       continue;
     }
 
-    // heuristic rule for joints in rest of the legs when there is a free leg
-    // if ((leg_id + leg_num / 2) % leg_num == spidar_walk_navigator_->getFreeleg()) {
-    if (spidar_walk_navigator_->getFreeleg() != -1 &&
-        leg_id != spidar_walk_navigator_->getFreeleg()) {
-
-      if (j % 2 == 0) {
-        // inner joint (e.g., joint5_pitch)
-
-        prev_navi_target_joint_angles_.at(i) = navi_target_joint_angles.at(i);
-        if (raise_leg_large_torque_control_) {
-          // torque rule: set the torque bound as the max torque to resist the torque from opposite raised leg.
-          tor = servo_max_torque_;
-        }
-
-        target_joint_torques_.name.push_back(name);
-        target_joint_torques_.effort.push_back(tor);
-
-        // angle rule:
-        double extra_angle_err = 0;
-        if (opposite_free_leg_joint_torque_control_mode_) {
-          // rule1: large diff from real target angles to reach the target joint torque
-          extra_angle_err = 0.1; // for enough margin for large angle error
-        }
-        else {
-          // rule2: basic position control
-          extra_angle_err = servo_angle_bias_; // add bais due to the pulley
-        }
-        target_angles.at(i) += (tor / fabs(tor) * extra_angle_err);
-
-
-        // ROS_INFO_STREAM(" " << name << ", opposite free leg, torque:" << tor  << "; target angle: " << target_angles.at(i) << "; current angle: " << current_angle << "; real target angle: " << navi_target_angle);
-        continue;
-      }
-    }
-
-    // position control for small joint torque
-    if (fabs(tor) < joint_torque_control_thresh_) {
-      continue;
-    }
-
-    // set joint angles
-    // large diff from real target angles to reach the target joint torque: torque control
-    double extra_angle_err = 0.1; // for enough margin for large angle error
-
-    // in contact transition
-    if (contact_transition_) {
-      // no extra angle error for outer joint pitch in free leg in contact transition (e.g., joint2_pitch)
-      if (leg_id == contact_leg_id_ && j % 2 == 1) {
-        extra_angle_err = 0.0;
-      }
-    }
-    target_angles.at(i) += (tor / fabs(tor) * extra_angle_err);
-
-    // Note: tor > 0: inner pitch joint (e.g., joint1_pitch)
-    //       tor < 0: outer pitch joint (e.g., joint2_pitch)
-    if (fabs(prev_navi_target_angle - navi_target_angle) > 1e-4) {
-
-      // address the angle bias in pulley system
-      double modified_navi_target_angle = navi_target_angle +  tor / fabs(tor) * servo_angle_bias_;
-
-      if (navi_target_angle > prev_navi_target_angle) {
-        if (current_angle >= modified_navi_target_angle) {
-          // the joint converges
-          prev_navi_target_joint_angles_.at(i) = navi_target_joint_angles.at(i);
-          ROS_INFO_STREAM("[Spider][Control]" << name << " reaches the new target angle " << navi_target_angle);
-        }
-        else {
-          // increase servo torque to reach the target angle, feedforwardly
-          if (tor > 0) {
-            tor = clamp(tor * servo_torque_change_rate_, servo_max_torque_);
-            ROS_INFO_STREAM("[Spider][Control]" << name << " increase torque.");
-          }
-          else {
-            // increase servo torque to reach the target angle, feedforwardly
-            tor = clamp(tor / servo_torque_change_rate_, servo_max_torque_);
-            ROS_INFO_STREAM("[Spider][Control]" << name << " decrease torque.");
-
-            // set joint angles
-            // set to the current angle for small joint torque
-            target_angles.at(i) = current_angle;
-          }
-        }
-      }
-
-      if (navi_target_angle < prev_navi_target_angle) {
-        if (current_angle <= modified_navi_target_angle) {
-          // the joint converges
-          prev_navi_target_joint_angles_.at(i) = navi_target_joint_angles.at(i);
-          ROS_INFO_STREAM("[Spider][Control]" << name << " reaches the new target angle " << navi_target_angle);
-        }
-        else {
-
-          if (tor > 0) {
-            // decrease servo torque to reach the target angle, feedforwardly
-            tor = clamp(tor / servo_torque_change_rate_, servo_max_torque_);
-            ROS_INFO_STREAM("[Spider][Control]" << name << " decrease torque.");
-
-            // set joint angles
-            // set to the current angle for small joint torque
-            target_angles.at(i) = current_angle;
-          }
-          else {
-            // increase servo torque to reach the target angle, feedforwardly
-            tor = clamp(tor * servo_torque_change_rate_, servo_max_torque_);
-            ROS_INFO_STREAM("[Spider][Control]" << name << " increase torque.");
-          }
-        }
-      }
-
-      ROS_WARN("[Spider][Control] %s not converge. prev target: %f, curr target: %f, modified target: %f, real target: %f, curr pos: %f, tor: %f",
-               name.c_str(), prev_navi_target_angle, navi_target_angle,
-               modified_navi_target_angle, target_angles.at(i), current_angle, tor);
-    }
-
-    // set joint torque
-    target_joint_torques_.name.push_back(names.at(i));
+    target_joint_torques_.name.push_back(name);
     target_joint_torques_.effort.push_back(tor);
   }
-}
 
+  // special process raise leg
+  if (old_quadruped_walk_mode_ && raise_flag && !raise_converge) {
+    // inside pitch joint of the free leg
+    int i = free_leg_id * 4 + 1;
 
-void WalkController::jointSoftComplianceControl()
-{
-  // use torque control for pitch joints that needs large torque load
-  const auto current_angles = getCurrentJointAngles();
+    // raise separate motion
+    if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
+      // inside yaw joint of the free leg
+      i = free_leg_id * 4;
+      target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+      // outside pitch joint of the free leg
+      i = free_leg_id * 4 + 3;
+      target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+    }
 
-  if (current_angles.size() == 0) {
-    return;
   }
 
-  if (joint_compliance_end_t_ < ros::Time::now().toSec()) {
-    joint_soft_compliance_ = false;
+  if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE &&
+      !set_init_servo_torque_) {
+    set_init_servo_torque_ = true;
   }
 
-  // compliance to fit the current joint angles
-  target_joint_angles_.position = current_angles;
+  // feedback control about joint torque
+  if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE) {
+    double du = ros::Time::now().toSec() - control_timestamp_;
+    for(int i = 0; i < joint_num; i++) {
+      std::string name = names.at(i);
+      int j = atoi(name.substr(5,1).c_str()) - 1; // start from 0
+      int leg_id = j / 2;
+
+      double current_angle = current_angles.at(i);
+      double target_angle  = target_angles.at(i);
+      double err = target_angle - current_angle;
+      double tor = static_joint_torque_(i);
+
+      // TODO: consider whether skip yaw joint
+      // if (name.find("yaw") != std::string::npos) {
+      //   target_extra_joint_torque_(i) = 0;
+      //   continue;
+      // }
+
+      // skip the free leg
+      if (leg_id == free_leg_id) {
+        joint_torque_controllers_.at(i).reset();
+        target_extra_joint_torque_(i) = 0;
+        continue;
+      }
+
+      // skip if angle error is too small
+      if (fabs(err) < joint_error_angle_thresh_) {
+        target_extra_joint_torque_(i) = 0;
+        continue;
+      }
+
+      // only consider if the joint servo torque is potentially saturated
+      if (err * tor  < joint_error_angle_thresh_) {
+        target_extra_joint_torque_(i) = 0;
+        continue;
+      }
+
+      joint_torque_controllers_.at(i).update(err, du, 0);
+      target_extra_joint_torque_(i) = joint_torque_controllers_.at(i).result();
+    }
+    std_msgs::Float32MultiArray msg;
+    for(int i = 0; i < target_extra_joint_torque_.size(); i++) {
+      msg.data.push_back(target_extra_joint_torque_(i));
+    }
+    extra_joint_torque_pub_.publish(msg);
+  }
 }
 
 void WalkController::sendCmd()
@@ -1484,8 +1036,7 @@ void WalkController::sendCmd()
   target_vectoring_force_pub_.publish(target_vectoring_force_msg);
 
   // send joint command
-  if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE ||
-      joint_soft_compliance_) {
+  if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE) {
 
     // joint target angles
     double st = target_joint_angles_.header.stamp.toSec();
@@ -1520,18 +1071,11 @@ void WalkController::sendCmd()
   }
 }
 
-void WalkController::startRaiseTransition()
+void WalkController::startRaiseLeg()
 {
-  raise_transition_ = true;
-  free_leg_force_ratio_ = 0;
-  raise_static_thrust_force_ = static_thrust_force_; // record the thrust force for raise
-  prev_t_ = ros::Time::now().toSec();
-
-  int free_leg_id = spidar_walk_navigator_->getFreeleg();
-  int i = free_leg_id * 4 + 1;
-
+  free_leg_force_ratio_ = 1;
   prior_raise_leg_target_joint_angles_ = target_joint_angles_;
-  ROS_INFO_STREAM("[Spider][Walk][Thrust Control] start raise transition");
+  ROS_INFO_STREAM("[Spider][Walk][Thrust Control] start raise leg");
 }
 
 void WalkController::startLowerLeg()
@@ -1556,11 +1100,8 @@ void WalkController::startContactTransition(int leg_id)
   if (old_quadruped_walk_mode_) {
 
     contact_transition_ = true;
-    contact_transtion_init_ratio_ = free_leg_force_ratio_;
     contact_leg_id_ = leg_id;
     raise_static_thrust_force_ = static_thrust_force_; // record the thrust force for raise
-    raise_static_thrust_force_.segment(6 * contact_leg_id_, 6) *= contact_transtion_init_ratio_;
-
     ROS_INFO_STREAM("[Spider][Walk][Thrust Control][Old Quadruped Mode] start contact transition");
   }
 }
@@ -1581,12 +1122,6 @@ bool WalkController::servoTorqueCtrlCallback(std_srvs::SetBool::Request &req, st
   joint_servo_enable_pub_.publish(servo_enable_msg);
 
   return true;
-}
-
-void WalkController::jointSoftComplianceCallback(const std_msgs::EmptyConstPtr& msg)
-{
-  joint_soft_compliance_ = true;
-  joint_compliance_end_t_ = ros::Time::now().toSec() + 5.0; // 10.0 is a paramter
 }
 
 void WalkController::cfgPidCallback(aerial_robot_control::PidControlConfig &config, uint32_t level, std::vector<int> controller_indices)
@@ -1685,10 +1220,6 @@ void WalkController::reset()
 {
   PoseLinearController::reset();
   prev_navi_target_joint_angles_.resize(0);
-
-  for (int i = 0; i < motor_num_; i++) {
-    fw_i_terms_.push_back(Eigen::Vector3d::Zero());
-  }
 
   int joint_num = robot_model_->getLinkJointNames().size();
   target_extra_joint_torque_ = Eigen::VectorXd::Zero(joint_num);

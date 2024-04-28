@@ -63,7 +63,7 @@ namespace aerial_robot_control
       bool update() override;
       void reset() override;
 
-      void startRaiseTransition();
+      void startRaiseLeg();
       void startLowerLeg();
       void startContactTransition(int leg_id);
 
@@ -77,10 +77,8 @@ namespace aerial_robot_control
       ros::Publisher joint_angle_pub_;
       ros::Publisher joint_torque_pub_;
       ros::Publisher target_vectoring_force_pub_;
-      ros::Publisher link_rot_thrust_force_pub_;
       ros::Publisher extra_joint_torque_pub_;
       ros::Publisher joint_servo_enable_pub_;
-      ros::Subscriber joint_force_compliance_sub_;
       ros::Subscriber joint_no_load_sub_;
       ros::ServiceServer joint_yaw_torque_srv_, joint_pitch_torque_srv_;
 
@@ -113,21 +111,11 @@ namespace aerial_robot_control
       bool pedipulate_mode_;
       bool old_quadruped_walk_mode_;
 
-
-      bool joint_soft_compliance_;
-      double joint_compliance_end_t_;
-
       bool set_init_servo_torque_;
-      bool all_joint_position_control_;
-      bool free_leg_torque_mode_;
-      bool raise_separate_motion_;
-      double joint_error_angle_thresh_;
-      double joint_torque_control_thresh_;
       double joint_static_torque_limit_;
       double raise_joint_static_torque_limit_;
       double pedipulate_joint_static_torque_limit_;
       double servo_max_torque_;
-      double servo_torque_change_rate_;
       double servo_angle_bias_;
       double servo_angle_bias_torque_;
       double z_offset_;
@@ -138,36 +126,18 @@ namespace aerial_robot_control
       double thrust_force_weight_;
       double joint_torque_weight_;
 
-      bool opposite_free_leg_joint_torque_control_mode_;
-      bool raise_leg_large_torque_control_;
-
-      double raise_leg_force_i_gain_;
-      double modify_leg_force_i_gain_;
-      double lower_leg_force_i_gain_;
+      double joint_error_angle_thresh_;
       double contact_leg_force_i_gain_;
-      double lower_leg_force_ratio_thresh_;
-      double modify_leg_force_ratio_thresh_;
-      double modify_leg_force_margin_;
       double free_leg_force_ratio_;
 
-      double raise_leg_burst_p_gain_;
-      double raise_leg_burst_thresh_;
-      double raise_leg_burst_bias_;
-
       Eigen::VectorXd raise_static_thrust_force_;
-      double contact_transtion_init_ratio_;
-      double lower_leg_speed_;
 
       double prev_t_;
       double prev_v_;
       double check_interval_;
 
-      bool raise_transition_;
       bool contact_transition_;
       int contact_leg_id_;
-
-      double link_rot_f_control_i_thresh_;
-      std::vector<Eigen::Vector3d> fw_i_terms_;
 
       Eigen::VectorXd pusedo_baselink_wrench_;
 
@@ -175,13 +145,11 @@ namespace aerial_robot_control
       virtual void sendCmd() override;
 
       bool servoTorqueCtrlCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res, const std::string& name);
-      void jointSoftComplianceCallback(const std_msgs::EmptyConstPtr& msg);
 
       void cfgPidCallback(aerial_robot_control::PidControlConfig &config, uint32_t level, std::vector<int> controller_indices) override;
 
       void calcStaticBalance();
       void jointControl();
-      void jointSoftComplianceControl();
 
       void pedipulateThrustControl();
       void pedipulateSingleArmThrustControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all);

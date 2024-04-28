@@ -834,7 +834,7 @@ void WalkNavigator::raiseLeg(int leg_id)
   lower_leg_flag_ = false;
 
   spidar_robot_model_->setFreeleg(free_leg_id_);
-  walk_controller_->startRaiseTransition();
+  walk_controller_->startRaiseLeg();
 }
 
 void WalkNavigator::lowerLeg()
