@@ -1,5 +1,4 @@
 #include <spidar/navigation/walk_navigation.h>
-#include <spidar/navigation/baselink_motion.h>
 #include <spidar/control/walk_control.h>
 
 using namespace aerial_robot_model;

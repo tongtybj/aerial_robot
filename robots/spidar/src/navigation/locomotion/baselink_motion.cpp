@@ -1,5 +1,5 @@
 #include <spidar/navigation/walk_navigation.h>
-#include <spidar/navigation/baselink_motion.h>
+#include <spidar/navigation/locomotion/baselink_motion.h>
 
 namespace aerial_robot_navigation
 {
