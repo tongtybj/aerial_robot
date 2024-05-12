@@ -216,9 +216,9 @@ target_link_libraries (spidar_controllib ${catkin_LIBRARIES} spidar_robot_model 
 
 
 add_library(spidar_navigation
-  src/navigation/walk_navigation.cpp
-  src/navigation/flight_navigation.cpp
-  src/navigation/locomotion/baselink_motion.cpp)
+  src/navigation/terrestrial/base.cpp
+  src/navigation/terrestrial/quadruped_primitive_walk.cpp
+  src/navigation/flight_navigation.cpp)
 target_link_libraries(spidar_navigation ${catkin_LIBRARIES} ${OsqpEigen_LIBRARIES}) # no need to add spidar_controllib
 
 

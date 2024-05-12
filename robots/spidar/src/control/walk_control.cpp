@@ -61,7 +61,7 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   rosParamInit();
 
   spidar_robot_model_ = boost::dynamic_pointer_cast<::Spider::GroundRobotModel>(robot_model);
-  spidar_walk_navigator_ = boost::dynamic_pointer_cast<aerial_robot_navigation::Spider::WalkNavigator>(navigator);
+  spidar_walk_navigator_ = boost::dynamic_pointer_cast<aerial_robot_navigation::Spider::Terrestrial::Base>(navigator);
   spidar_walk_navigator_->setController(this);
 
   /* initialize the gimbal target angles */

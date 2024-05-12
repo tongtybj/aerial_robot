@@ -37,7 +37,7 @@
 
 #include <aerial_robot_control/control/pose_linear_controller.h>
 #include <spidar/model/ground_robot_model.h>
-#include <spidar/navigation/walk_navigation.h>
+#include <spidar/navigation/terrestrial/base.h>
 #include <spinal/FourAxisCommand.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <spinal/ServoTorqueCmd.h>
@@ -83,7 +83,7 @@ namespace aerial_robot_control
       ros::ServiceServer joint_yaw_torque_srv_, joint_pitch_torque_srv_;
 
       boost::shared_ptr<::Spider::GroundRobotModel> spidar_robot_model_;
-      boost::shared_ptr<aerial_robot_navigation::Spider::WalkNavigator> spidar_walk_navigator_;
+      boost::shared_ptr<aerial_robot_navigation::Spider::Terrestrial::Base> spidar_walk_navigator_;
 
       std::vector<PID> walk_pid_controllers_;
       std::vector<boost::shared_ptr<PidControlDynamicConfig> > walk_pid_reconf_servers_;

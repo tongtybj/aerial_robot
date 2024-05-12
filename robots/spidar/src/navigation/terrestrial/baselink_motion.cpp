@@ -198,3 +198,21 @@ namespace aerial_robot_navigation
 
   };
 };
+void Base::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
+{
+  // WIP: move baselink from ground
+  if (msg->vector.z < -10) {
+    tf::Vector3 delta_pos;
+    tf::vector3MsgToTF(msg->vector, delta_pos);
+    delta_pos.setZ(0);
+    tf::Vector3 target_pos = target_baselink_pos_ + delta_pos;
+    baselink_motion_->set(target_pos);
+    return;
+  }
+
+  tf::Vector3 delta_pos;
+  tf::vector3MsgToTF(msg->vector, delta_pos);
+  target_baselink_pos_ += delta_pos;
+
+  ROS_ERROR("get new target baselink");
+}

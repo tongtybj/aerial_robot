@@ -1,10 +1,10 @@
-#include <spidar/navigation/walk_navigation.h>
+#include <spidar/navigation/terrestrial/base.h>
 #include <spidar/control/walk_control.h>
 
 using namespace aerial_robot_model;
-using namespace aerial_robot_navigation::Spider;
+using namespace aerial_robot_navigation::Spider::Terrestrial;
 
-WalkNavigator::WalkNavigator():
+Base::Base():
   BaseNavigator(),
   joint_index_map_(0),
   target_baselink_pos_(0,0,0),
@@ -17,14 +17,11 @@ WalkNavigator::WalkNavigator():
   free_leg_id_(-1),
   raise_leg_flag_(false),
   lower_leg_flag_(false),
-  raise_converge_(false),
-  walk_flag_(false),
-  walk_leg_id_(-1),
-  leg_motion_phase_(WalkPattern::PHASE0)
+  raise_converge_(false)
 {
 }
 
-void WalkNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
+void Base::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                                  boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
                                  boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator)
 {
@@ -34,36 +31,32 @@ void WalkNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   spidar_robot_model_ = boost::dynamic_pointer_cast<::Spider::GroundRobotModel>(robot_model);
   robot_model_for_nav_ = boost::make_shared<aerial_robot_model::RobotModel>();
 
-  baselink_motion_ = new BaselinkMotion(nh, this);
 
+  target_baselink_pos_sub_ = nh_.subscribe("walk/baselink/traget/pos", 1, &Base::targetBaselinkPosCallback, this);
+  target_baselink_delta_pos_sub_ = nh_.subscribe("walk/baselink/traget/delta_pos", 1, &Base::targetBaselinkDeltaPosCallback, this);
 
-  target_baselink_pos_sub_ = nh_.subscribe("walk/baselink/traget/pos", 1, &WalkNavigator::targetBaselinkPosCallback, this);
-  target_baselink_delta_pos_sub_ = nh_.subscribe("walk/baselink/traget/delta_pos", 1, &WalkNavigator::targetBaselinkDeltaPosCallback, this);
+  raise_leg_sub_ = nh_.subscribe("walk/raise_leg", 1, &Base::raiseLegCallback, this);
+  lower_leg_sub_ = nh_.subscribe("walk/lower_leg", 1, &Base::lowerLegCallback, this);
 
-  raise_leg_sub_ = nh_.subscribe("walk/raise_leg", 1, &WalkNavigator::raiseLegCallback, this);
-  lower_leg_sub_ = nh_.subscribe("walk/lower_leg", 1, &WalkNavigator::lowerLegCallback, this);
-  walk_sub_ = nh_.subscribe("walk/enable", 1, &WalkNavigator::walkCallback, this);
-
-  target_joint_angles_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("debug/nav/target_joint_angles", 1); // for debug
   target_leg_ends_pub_ = nh_.advertise<geometry_msgs::PoseArray>("debug/nav/target_leg_ends", 1); // for debug
 
-  if(walk_simulation_) {
-    simulate_baselink_pose_pub_ = nh_.advertise<nav_msgs::Odometry>("ground_truth", 1);
-    simulate_joint_angles_pub_ = nh_.advertise<sensor_msgs::JointState>("joint_states", 1);
-    simulate_flight_config_sub_ = nh_.subscribe("flight_config_cmd", 1, &WalkNavigator::simulateFlightConfigCallback, this);
-    simulate_flight_config_pub_ = nh_.advertise<std_msgs::UInt8>("flight_config_ack", 1);
+  if(kinematic_simulation_) {
+    sim_baselink_pose_pub_ = nh_.advertise<nav_msgs::Odometry>("ground_truth", 1);
+    sim_joint_angles_pub_ = nh_.advertise<sensor_msgs::JointState>("joint_states", 1);
+    sim_flight_config_sub_ = nh_.subscribe("flight_config_cmd", 1, &Base::simulateFlightConfigCallback, this);
+    sim_flight_config_pub_ = nh_.advertise<std_msgs::UInt8>("flight_config_ack", 1);
 
-    simulated_joint_state_.position.resize(0);
-    simulated_joint_state_.name.resize(0);
+    sim_joint_state_.position.resize(0);
+    sim_joint_state_.name.resize(0);
 
     XmlRpc::XmlRpcValue params;
     nh_.getParam("zeros", params);
     for(auto param: params) {
       // ROS_INFO_STREAM(param.first << ": " << param.second);
-      simulated_joint_state_.name.push_back(param.first);
-      simulated_joint_state_.position.push_back(param.second);
+      sim_joint_state_.name.push_back(param.first);
+      sim_joint_state_.position.push_back(param.second);
     }
-    sensor_msgs::JointState joint_msg = simulated_joint_state_;
+    sensor_msgs::JointState joint_msg = sim_joint_state_;
     joint_msg.header.stamp = ros::Time::now();
     for(int i = 0; i < spidar_robot_model_->getRotorNum(); i++) {
       joint_msg.name.push_back(std::string("gimbal") + std::to_string(i+1) + std::string("_roll"));
@@ -71,259 +64,11 @@ void WalkNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
       joint_msg.position.push_back(0);
       joint_msg.position.push_back(0);
     }
-    simulate_joint_angles_pub_.publish(joint_msg);
+    sim_joint_angles_pub_.publish(joint_msg);
   }
 }
 
-void WalkNavigator::walkPattern()
-{
-  /*
-    simple walking pattern:
-    - Straight line walk along x axis.
-    - Every leg move along x axis with `walk_stride` at each step.
-    - Leg will raise (raise inner joint pitch angle), and also move joint yaw angle at the same time.
-    - Center link also move with `walk_stride`/`leg_num` at each step.
-    - A circle means all leg finish move one time
-   */
-
-  if (!walk_flag_) {
-    return;
-  }
-
-  switch(leg_motion_phase_) {
-  case WalkPattern::PHASE0:
-    {
-      // all legs contact to the ground
-      std::string prefix("[Spider][Walk][Phase0]");
-
-      // start raise leg mode for this leg
-      raiseLeg(walk_leg_id_);
-      if (walk_leg_id_ == 0 || walk_leg_id_ == 3) {
-        // workaround: set larget raise angle for front legs
-        raise_angle_ = raise_angle_orig_ * front_leg_raise_ratio_;
-      }
-
-      // update the foot postion, and thus the joint angles
-      target_leg_ends_.at(walk_leg_id_).p += KDL::Vector(walk_stride_, 0, 0); // along x axis
-
-      // reset the timestamp to check joint convergence
-      converge_timestamp_ = ros::Time::now().toSec();
-
-      // shift to PHASE1
-      ROS_INFO_STREAM(prefix << " shift from PHASE0 to PHASE1 for leg" << walk_leg_id_ + 1);
-      leg_motion_phase_ = WalkPattern::PHASE1;
-
-      break;
-    }
-  case WalkPattern::PHASE1:
-    {
-      // free leg is raising
-      std::string prefix("[Spider][Walk][Phase1]");
-
-      // check the pitch joint of free leg to lower leg
-      int j = 4 * walk_leg_id_;
-      if (!raise_converge_) {
-        // NOTE: do not need to consider the convernge of this joint
-        // converge_timestamp_ = ros::Time::now().toSec();
-
-        ROS_INFO_STREAM_THROTTLE(0.1, prefix << " the angle error of joint" << j/2 + 1 << "_pitch does not converge");
-        break;
-      }
-
-      // check the inside yaw joint of free leg to lower leg
-      double target_angle = target_joint_state_.position.at(j);
-      double current_angle = getCurrentJointAngles().at(j);
-      double err = target_angle - current_angle;
-      if (fabs(err) > move_leg_joint_err_thresh_ ) {
-        // joint angle error too big
-
-        ROS_INFO_STREAM_THROTTLE(0.1, prefix << " the angle error of joint" << j/2 + 1 << "_yaw does not converge, " << err << "(" << move_leg_joint_err_thresh_ << ")");
-
-        // reset the timestamp to check joint convergence
-        converge_timestamp_ = ros::Time::now().toSec();
-
-        break;
-      }
-
-      // check the outside pitch joint of free leg to lower leg
-      target_angle = target_joint_state_.position.at(j + 3);
-      current_angle = getCurrentJointAngles().at(j + 3);
-      err = target_angle - current_angle;
-      //ROS_INFO_STREAM(prefix << " joint" << j/2 + 2 << "_pitch, target angle: " << target_angle << "; current angle: " << current_angle);
-      if (fabs(err) > move_leg_joint_err_thresh_ ) {
-        // joint angle error too big
-
-        ROS_INFO_STREAM_THROTTLE(0.1, prefix << " the angle error of joint" << j/2 + 2 << "_pitch does not converge, " << err << "(" << move_leg_joint_err_thresh_ << ")");
-
-        // reset the timestamp to check joint convergence
-        converge_timestamp_ = ros::Time::now().toSec();
-
-        break;
-      }
-
-      // double t = ros::Time::now().toSec() - converge_timestamp_;
-      // if (t < walk_pattern_converge_du_) {
-      //   // no reach enough convergence time
-      //   ROS_INFO_STREAM_THROTTLE(0.1, prefix << " not reach enough convergence time for joint, start from " << converge_timestamp_  << ", last " << t);
-      //   break;
-      // }
-
-      // reach the target joint yaw to lower leg
-      raise_angle_ = raise_angle_orig_;
-      lowerLeg();
-
-      // reset the timestamp to check joint convergence
-      converge_timestamp_ = ros::Time::now().toSec();
-
-      // shift to PHASE2
-      ROS_INFO_STREAM(prefix << " shift from PHASE1 to PHASE2 for leg" << walk_leg_id_ + 1);
-      leg_motion_phase_ = WalkPattern::PHASE2;
-
-      break;
-    }
-  case WalkPattern::PHASE2:
-    {
-      // free leg is lowering
-      std::string prefix("[Spider][Walk][Phase2]");
-
-      if (lower_leg_flag_) {
-        // still in lowering phase, skip
-        ROS_INFO_STREAM_THROTTLE(0.1, prefix << " still in lowering phase, skip");
-
-        break;
-      }
-
-      if (walk_controller_->getContactTransition()) {
-        // still in contact transition, skip
-        ROS_INFO_STREAM_THROTTLE(0.1, prefix << " finish lowering, but still in ground contact transition, skip");
-
-        break;
-      }
-
-      if (walk_debug_) {
-        if (walk_debug_legs_ == 0) {
-          // only test single leg raise & lower
-
-          // shift to PHASE0
-          ROS_INFO_STREAM(prefix << " debug mode, finish walk");
-          walk_flag_ = false;
-          break;
-        }
-      }
-
-      // move center link
-      walk_move_baselink_ = false;
-      if (walk_leg_id_ == 3) {
-        // WIP: the leg selection.
-        //      move baselink only after leg4 (all front legs are updated)
-        // WIP: forward move
-        double distance = walk_stride_;
-        target_baselink_pos_ += tf::Vector3(distance, 0, 0);
-        walk_move_baselink_ = true;
-      }
-
-      // shift to PHASE3
-      ROS_INFO_STREAM(prefix << " shift from PHASE2 to PHASE3 for leg" << walk_leg_id_ + 1);
-      leg_motion_phase_ = WalkPattern::PHASE3;
-
-      break;
-    }
-  case WalkPattern::PHASE3:
-    {
-      // baselink is move
-      std::string prefix("[Spider][Walk][Phase3]");
-
-      if (walk_move_baselink_) {
-
-        // move center link
-        tf::Vector3 baselink_pos = estimator_->getPos(Frame::BASELINK, estimate_mode_);
-        double err = target_baselink_pos_.x() - baselink_pos.x();
-
-        if (fabs(err) > baselink_converge_thresh_) {
-          // no reach enough convergence position
-          ROS_INFO_STREAM_THROTTLE(0.1, prefix << " no reach enough convergence position, target x: " << target_baselink_pos_.x() << ", current x: " << baselink_pos.x() << ", converge thresh: " << baselink_converge_thresh_);
-
-          // reset the timestamp to check baselink convergence
-          converge_timestamp_ = ros::Time::now().toSec();
-
-          break;
-        }
-
-        double t = ros::Time::now().toSec() - converge_timestamp_;
-        if (t < walk_pattern_converge_du_) {
-          // no reach enough convergence time
-          ROS_INFO_STREAM_THROTTLE(0.1, prefix << " not reach enough convergence time for baselink move, start from" << converge_timestamp_  << ", last " << t);
-          break;
-        }
-      }
-
-      ROS_INFO_STREAM(prefix << " finish move of leg" << walk_leg_id_ + 1 << " in walk cycle of " << walk_cycle_cnt_);
-
-      // reset the target leg ends to further update the target joint angles
-      if (walk_cycle_reset_leg_end_) {
-        reset_leg_ends_flag_ = true;
-      }
-
-      // reset the target baselink to further update the target joint angles
-      if (walk_cycle_reset_baselink_) {
-        reset_baselink_flag_ = true;
-      }
-
-      // instant update to the target joint angle
-      if (walk_simulation_) {
-        spidar_robot_model_->updateRobotModel(target_joint_state_);
-
-        for(int i = 0; i < simulated_joint_state_.position.size(); i++) {
-          std::string name = simulated_joint_state_.name.at(i);
-          auto res = std::find(target_joint_state_.name.begin(), target_joint_state_.name.end(), name);
-          int j = std::distance(target_joint_state_.name.begin(), res);
-          simulated_joint_state_.position.at(i) = target_joint_state_.position.at(j);
-        }
-      }
-
-      // move next leg with following rule:
-      // front-left (0) -> front-right (3) -> back-right (2) -> back-left (1)
-
-      if (walk_debug_) {
-        if ((walk_debug_legs_ == 1 && walk_leg_id_ == 0) ||
-            (walk_debug_legs_ == 2 && walk_leg_id_ == 3) ||
-            (walk_debug_legs_ == 3 && walk_leg_id_ == 2) ||
-            (walk_debug_legs_ == 4 && walk_leg_id_ == 1)) {
-          ROS_INFO_STREAM(prefix << " debug mode, finish walk");
-          walk_flag_ = false;
-          break;
-        }
-      }
-
-      walk_leg_id_ --;
-      if (walk_leg_id_ < 0) walk_leg_id_ += 4;
-
-      // check whether finish one cycle
-      if (walk_leg_id_ == 0) {
-        walk_cycle_cnt_ ++;
-      }
-      if (walk_cycle_cnt_ == walk_total_cycle_) {
-        ROS_INFO_STREAM(prefix << " finish walk with totla cycle of " << walk_total_cycle_);
-        walk_flag_ = false;
-      }
-
-      leg_motion_phase_ = WalkPattern::PHASE0; // back to Phase0 to move next leg.
-
-      break;
-    }
-  default:
-    break;
-  }
-}
-
-void WalkNavigator::resetWalkPattern()
-{
-  walk_leg_id_ = 0;
-  walk_cycle_cnt_ = 0;
-  leg_motion_phase_ = WalkPattern::PHASE0;
-}
-
-void WalkNavigator::update()
+void Base::update()
 {
   if (getNaviState() == aerial_robot_navigation::START_STATE) {
     if(estimator_->getUnhealthLevel() == Sensor::UNHEALTH_LEVEL3){
@@ -340,83 +85,32 @@ void WalkNavigator::update()
     return;
   }
 
-  walkPattern();
-
-  // baselink motion
-  baselink_motion_->update();
-
-  // TODO: add new states for walk/stand.
-  // e.g., idle stand state, joint move state, fee joint end state
-
-  tf::Vector3 baselink_pos = estimator_->getPos(Frame::BASELINK, estimate_mode_);
-  tf::Vector3 baselink_vel = estimator_->getVel(Frame::BASELINK, estimate_mode_);
-  tf::Vector3 baselink_rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
-
-  // target joint angles
-  if (target_joint_state_.name.size() == 0) {
-
-    // initialize the target joint
-    target_joint_state_.name = spidar_robot_model_->getLinkJointNames();
-    target_joint_state_.position.resize(target_joint_state_.name.size());
-
-    // set (initialize) joint index map
-    setJointIndexMap();
-
-    // set target joint angles
-    target_joint_state_.position = getCurrentJointAngles();
+  if(!checkKinematics()) {
+    return;
   }
 
-  auto current_joint_angles = getCurrentJointAngles();
-
-  // target link rotation
-  if (target_link_rots_.size() == 0) {
-    target_link_rots_.resize(spidar_robot_model_->getRotorNum());
+  if(!inverseKinematics()) {
+    return;
   }
 
-  // get current leg position w.r.t. world frame
-  const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
-  if(seg_tf_map.size() == 0) return;
-  tf::Transform tf_w_baselink(estimator_->getOrientation(Frame::BASELINK, estimate_mode_), baselink_pos);
-  KDL::Frame fw_baselink;
-  tf::transformTFToKDL(tf_w_baselink, fw_baselink);
+  // update robot model for navigation
+  updateRobotModelForNav();
 
-  std::vector<KDL::Frame> curr_leg_ends;
+  // additional action for free leg
+  freeLegAction();
+
+  // action for failsafe
+  failSafeAction();
+
+  // only simulate joint motions
+  kinematicSimulate();
+}
+
+// calculate target joint angle from target baselink based on IK
+bool Base::inverseKinematics()
+{
   const int leg_num = spidar_robot_model_->getRotorNum() / 2;
-  KDL::Frame fr_baselink = seg_tf_map.at(spidar_robot_model_->getBaselinkName());
-  for (int i = 0; i < leg_num; i++) {
-    std::string frame_name = std::string("link") + std::to_string(2 * (i + 1)) + std::string("_foot");
-    KDL::Frame fr_end = seg_tf_map.at(frame_name); // w.r.t. root link
-    KDL::Frame fb_end = fr_baselink.Inverse() * fr_end; // w.r.t. baselink
-    KDL::Frame fw_end = fw_baselink * fb_end; // w.r.t. world frame
-    curr_leg_ends.push_back(fw_end);
-  }
-
-  // initialize targets
-  if (target_leg_ends_.size() == 0) {
-    reset_baselink_flag_ = true;
-    reset_leg_ends_flag_ = true;
-  }
-
-  // reset targets
-  if (getNaviState() == aerial_robot_navigation::START_STATE) {
-    ROS_INFO("[Walk][Navigator] set initial position and joint angles as target ones");
-
-    reset_baselink_flag_ = true;
-    reset_leg_ends_flag_ = true;
-  }
-
-  // update target baselink pose
-  if (reset_baselink_flag_) {
-    resetTargetBaselink(baselink_pos, baselink_rpy);
-    reset_baselink_flag_ = false;
-  }
-
-  // update target leg end frame (position)
-  if (reset_leg_ends_flag_) {
-    resetTargetLegEnds(curr_leg_ends);
-    reset_leg_ends_flag_ = false;
-  }
-
+  const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
 
   // calculate the target joint angles from baselink and end position
   KDL::Frame fw_target_baselink;
@@ -432,6 +126,8 @@ void WalkNavigator::update()
 
   const auto& names = target_joint_state_.name;
   auto& target_angles = target_joint_state_.position;
+  KDL::Frame fr_baselink = seg_tf_map.at(spidar_robot_model_->getBaselinkName());
+
   std::stringstream ss;
 
   for (int i = 0; i < leg_num; i++) {
@@ -483,7 +179,7 @@ void WalkNavigator::update()
       ROS_ERROR_STREAM("[Spider][Navigator] leg " << i + 1 << ": b_dd exceeds the valid scope: " << b_dd
                        << "; end pos: " << aerial_robot_model::kdlToEigen(fw_end.p).transpose()
                        << "; baselink pos: " << aerial_robot_model::kdlToEigen(fw_target_baselink.p).transpose());
-      continue;
+      return false;
     }
 
     double phi = atan2(y_e, x_e);
@@ -498,25 +194,24 @@ void WalkNavigator::update()
     double angle_limit = 1.74;
     if(fabs(angle) > angle_limit ) {
       ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
-      continue;
+      return false;
     }
 
     angle_limit = 1.7;
     if(fabs(theta1) > angle_limit ) {
       ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_pitch exceeds the valid range, angle is " << theta1);
-      continue;
+      return false;
     }
 
     if(fabs(theta2) > angle_limit) {
       ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 2 << "_pitch exceeds the valid range, angle is " << theta2);
-      continue;
+      return false;
     }
-
 
     // set the target joint angles
     if(names.at(4 * i) != std::string("joint") + std::to_string(2*i+1) + std::string("_yaw")) {
       ROS_ERROR_STREAM("[Spider][Navigator] name order is different. ID" << i << " name is " << names.at(4 * i));
-      continue;
+      return false;
     }
 
     // special process for raising leg
@@ -528,6 +223,7 @@ void WalkNavigator::update()
 
     target_angles.at(4 * i) = angle;
     target_angles.at(4 * i + 1) = theta1;
+    target_angles.at(4 * i + 2) = 0;
     target_angles.at(4 * i + 3) = theta2;
 
     ss << "(" << target_angles.at(4 * i) << ", " << target_angles.at(4 * i + 1) << ", "
@@ -535,15 +231,33 @@ void WalkNavigator::update()
   }
   ROS_DEBUG_STREAM_THROTTLE(1.0, "[Spider][Walk][Navigator] analytical joint angles from leg end and baselink: " << ss.str());
 
-  // get the target link orientation
+  return true;
+}
+
+void Base::updateRobotModelForNav()
+{
+  // update whole joint angles
   auto joint_state = spidar_robot_model_->getGimbalProcessedJoint<sensor_msgs::JointState>();
   for(int i = 0; i < joint_index_map_.size(); i++) {
     auto id = joint_index_map_.at(i);
-    joint_state.position.at(id) = target_angles.at(i);
+    joint_state.position.at(id) = target_joint_state_.position.at(i);
   }
 
+  // update robot model
   robot_model_for_nav_->updateRobotModel(joint_state);
   const auto& target_seg_tf_map = robot_model_for_nav_->getSegmentsTf();
+
+  const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
+  KDL::Frame fr_baselink = seg_tf_map.at(spidar_robot_model_->getBaselinkName());
+
+  KDL::Frame fw_target_baselink;
+  fw_target_baselink.M
+    = KDL::Rotation::EulerZYX(target_baselink_rpy_.z(),
+                              target_baselink_rpy_.y(),
+                              target_baselink_rpy_.x());
+
+
+  // update the target rotation of all links
   for(int i = 0; i < spidar_robot_model_->getRotorNum(); i++) {
     std::string link_name = std::string("link") + std::to_string(i+1);
     KDL::Frame fr_target_link = target_seg_tf_map.at(link_name);
@@ -552,16 +266,6 @@ void WalkNavigator::update()
     target_link_rots_.at(i) = fw_target_link.M;
   }
 
-  freeLegAction();
-
-  failSafeAction();
-
-  // publish for debug
-  std_msgs::Float32MultiArray msg;
-  for(int i = 0; i < target_angles.size(); i++) {
-    msg.data.push_back(target_angles.at(i));
-  }
-  target_joint_angles_pub_.publish(msg);
 
   geometry_msgs::PoseArray poses_msg;
   poses_msg.header.stamp = ros::Time::now();
@@ -571,21 +275,14 @@ void WalkNavigator::update()
     poses_msg.poses.push_back(pose);
   }
   target_leg_ends_pub_.publish(poses_msg);
-
-  // simulate walk pattern
-  if(walk_simulation_) {
-    simulate();
-  }
-
-  // ROS_INFO_THROTTLE(0.1, "leg1 pos: (%f, %f, %f), leg2 pos: (%f, %f, %f), leg3 pos: (%f, %f, %f), leg4 pos: (%f, %f, %f)",
-  //                   target_leg_ends_.at(0).p.x(), target_leg_ends_.at(0).p.y(), target_leg_ends_.at(0).p.z(),
-  //                   target_leg_ends_.at(1).p.x(), target_leg_ends_.at(1).p.y(), target_leg_ends_.at(1).p.z(),
-  //                   target_leg_ends_.at(2).p.x(), target_leg_ends_.at(2).p.y(), target_leg_ends_.at(2).p.z(),
-  //                   target_leg_ends_.at(3).p.x(), target_leg_ends_.at(3).p.y(), target_leg_ends_.at(3).p.z());
 }
 
-void WalkNavigator::simulate()
+void Base::kinematicSimulate()
 {
+  if(!kinematic_simulation_) {
+    return;
+  }
+
   // init baselink
   if (target_leg_ends_.at(0).p.z() < 0) {
     // set the link end conntacting the ground
@@ -604,19 +301,19 @@ void WalkNavigator::simulate()
     = tf::createQuaternionMsgFromRollPitchYaw(target_baselink_rpy_.x(),
                                               target_baselink_rpy_.y(),
                                               target_baselink_rpy_.z());
-  simulate_baselink_pose_pub_.publish(odom_msg);
+  sim_baselink_pose_pub_.publish(odom_msg);
 
   // joint states
-  double r = simulated_joint_lpf_rate_;
-  for(int i = 0; i < simulated_joint_state_.position.size(); i++) {
-    std::string name = simulated_joint_state_.name.at(i);
+  double r = sim_joint_lpf_rate_;
+  for(int i = 0; i < sim_joint_state_.position.size(); i++) {
+    std::string name = sim_joint_state_.name.at(i);
     auto res = std::find(target_joint_state_.name.begin(), target_joint_state_.name.end(), name);
     int j = std::distance(target_joint_state_.name.begin(), res);
     double angle = target_joint_state_.position.at(j);
-    simulated_joint_state_.position.at(i) =
-      (1 - r) * simulated_joint_state_.position.at(i) + r * angle;
+    sim_joint_state_.position.at(i) =
+      (1 - r) * sim_joint_state_.position.at(i) + r * angle;
   }
-  sensor_msgs::JointState joint_msg = simulated_joint_state_;
+  sensor_msgs::JointState joint_msg = sim_joint_state_;
   joint_msg.header.stamp = ros::Time::now();
   for(int i = 0; i < spidar_robot_model_->getRotorNum(); i++) {
     joint_msg.name.push_back(std::string("gimbal") + std::to_string(i+1) + std::string("_roll"));
@@ -625,10 +322,10 @@ void WalkNavigator::simulate()
     joint_msg.position.push_back(0);
   }
 
-  simulate_joint_angles_pub_.publish(joint_msg);
+  sim_joint_angles_pub_.publish(joint_msg);
 }
 
-void WalkNavigator::freeLegAction()
+void Base::freeLegAction()
 {
   if (free_leg_id_ == -1) return;
 
@@ -718,8 +415,7 @@ void WalkNavigator::freeLegAction()
   }
 }
 
-
-void WalkNavigator::failSafeAction()
+void Base::failSafeAction()
 {
   // baselink rotation
   tf::Matrix3x3 rot = estimator_->getOrientation(Frame::BASELINK, estimate_mode_);
@@ -753,19 +449,80 @@ void WalkNavigator::failSafeAction()
   }
 }
 
-void WalkNavigator::resetTargetBaselink(tf::Vector3 pos, tf::Vector3 rpy)
+bool Base::checkKinematics()
+{
+  // get current leg position w.r.t. world frame
+  std::vector<KDL::Frame> curr_leg_ends;
+  if(!getCurrentLegEndsPos(curr_leg_ends)) {
+    return false;
+  }
+
+  // target joint angles
+  if (target_joint_state_.name.size() == 0) {
+
+    // initialize the target joint
+    target_joint_state_.name = spidar_robot_model_->getLinkJointNames();
+    target_joint_state_.position.resize(target_joint_state_.name.size());
+
+    // set (initialize) joint index map
+    setJointIndexMap();
+
+    // set target joint angles
+    target_joint_state_.position = getCurrentJointAngles();
+  }
+
+  auto current_joint_angles = getCurrentJointAngles();
+
+  // target link rotation
+  if (target_link_rots_.size() == 0) {
+    target_link_rots_.resize(spidar_robot_model_->getRotorNum());
+  }
+
+  // initialize targets
+  if (target_leg_ends_.size() == 0) {
+    reset_baselink_flag_ = true;
+    reset_leg_ends_flag_ = true;
+  }
+
+  // reset targets
+  if (getNaviState() == aerial_robot_navigation::START_STATE) {
+    ROS_INFO("[Walk][Navigator] set initial position and joint angles as target ones");
+
+    reset_baselink_flag_ = true;
+    reset_leg_ends_flag_ = true;
+  }
+
+  // update target baselink pose
+  if (reset_baselink_flag_) {
+    tf::Vector3 baselink_pos = estimator_->getPos(Frame::BASELINK, estimate_mode_);
+    tf::Vector3 baselink_rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
+    resetTargetBaselink(baselink_pos, baselink_rpy);
+
+    reset_baselink_flag_ = false;
+  }
+
+  // update target leg end frame (position)
+  if (reset_leg_ends_flag_) {
+    resetTargetLegEnds(curr_leg_ends);
+    reset_leg_ends_flag_ = false;
+  }
+
+  return true;
+}
+
+void Base::resetTargetBaselink(tf::Vector3 pos, tf::Vector3 rpy)
 {
   target_baselink_pos_ = pos;
   target_baselink_rpy_ = rpy;
 }
 
-void WalkNavigator::resetTargetLegEnds(std::vector<KDL::Frame> frames)
+void Base::resetTargetLegEnds(std::vector<KDL::Frame> frames)
 {
   target_leg_ends_ = frames;
 }
 
 
-void WalkNavigator::setJointIndexMap()
+void Base::setJointIndexMap()
 {
   const auto joint_state = spidar_robot_model_->getGimbalProcessedJoint<sensor_msgs::JointState>();
   const auto& search_v = joint_state.name;
@@ -787,12 +544,13 @@ void WalkNavigator::setJointIndexMap()
   }
 }
 
-tf::Vector3 WalkNavigator::getCurrentBaselinkPos()
+
+tf::Vector3 Base::getCurrentBaselinkPos()
 {
   return estimator_->getPos(Frame::BASELINK, estimate_mode_);
 }
 
-std::vector<double> WalkNavigator::getCurrentJointAngles()
+std::vector<double> Base::getCurrentJointAngles()
 {
   const auto joint_state = spidar_robot_model_->getGimbalProcessedJoint<sensor_msgs::JointState>();
   std::vector<double> angles(0);
@@ -803,8 +561,35 @@ std::vector<double> WalkNavigator::getCurrentJointAngles()
   return angles;
 }
 
+bool Base::getCurrentLegEndsPos(std::vector<KDL::Frame>& leg_ends_pos)
+{
+  const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
+  if(seg_tf_map.size() == 0) return false;
 
-void WalkNavigator::halt()
+
+  tf::Transform tf_w_baselink(estimator_->getOrientation(Frame::BASELINK, estimate_mode_),
+                              estimator_->getPos(Frame::BASELINK, estimate_mode_));
+  KDL::Frame fw_baselink;
+  tf::transformTFToKDL(tf_w_baselink, fw_baselink);
+
+  std::vector<KDL::Frame> curr_leg_ends;
+  const int leg_num = spidar_robot_model_->getRotorNum() / 2;
+  KDL::Frame fr_baselink = seg_tf_map.at(spidar_robot_model_->getBaselinkName());
+
+  // get current leg position w.r.t. world frame
+  for (int i = 0; i < leg_num; i++) {
+    std::string frame_name = std::string("link") + std::to_string(2 * (i + 1)) + std::string("_foot");
+    KDL::Frame fr_end = seg_tf_map.at(frame_name); // w.r.t. root link
+    KDL::Frame fb_end = fr_baselink.Inverse() * fr_end; // w.r.t. baselink
+    KDL::Frame fw_end = fw_baselink * fb_end; // w.r.t. world frame
+    leg_ends_pos.push_back(fw_end);
+  }
+
+  return true;
+}
+
+
+void Base::halt()
 {
   ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joints/torque_enable");
   std_srvs::SetBool srv;
@@ -824,7 +609,7 @@ void WalkNavigator::halt()
 }
 
 
-void WalkNavigator::raiseLeg(int leg_id)
+void Base::raiseLeg(int leg_id)
 {
   free_leg_id_ = leg_id;
 
@@ -836,7 +621,7 @@ void WalkNavigator::raiseLeg(int leg_id)
   walk_controller_->startRaiseLeg();
 }
 
-void WalkNavigator::lowerLeg()
+void Base::lowerLeg()
 {
   lower_leg_flag_ = true;
   raise_leg_flag_ = false;
@@ -846,7 +631,7 @@ void WalkNavigator::lowerLeg()
   resetContactStatus(); // reset contact variables
 }
 
-void WalkNavigator::contactLeg()
+void Base::contactLeg()
 {
   lower_leg_flag_ = false;
   raise_leg_flag_ = false;
@@ -856,7 +641,7 @@ void WalkNavigator::contactLeg()
   free_leg_id_ = -1;
 }
 
-void WalkNavigator::resetContactStatus()
+void Base::resetContactStatus()
 {
   contact_check_prev_joint_angles_ = getCurrentJointAngles();
   contact_check_start_t_ = ros::Time::now().toSec();
@@ -864,40 +649,26 @@ void WalkNavigator::resetContactStatus()
 }
 
 
-void WalkNavigator::rosParamInit()
+void Base::rosParamInit()
 {
   BaseNavigator::rosParamInit();
 
-
   ros::NodeHandle nh_walk(nh_, "navigation/walk");
   getParam<double>(nh_walk, "raise_angle", raise_angle_, 0.2);
-  raise_angle_orig_ = raise_angle_;
   getParam<double>(nh_walk, "lower_touchdown_thresh", lower_touchdown_thresh_, 0.05);
   getParam<double>(nh_walk, "raise_converge_thresh", raise_converge_thresh_, 0.05);
   getParam<double>(nh_walk, "constant_angle_thresh", constant_angle_thresh_, 0.02);
   getParam<double>(nh_walk, "check_interval", check_interval_, 0.1);
   getParam<double>(nh_walk, "converge_time_thresh", converge_time_thresh_, 0.5);
-  getParam<bool>(nh_walk, "simulation", walk_simulation_, false);
-  getParam<double>(nh_walk, "simulated_joint_lpf_rate", simulated_joint_lpf_rate_, 0.5);
-
-  ros::NodeHandle nh_walk_pattern(nh_walk, "pattern");
-  getParam<int>(nh_walk_pattern, "total_cycle", walk_total_cycle_, 1);
-  getParam<double>(nh_walk_pattern, "stride", walk_stride_, 0.2);
-  getParam<double>(nh_walk_pattern, "move_leg_joint_err_thresh", move_leg_joint_err_thresh_, 0.05);
-  getParam<double>(nh_walk_pattern, "baselink_converge_thresh", baselink_converge_thresh_, 0.05);
-  getParam<double>(nh_walk_pattern, "front_leg_raise_ratio", front_leg_raise_ratio_, 1.0);
-  getParam<double>(nh_walk_pattern, "converge_du", walk_pattern_converge_du_, 0.5);
-  getParam<bool>(nh_walk_pattern, "reset_leg_end", walk_cycle_reset_leg_end_, true);
-  getParam<bool>(nh_walk_pattern, "reset_baselink", walk_cycle_reset_baselink_, false);
-  getParam<bool>(nh_walk_pattern, "debug", walk_debug_, false);
-  getParam<int>(nh_walk_pattern, "debug_legs", walk_debug_legs_, 0);
+  getParam<bool>(nh_walk, "kinematic_simulation", kinematic_simulation_, false);
+  getParam<double>(nh_walk, "sim_joint_lpf_rate", sim_joint_lpf_rate_, 0.5);
 
   ros::NodeHandle nh_failsafe(nh_walk, "failsafe");
   getParam<double>(nh_failsafe, "baselink_rot_thresh", baselink_rot_thresh_, 0.2);
   getParam<double>(nh_failsafe, "opposite_raise_leg_thresh", opposite_raise_leg_thresh_, 0.1);
 
 
-  if (walk_simulation_) {
+  if (kinematic_simulation_) {
     // WIP: reset the servo angle bias for simulation
     ros::NodeHandle nh_control(nh_, "controller/walk");
     nh_control.setParam("servo_angle_bias", 0);
@@ -905,23 +676,13 @@ void WalkNavigator::rosParamInit()
 
 }
 
-void WalkNavigator::targetBaselinkPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
+void Base::targetBaselinkPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
 {
   tf::vector3MsgToTF(msg->vector, target_baselink_pos_);
 }
 
-void WalkNavigator::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
+void Base::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
 {
-  // WIP: move baselink from ground
-  if (msg->vector.z < -10) {
-    tf::Vector3 delta_pos;
-    tf::vector3MsgToTF(msg->vector, delta_pos);
-    delta_pos.setZ(0);
-    tf::Vector3 target_pos = target_baselink_pos_ + delta_pos;
-    baselink_motion_->set(target_pos);
-    return;
-  }
-
   tf::Vector3 delta_pos;
   tf::vector3MsgToTF(msg->vector, delta_pos);
   target_baselink_pos_ += delta_pos;
@@ -929,54 +690,39 @@ void WalkNavigator::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3S
   ROS_ERROR("get new target baselink");
 }
 
-void WalkNavigator::raiseLegCallback(const std_msgs::UInt8ConstPtr& msg)
+void Base::raiseLegCallback(const std_msgs::UInt8ConstPtr& msg)
 {
   raiseLeg(msg->data);
 }
 
-void WalkNavigator::lowerLegCallback(const std_msgs::EmptyConstPtr& msg)
+void Base::lowerLegCallback(const std_msgs::EmptyConstPtr& msg)
 {
   lowerLeg();
 }
 
-void WalkNavigator::walkCallback(const std_msgs::BoolConstPtr& msg)
-{
-  resetWalkPattern();
-  walk_flag_ = msg->data;
-
-  if (!walk_flag_) {
-    // abort process here
-
-    if (raise_leg_flag_) {
-      ROS_WARN_STREAM("[Spider][Walk][Navigation] instantly lower the raised leg" << free_leg_id_ + 1 << " during the walk pattern");
-      lowerLeg();
-    }
-  }
-}
-
-void WalkNavigator::simulateFlightConfigCallback(const spinal::FlightConfigCmdConstPtr& msg)
+void Base::simulateFlightConfigCallback(const spinal::FlightConfigCmdConstPtr& msg)
 {
   std_msgs::UInt8 ack_msg;
   switch(msg->cmd)
     {
     case spinal::FlightConfigCmd::ARM_ON_CMD:
       ack_msg.data = spinal::FlightConfigCmd::ARM_ON_CMD;
-      simulate_flight_config_pub_.publish(ack_msg);
+      sim_flight_config_pub_.publish(ack_msg);
       break;
     case spinal::FlightConfigCmd::ARM_OFF_CMD:
       ack_msg.data = spinal::FlightConfigCmd::ARM_OFF_CMD;
-      simulate_flight_config_pub_.publish(ack_msg);
+      sim_flight_config_pub_.publish(ack_msg);
       break;
     case spinal::FlightConfigCmd::FORCE_LANDING_CMD:
       ack_msg.data = spinal::FlightConfigCmd::FORCE_LANDING_CMD;
-      simulate_flight_config_pub_.publish(ack_msg);
+      sim_flight_config_pub_.publish(ack_msg);
       break;
     default:
       break;
     }
 }
 
-void WalkNavigator::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
+void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 {
   sensor_msgs::Joy joy_cmd;
   if(joy_msg->axes.size() == PS3_AXES && joy_msg->buttons.size() == PS3_BUTTONS) {
@@ -1093,36 +839,7 @@ void WalkNavigator::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
   }
 
 
-  if(joy_cmd.buttons[PS3_BUTTON_REAR_LEFT_2] == 1) {
-    /* walk test */
-
-    if(joy_cmd.buttons[PS3_BUTTON_CROSS_UP] == 1) {
-      if (!walk_flag_) {
-        walk_flag_ = true;
-        resetWalkPattern();
-        ROS_INFO("[Spider][Walk][Navigation][Joy] walk pattern start");
-      }
-      return;
-    }
-
-    if(joy_cmd.buttons[PS3_BUTTON_CROSS_DOWN] == 1) {
-
-      // abort process here
-
-      if (walk_flag_) {
-        walk_flag_ = false;
-        resetWalkPattern();
-        ROS_INFO("[Spider][Walk][Navigation][Joy] walk pattern abort");
-
-        if (raise_leg_flag_) {
-          ROS_WARN_STREAM("[Spider][Walk][Navigation][Joy] instantly lower the raised leg"
-                          << free_leg_id_ + 1 << " during the walk pattern");
-          lowerLeg();
-        }
-      }
-      return;
-    }
-  } else if (joy_cmd.buttons[PS3_BUTTON_REAR_LEFT_1] == 1) {
+  if (joy_cmd.buttons[PS3_BUTTON_REAR_LEFT_1] == 1) {
 
     if (joy_cmd.buttons[PS3_BUTTON_CROSS_UP] == 1) {
       if (prev_joy_cmd.buttons[PS3_BUTTON_CROSS_UP] == 1) {
@@ -1239,4 +956,4 @@ void WalkNavigator::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(aerial_robot_navigation::Spider::WalkNavigator, aerial_robot_navigation::BaseNavigator);
+PLUGINLIB_EXPORT_CLASS(aerial_robot_navigation::Spider::Terrestrial::Base, aerial_robot_navigation::BaseNavigator);
