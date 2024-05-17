@@ -35,60 +35,69 @@
 
 #pragma once
 
-#include <ros/ros.h>
+#include <spidar/navigation/terrestrial/base.h>
 
 namespace aerial_robot_navigation
 {
   namespace Spider
   {
-    class WalkNavigator;
-
-    class BaselinkMotion
+    namespace Terrestrial
     {
-      enum
-        {
-          PHASE0, // idle
-          PHASE1, // raise
-          PHASE2, // horizon move
-          PHASE3, // descend
-          PHASE4, // servo off
-        };
+      class BellyCrawl : public Base
+      {
+        enum
+          {
+           PHASE0, // idle
+           PHASE1, // raise
+           PHASE2, // horizon move
+           PHASE3, // descend
+           PHASE4, // servo off
+          };
 
-    public:
-      BaselinkMotion() {};
-      BaselinkMotion(ros::NodeHandle nh, WalkNavigator* navigator);
-      ~BaselinkMotion(){}
+      public:
+        BellyCrawl();
+        ~BellyCrawl(){}
 
-      void stop();
-      void set(tf::Transform pose);
-      void set(tf::Vector3 pos, double yaw = 0);
-      void update();
-      void reset();
-      bool getMoveFlag() const;
+        void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
+                        boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
+                        boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator) override;
 
-    private:
-      ros::NodeHandle nh_, nhp_;
-      WalkNavigator* navigator_;
+        void update() override;
 
-      uint8_t phase_;
-      bool move_flag_;
-      bool preempt_flag_;
+        void setDeltaPos(tf::Vector3 delta_pos);
+        void setPose(tf::Transform pose);
+        void setPose(tf::Vector3 pos, double yaw = 0);
+        void reset();
 
-      tf::Vector3 target_pos_;
-      tf::Vector3 init_pos_;
-      tf::Vector3 prev_pos_;
-      double target_yaw_;
-      double prev_t_;
-      double servo_switch_t_;
+      private:
 
-      // param
-      double raise_height_;
-      double raise_thresh_;
-      double move_thresh_;
-      double descend_thresh_;
-      double loop_duration_;
-      double servo_switch_duration_;
+        ros::Subscriber move_sub_;
 
+        uint8_t phase_;
+        bool move_flag_;
+
+        tf::Vector3 target_pos_;
+        tf::Vector3 init_pos_;
+        tf::Vector3 prev_pos_;
+        double target_yaw_;
+        double prev_t_;
+        double servo_switch_t_;
+
+        // param
+        double raise_height_;
+        double raise_thresh_;
+        double move_thresh_;
+        double descend_thresh_;
+        double loop_duration_;
+        double servo_switch_duration_;
+
+        void stateMachine();
+
+        void rosParamInit() override;
+        void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg) override;
+        void moveCallback(const geometry_msgs::Vector3StampedConstPtr& msg);
+
+      };
     };
   };
 };
