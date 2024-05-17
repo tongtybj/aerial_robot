@@ -43,15 +43,14 @@ namespace aerial_robot_navigation
   {
     namespace Terrestrial
     {
+
       class BellyCrawl : public Base
       {
+
         enum
           {
-           PHASE0, // idle
-           PHASE1, // raise
-           PHASE2, // horizon move
-           PHASE3, // descend
-           PHASE4, // servo off
+           PHASE0, // limb motion
+           PHASE1, // belly motion
           };
 
       public:
@@ -73,25 +72,80 @@ namespace aerial_robot_navigation
 
         ros::Subscriber move_sub_;
 
-        uint8_t phase_;
-        bool move_flag_;
-
+        tf::Vector3 final_target_pos_;
         tf::Vector3 target_pos_;
         tf::Vector3 init_pos_;
         tf::Vector3 prev_pos_;
+        double final_target_yaw_;
         double target_yaw_;
-        double prev_t_;
-        double servo_switch_t_;
+
+        int phase_;
+        bool move_flag_;
 
         // param
-        double raise_height_;
-        double raise_thresh_;
-        double move_thresh_;
-        double descend_thresh_;
-        double loop_duration_;
-        double servo_switch_duration_;
+        double stride_;
+        bool cycle_reset_leg_end_;
+        bool cycle_reset_baselink_;
+        bool belly_debug_;
+        bool limb_debug_;
+
+        // limb move
+        struct Limb {
+          enum
+            {
+             PHASE0, // idle
+             PHASE1, // raise
+             PHASE2, // horizon move
+             PHASE3, // descend
+             PHASE4, // servo off
+            };
+
+          uint8_t phase_;
+
+          double prev_t_;
+          double servo_switch_t_;
+
+          // param
+          double loop_duration_;
+          double servo_switch_duration_;
+          double joint_err_thresh_;
+        };
+
+        Limb limb_;
+
+        // belly move
+        struct Belly {
+          enum
+            {
+             PHASE0, // idle
+             PHASE1, // raise
+             PHASE2, // horizon move
+             PHASE3, // descend
+             PHASE4, // servo off
+            };
+
+          uint8_t phase_;
+
+          double prev_t_;
+          double servo_switch_t_;
+
+          double raise_height_;
+          double raise_thresh_;
+          double move_thresh_;
+          double descend_thresh_;
+          double loop_duration_;
+          double servo_switch_duration_;
+
+        };
+
+        Belly belly_;
+
 
         void stateMachine();
+        void limbSubStateMachine();
+        void bellySubStateMachine();
+
+        void iterativeUpdateTargetPos();
 
         void rosParamInit() override;
         void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg) override;
