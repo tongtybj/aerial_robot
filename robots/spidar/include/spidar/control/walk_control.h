@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include <aerial_robot_control/control/pose_linear_controller.h>
+#include <aerial_robot_control/control/base/pose_linear_controller.h>
 #include <spidar/model/ground_robot_model.h>
 #include <spidar/navigation/terrestrial/base.h>
 #include <spinal/FourAxisCommand.h>
@@ -146,7 +146,7 @@ namespace aerial_robot_control
 
       bool servoTorqueCtrlCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res, const std::string& name);
 
-      void cfgPidCallback(aerial_robot_control::PidControlConfig &config, uint32_t level, std::vector<int> controller_indices) override;
+      void cfgPidCallback(aerial_robot_control::PIDConfig &config, uint32_t level, std::vector<int> controller_indices) override;
 
       void calcStaticBalance();
       void jointControl();

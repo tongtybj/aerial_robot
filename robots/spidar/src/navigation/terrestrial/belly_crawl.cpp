@@ -15,11 +15,12 @@ BellyCrawl::BellyCrawl()
 
 
 void BellyCrawl::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                                        boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
-                                        boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator)
+                            boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
+                            boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
+                            double loop_du)
 {
   /* initialize with the super class */
-  Base::initialize(nh, nhp, robot_model, estimator);
+  Base::initialize(nh, nhp, robot_model, estimator, loop_du);
 
   move_sub_ = nh_.subscribe("walk/belly_crawl/traget/delta_pos", 1, &BellyCrawl::moveCallback, this);
 

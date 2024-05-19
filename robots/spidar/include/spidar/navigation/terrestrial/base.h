@@ -67,7 +67,8 @@ namespace aerial_robot_navigation
 
         virtual void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                                 boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
-                                boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator) override;
+                                boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
+                                double loop_du) override;
 
         virtual void update() override;
 

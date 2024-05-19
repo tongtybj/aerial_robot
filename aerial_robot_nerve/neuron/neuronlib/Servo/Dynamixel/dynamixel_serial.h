@@ -311,6 +311,7 @@ private:
 class ServoData {
 public:
 	ServoData(){}
+
 	ServoData(uint8_t id):
           id_(id),
           goal_current_(0),
@@ -352,7 +353,7 @@ public:
 	bool send_goal_position_;
 	bool first_get_pos_flag_;
 
-	int32_t getNewHomingOffset() const {return calib_value_ + homing_offset_ - present_position_;}
+	void updateHomingOffset() { homing_offset_ = calib_value_ - present_position_;}
 	int32_t getPresentPosition() const {return present_position_;}
 	void setGoalPosition(int32_t goal_position) {goal_position_ = goal_position;}
   	int32_t getInternalGoalPosition() const {return resolution_ratio_ * goal_position_ - internal_offset_;}
@@ -373,6 +374,7 @@ public:
   void reboot(uint8_t servo_index);
   void setTorque(uint8_t servo_index, bool torque_enable);
   void setHomingOffset(uint8_t servo_index);
+  void setRoundOffset(uint8_t servo_index, int32_t ref_value);
   void setPositionGains(uint8_t servo_index);
   void setProfileVelocity(uint8_t servo_index);
   void setCurrentLimit(uint8_t servo_index);

@@ -22,11 +22,12 @@ Base::Base():
 }
 
 void Base::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                                 boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
-                                 boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator)
+                      boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
+                      boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
+                      double loop_du)
 {
   /* initialize the flight control */
-  BaseNavigator::initialize(nh, nhp, robot_model, estimator);
+  BaseNavigator::initialize(nh, nhp, robot_model, estimator, loop_du);
 
   spidar_robot_model_ = boost::dynamic_pointer_cast<::Spider::GroundRobotModel>(robot_model);
   robot_model_for_nav_ = boost::make_shared<aerial_robot_model::RobotModel>();

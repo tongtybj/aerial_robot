@@ -33,7 +33,7 @@ rosdep update --include-eol-distros
 # Install source code
 mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws
-ln -sf ${CI_SOURCE_PATH} src/${REPOSITORY_NAME}
+cp -r ${CI_SOURCE_PATH} src/${REPOSITORY_NAME} # copy the whole contents instead of create symbolic link
 wstool init src
 wstool merge -t src src/${REPOSITORY_NAME}/aerial_robot_${ROS_DISTRO}.rosinstall
 wstool update -t src
@@ -57,6 +57,16 @@ if [ ${ROS_DISTRO} = 'kinetic' ]; then
     wget https://raw.githubusercontent.com/osrf/gazebo_models/master/ground_plane/model-1_4.sdf -P ${path}
     wget https://raw.githubusercontent.com/osrf/gazebo_models/master/ground_plane/model.sdf -P ${path}
     wget https://raw.githubusercontent.com/osrf/gazebo_models/master/ground_plane/model.config -P ${path}
+fi
+
+if [[ "$ROS_DISTRO" = "kinetic" ]]; then
+    # to use c++17
+    sudo apt-get install -y software-properties-common
+    sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+    sudo apt update
+    sudo apt install -y g++-7
+    export CXX='g++-7'
+    export CC='gcc-7'
 fi
 
 # Build

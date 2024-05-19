@@ -171,10 +171,10 @@ void WalkController::rosParamInit()
   // for joint pid control
   ros::NodeHandle joint_nh(walk_control_nh, "joint");
   loadParam(joint_nh);
-  for (auto name: robot_model_->getLinkJointNames()) {
+  for (auto name: spidar_robot_model_->getLinkJointNames()) {
     joint_torque_controllers_.push_back(PID(name, p_gain, i_gain, d_gain, limit_sum, limit_p, limit_i, limit_d, limit_err_p, limit_err_i, limit_err_d));
   }
-  int joint_num = robot_model_->getLinkJointNames().size();
+  int joint_num = spidar_robot_model_->getLinkJointNames().size();
   target_extra_joint_torque_ = Eigen::VectorXd::Zero(joint_num);
   getParam<double>(joint_nh, "joint_error_angle_thresh", joint_error_angle_thresh_, 0.02);
 
@@ -225,7 +225,7 @@ bool WalkController::update()
 
 void WalkController::quadrupedCalcStaticBalance()
 {
-  using orig = aerial_robot_model::RobotModel;
+  using orig = aerial_robot_model::transformable::RobotModel;
   const KDL::JntArray gimbal_processed_joint = spidar_robot_model_->getGimbalProcessedJoint<KDL::JntArray>();
   const std::vector<KDL::Rotation> links_rotation_from_cog = spidar_robot_model_->getLinksRotationFromCog<KDL::Rotation>();
   const int joint_num = spidar_robot_model_->getJointNum();
@@ -273,7 +273,7 @@ void WalkController::quadrupedCalcStaticBalance()
 
     // describe jacobian w.r.t the world frame, thus need baselink rotation
     Eigen::MatrixXd jac
-      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint, name)).topRows(3);
+      = rot * (spidar_robot_model_->orig::getJacobian(gimbal_processed_joint, name)).topRows(3);
 
     A1_fe_all.middleCols(3 * cnt, 3) = -jac.rightCols(joint_num).transpose();
     A2_fe.middleCols(3 * cnt, 3) = jac.leftCols(6).transpose();
@@ -287,16 +287,16 @@ void WalkController::quadrupedCalcStaticBalance()
 
     // describe jacobian w.r.t the world frame, thus need baselink rotation
     Eigen::MatrixXd jac
-      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint,
-                                         inertia.first,
-                                         inertia.second.getCOG())).topRows(3);
+      = rot * (spidar_robot_model_->orig::getJacobian(gimbal_processed_joint,
+                                                      inertia.first,
+                                                      inertia.second.getCOG())).topRows(3);
 
     Eigen::VectorXd g = inertia.second.getMass() * (-spidar_robot_model_->getGravity3d());
     b1_all -= jac.rightCols(joint_num).transpose() * g;
     b2 += jac.leftCols(6).transpose() * g;
   }
 
-  Eigen::MatrixXd jac = robot_model_->orig::getJacobian(gimbal_processed_joint, "center_link");
+  Eigen::MatrixXd jac = spidar_robot_model_->orig::getJacobian(gimbal_processed_joint, "center_link");
   jac.topRows(3) = rot * jac.topRows(3);
   jac.bottomRows(3) = rot * jac.bottomRows(3);
   b1_all -= jac.rightCols(joint_num).transpose() * pusedo_baselink_wrench_;
@@ -568,7 +568,7 @@ void WalkController::quadrupedThrustControl()
 
 void WalkController::pedipulateThrustControl()
 {
-  using orig = aerial_robot_model::RobotModel;
+  using orig = aerial_robot_model::transformable::RobotModel;
   const KDL::JntArray gimbal_processed_joint = spidar_robot_model_->getGimbalProcessedJoint<KDL::JntArray>();
   const std::vector<KDL::Rotation> links_rotation_from_cog = spidar_robot_model_->getLinksRotationFromCog<KDL::Rotation>();
   const int joint_num = spidar_robot_model_->getJointNum();
@@ -598,9 +598,9 @@ void WalkController::pedipulateThrustControl()
   for(const auto& inertia : spidar_robot_model_->getInertiaMap()) {
 
     Eigen::MatrixXd jac
-      = rot * (robot_model_->orig::getJacobian(gimbal_processed_joint,
-                                              inertia.first,
-                                              inertia.second.getCOG())).topRows(3);
+      = rot * (spidar_robot_model_->orig::getJacobian(gimbal_processed_joint,
+                                                      inertia.first,
+                                                      inertia.second.getCOG())).topRows(3);
 
     Eigen::VectorXd g = inertia.second.getMass() * (-spidar_robot_model_->getGravity3d());
     b1_all -= jac.rightCols(joint_num).transpose() * g;
@@ -1124,7 +1124,7 @@ bool WalkController::servoTorqueCtrlCallback(std_srvs::SetBool::Request &req, st
   return true;
 }
 
-void WalkController::cfgPidCallback(aerial_robot_control::PidControlConfig &config, uint32_t level, std::vector<int> controller_indices)
+void WalkController::cfgPidCallback(aerial_robot_control::PIDConfig &config, uint32_t level, std::vector<int> controller_indices)
 {
   using Levels = aerial_robot_msgs::DynamicReconfigureLevels;
   if(config.pid_control_flag)
@@ -1221,7 +1221,7 @@ void WalkController::reset()
   PoseLinearController::reset();
   prev_navi_target_joint_angles_.resize(0);
 
-  int joint_num = robot_model_->getLinkJointNames().size();
+  int joint_num = spidar_robot_model_->getLinkJointNames().size();
   target_extra_joint_torque_ = Eigen::VectorXd::Zero(joint_num);
   for(int i = 0; i < joint_num; i++) {
     joint_torque_controllers_.at(i).reset();

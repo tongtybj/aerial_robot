@@ -10,11 +10,12 @@ FlightNavigator::FlightNavigator():
 
 
 void FlightNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                               boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
-                               boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator)
+                                 boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
+                                 boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
+                                 double loop_du)
 {
   /* initialize the flight control */
-  DragonNavigator::initialize(nh, nhp, robot_model, estimator);
+  DragonNavigator::initialize(nh, nhp, robot_model, estimator, loop_du);
 
   ros::NodeHandle land_nh(nh_, "navigation/land");
   getParam<double>(land_nh, "inside_land_pitch_angle", inside_land_pitch_angle_, -0.1);
@@ -120,7 +121,6 @@ void FlightNavigator::landingProcess()
         {
           ROS_WARN("gimbal control: back to land state");
           setNaviState(LAND_STATE);
-          setTargetPosZ(estimator_->getLandingHeight());
           setTeleopFlag(true);
         }
     }
