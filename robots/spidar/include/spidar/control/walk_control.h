@@ -68,7 +68,7 @@ namespace aerial_robot_control
       void startContactTransition(int leg_id);
 
       bool getContactTransition();
-      void setOldQuadrupedWalkMode(bool flag);
+      void setFloatingBellyMode(bool flag);
 
     private:
 
@@ -108,9 +108,6 @@ namespace aerial_robot_control
       double joint_ctrl_rate_;
       double tor_kp_;
 
-      bool pedipulate_mode_;
-      bool old_quadruped_walk_mode_;
-
       bool set_init_servo_torque_;
       double joint_static_torque_limit_;
       double raise_joint_static_torque_limit_;
@@ -132,9 +129,7 @@ namespace aerial_robot_control
 
       Eigen::VectorXd raise_static_thrust_force_;
 
-      double prev_t_;
-      double prev_v_;
-      double check_interval_;
+      bool floating_belly_mode_;
 
       bool contact_transition_;
       int contact_leg_id_;
@@ -150,6 +145,8 @@ namespace aerial_robot_control
 
       void calcStaticBalance();
       void jointControl();
+
+      void thrustControl();
 
       void pedipulateThrustControl();
       void pedipulateSingleArmThrustControl(const Eigen::MatrixXd& A1, const Eigen::VectorXd& b1, const Eigen::MatrixXd& A2, const Eigen::VectorXd& b2, const int& joint_id, Eigen::VectorXd& f_all);

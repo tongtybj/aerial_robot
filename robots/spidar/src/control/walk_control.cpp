@@ -47,6 +47,7 @@ WalkController::WalkController():
   free_leg_force_ratio_(0),
   contact_transition_(false),
   set_init_servo_torque_(false),
+  floating_belly_mode_(false),
   contact_leg_id_(-1)
 {
 }
@@ -58,9 +59,10 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                                 double ctrl_loop_rate)
 {
   PoseLinearController::initialize(nh, nhp, robot_model, estimator, navigator, ctrl_loop_rate);
-  rosParamInit();
 
   spidar_robot_model_ = boost::dynamic_pointer_cast<::Spider::GroundRobotModel>(robot_model);
+  rosParamInit();
+
   spidar_walk_navigator_ = boost::dynamic_pointer_cast<aerial_robot_navigation::Spider::Terrestrial::Base>(navigator);
   spidar_walk_navigator_->setController(this);
 
@@ -98,15 +100,12 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   target_joint_torques_.position.resize(0);
   static_joint_torque_ = Eigen::VectorXd::Zero(joint_num);
 
-
   pusedo_baselink_wrench_ = Eigen::VectorXd::Zero(6);
 }
 
 void WalkController::rosParamInit()
 {
   ros::NodeHandle walk_control_nh(nh_, "controller/walk");
-  getParam<bool>(walk_control_nh, "pedipulate_mode", pedipulate_mode_, false);
-  getParam<bool>(walk_control_nh, "old_quadruped_walk_mode", old_quadruped_walk_mode_, false);
   getParam<double>(walk_control_nh, "joint_ctrl_rate", joint_ctrl_rate_, 1.0); // 1 Hz
   getParam<double>(walk_control_nh, "servo_angle_bias", servo_angle_bias_, 0.02); // 0.02 rad
   getParam<double>(walk_control_nh, "servo_angle_bias_torque", servo_angle_bias_torque_, 4.0); // 4.0 Nm
@@ -118,8 +117,6 @@ void WalkController::rosParamInit()
 
   getParam<double>(walk_control_nh, "thrust_force_weight", thrust_force_weight_, 1.0);
   getParam<double>(walk_control_nh, "joint_torque_weight", joint_torque_weight_, 1.0);
-
-  getParam<double>(walk_control_nh, "check_interval", check_interval_, 0.1);
 
 
   ros::NodeHandle xy_nh(walk_control_nh, "xy");
@@ -209,13 +206,7 @@ bool WalkController::update()
   jointControl();
 
   // thrust control
-  if (pedipulate_mode_) {
-    pedipulateThrustControl();
-  }
-
-  if (old_quadruped_walk_mode_) {
-    quadrupedThrustControl();
-  }
+  thrustControl();
 
   // send control command to robot
   sendCmd();
@@ -878,6 +869,14 @@ void WalkController::pedipulateAllArmThrustControl(const Eigen::MatrixXd& A1, co
   f_all = f;
 }
 
+void WalkController::thrustControl()
+{
+  if (floating_belly_mode_) {
+    quadrupedThrustControl();
+  } else {
+    pedipulateThrustControl();
+  }
+}
 
 void WalkController::jointControl()
 {
@@ -920,6 +919,7 @@ void WalkController::jointControl()
   bool raise_converge = spidar_walk_navigator_->isRaiseLegConverge();
   int free_leg_id = spidar_walk_navigator_->getFreeleg();
 
+
   for(int i = 0; i < joint_num; i++) {
     double tor = static_joint_torque_(i);
     std::string name = names.at(i);
@@ -954,18 +954,27 @@ void WalkController::jointControl()
   }
 
   // special process raise leg
-  if (old_quadruped_walk_mode_ && raise_flag && !raise_converge) {
-    // inside pitch joint of the free leg
-    int i = free_leg_id * 4 + 1;
+  // TODO: move to navigation
+  if (raise_flag && !raise_converge) {
 
-    // raise separate motion
-    if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
-      // inside yaw joint of the free leg
-      i = free_leg_id * 4;
-      target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-      // outside pitch joint of the free leg
-      i = free_leg_id * 4 + 3;
-      target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+    for (int j = 0; j < leg_num; j++) {
+
+      if (free_leg_id < leg_num && free_leg_id != j) {
+        continue;
+      }
+
+      // inside pitch joint of the free leg
+      int i = j * 4 + 1;
+
+      // raise separate motion
+      if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
+        // inside yaw joint of the free leg
+        i = j * 4;
+        target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+        // outside pitch joint of the free leg
+        i = j * 4 + 3;
+        target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
+      }
     }
 
   }
@@ -1080,29 +1089,20 @@ void WalkController::startRaiseLeg()
 
 void WalkController::startLowerLeg()
 {
-  prev_t_ = ros::Time::now().toSec();
-
-  auto current_angles = getCurrentJointAngles();
   int leg_id = spidar_walk_navigator_->getFreeleg();
   if (leg_id < 0) {
     ROS_ERROR_STREAM("[Spider][Walk][Thrust Control] no valid leg to lower, leg id is " << leg_id);
-  }
-
-  int leg_num = spidar_robot_model_->getRotorNum();
-  if (leg_id < leg_num && old_quadruped_walk_mode_) {
-    prev_v_ = current_angles.at(4 * leg_id + 1); // hard-coding for pitch angle
-    ROS_INFO_STREAM("[Spider][Walk][Thrust Control][Old Quadruped Mode] start lower leg, start angle of  is " << prev_v_);
   }
 }
 
 void WalkController::startContactTransition(int leg_id)
 {
-  if (old_quadruped_walk_mode_) {
+  if (floating_belly_mode_) {
 
     contact_transition_ = true;
     contact_leg_id_ = leg_id;
     raise_static_thrust_force_ = static_thrust_force_; // record the thrust force for raise
-    ROS_INFO_STREAM("[Spider][Walk][Thrust Control][Old Quadruped Mode] start contact transition");
+    ROS_INFO_STREAM("[Spider][Walk][Thrust Control][Floating Belly Mode] start contact transition");
   }
 }
 
@@ -1214,6 +1214,11 @@ bool WalkController::samejointAngles(std::vector<double> group_a, std::vector<do
 bool WalkController::getContactTransition()
 {
   return contact_transition_;
+}
+
+void WalkController::setFloatingBellyMode(bool flag)
+{
+  floating_belly_mode_ = flag;
 }
 
 void WalkController::reset()

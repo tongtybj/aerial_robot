@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   aerial_robot_simulation
   aerial_robot_control
   dragon
+  mujoco_ros_control
   roscpp
   sensor_msgs
   pluginlib
@@ -119,6 +120,11 @@ catkin_package(
   CATKIN_DEPENDS aerial_robot_base aerial_robot_model aerial_robot_msgs aerial_robot_simulation dragon roscpp sensor_msgs spinal std_msgs
 #  DEPENDS system_lib
 )
+
+mujoco_model_convert(
+  ${PROJECT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/config/mujoco_model.yaml)
+
 
 ###########
 ## Build ##

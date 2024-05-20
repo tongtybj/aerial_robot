@@ -299,6 +299,7 @@ void QuadrupedPrimitiveWalk::resetStateMachine()
   leg_id_ = 0;
   cycle_cnt_ = 0;
   phase_ = PHASE0;
+  walk_controller_->setFloatingBellyMode(true);
 }
 
 void QuadrupedPrimitiveWalk::moveCallback(const std_msgs::BoolConstPtr& msg)

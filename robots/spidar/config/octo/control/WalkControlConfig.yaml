@@ -19,9 +19,6 @@ controller:
 
     contact_leg_force_i_gain: 1.0 # /s
 
-    check_interval: 0.1
-
-
     xy:
       p_gain: 100.0 # N/m:
       i_gain: 0.0 #

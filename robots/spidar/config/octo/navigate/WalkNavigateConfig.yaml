@@ -1,6 +1,6 @@
 # Teleop Basic Param
 
-flight_navigation_plugin_name: aerial_robot_navigation/spidar/walk_navigation
+flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/base
 
 navigation:
   xy_control_mode: 0

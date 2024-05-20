@@ -111,6 +111,9 @@ void BellyCrawl::limbSubStateMachine()
       // all legs contact to the ground
       std::string prefix("[Spider][Belly Crawl][Limb][Phase0]");
 
+      // set the static belly mode
+      walk_controller_->setFloatingBellyMode(false);
+
       // start raise all limbs
       raiseLeg(limb_num);
 
@@ -286,6 +289,8 @@ void BellyCrawl::bellySubStateMachine()
     {
       std::string prefix("[Spidar][Belly Crawl][Baselink][Phase0]");
 
+      walk_controller_->setFloatingBellyMode(true);
+
       target_pos += tf::Vector3(0, 0, belly_.raise_height_); // TODO: only horizontal ground
       setTargetBaselinkPos(target_pos);
       init_pos_ = curr_pos;
@@ -398,6 +403,10 @@ void BellyCrawl::bellySubStateMachine()
       }
 
       belly_.phase_ = belly_.PHASE0;
+
+      // set the static floating belly mode
+      walk_controller_->setFloatingBellyMode(false);
+
 
       // reset the target leg ends to further update the target joint angles
       if (cycle_reset_leg_end_) {
