@@ -16,7 +16,7 @@ servo_controller:
     # for simulation
     simulation:
       pid: {p: 50.0, i: 1.0, d: 5.0, i_clamp_min: -6.6, i_clamp_max: 6.6}
-      init_value: 0
+      init_value: 0.0
       type: effort_controllers/JointPositionController
 
     controller01:
@@ -107,7 +107,7 @@ servo_controller:
 
     simulation:
       pid: {p: 50.0, i: 0.1, d: 1.0, i_clamp_min: -1.5, i_clamp_max: 1.5}
-      init_value: 0
+      init_value: 0.0
       type: effort_controllers/JointPositionController
 
     controller01:
