@@ -25,7 +25,7 @@ class SpiderOctoTransformation:
 
         joint_seq_len = int(execute_time * frequency / 1000.0)
         joint_seq = []
-        joint_name = ['joint' + str(i/2+1) + ('_yaw' if i % 2 == 0 else '_pitch')  for i in range(16)]
+        joint_name = ['joint' + str(i//2+1) + ('_yaw' if i % 2 == 0 else '_pitch')  for i in range(16)]
 
         if joint_seq_len > 1:
             for position, name in zip(target_joint_position, joint_name):
