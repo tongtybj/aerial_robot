@@ -28,6 +28,8 @@ void BellyCrawl::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 
 void BellyCrawl::rosParamInit()
 {
+  Base::rosParamInit();
+
   ros::NodeHandle nh_walk(nh_, "navigation/walk");
   ros::NodeHandle nh_belly_crawl(nh_walk, "belly_crawl");
   nh_belly_crawl.param("stride", stride_, 0.2);

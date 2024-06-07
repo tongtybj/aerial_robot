@@ -29,6 +29,7 @@ void QuadrupedPrimitiveWalk::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 
 void QuadrupedPrimitiveWalk::rosParamInit()
 {
+  Base::rosParamInit();
 
   ros::NodeHandle nh_walk(nh_, "navigation/walk");
   ros::NodeHandle nh_quadruped_walk(nh_walk, "primitive_quadruped");
