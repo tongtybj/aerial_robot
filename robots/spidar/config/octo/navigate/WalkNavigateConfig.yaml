@@ -1,6 +1,8 @@
 # Teleop Basic Param
 
 flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/base
+#flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/quadruped_primitive_walk
+#flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/belly_crawl
 
 navigation:
   xy_control_mode: 0
@@ -46,7 +48,7 @@ navigation:
     simulation: false
     simulated_joint_lpf_rate: 0.2
 
-    pattern:
+    primitive_quadruped:
       total_cycle: 5
       stride: 0.2 # stride for individual leg [m]
       move_leg_joint_err_thresh: 0.05 # check the convergence of joint motion in joint_yaw [rad]
