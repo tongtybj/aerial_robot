@@ -9,6 +9,7 @@ from gazebo_msgs.msg import ModelState
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose, Point, Quaternion, Twist
 from control_msgs.msg import JointControllerState
+from sensor_msgs.msg import JointState
 
 class InitPose(object):
     def __init__(self):
@@ -30,6 +31,10 @@ class InitPose(object):
 
         self.servo_sub = rospy.Subscriber("servo_controller/joints/controller" + '{:0>2}'.format(self.joint_num) + "/simulation/state", JointControllerState, self.servoCb)
 
+        # mujoco
+        self.mujoco_root_pose_pub = rospy.Publisher('/spidar/mujoco/direct_root_pose', Pose, queue_size = 1)
+        self.mujoco_joint_position_pub = rospy.Publisher('/spidar/mujoco/direct_joint_position', JointState, queue_size = 1)
+
         self.last_servo_state = None
 
         r = rospy.Rate(1)
@@ -38,6 +43,8 @@ class InitPose(object):
                 break
             r.sleep()
 
+        # root pose
+        # gazebo
         try:
             change_pose = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
             state = ModelState()
@@ -47,7 +54,11 @@ class InitPose(object):
             change_pose(state)
         except rospy.ServiceException as e:
             print("Service call failed: %s"%e)
+        # mujoco
+        self.mujoco_root_pose_pub.Publish(state.pose)
 
+        # joint position
+        # gazebo
         try:
             change_joint_configuration = rospy.ServiceProxy('/gazebo/set_model_configuration', SetModelConfiguration)
             change_joint_configuration(self.robot_name,
@@ -56,7 +67,11 @@ class InitPose(object):
                                        self.init_angles)
         except rospy.ServiceException as e:
             print("Service call failed: %s"%e)
-
+        # mujoco
+        msg = JointState()
+        msg.name = self.joint_names
+        msg.position = self.init_angles
+        self.mujoco_root_pose_pub.Publish(msg)
 
     def servoCb(self, msg):
         self.last_servo_state = msg
