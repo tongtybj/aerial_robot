@@ -33,7 +33,8 @@ void BellyCrawl::rosParamInit()
   ros::NodeHandle nh_walk(nh_, "navigation/walk");
   ros::NodeHandle nh_belly_crawl(nh_walk, "belly_crawl");
   nh_belly_crawl.param("stride", stride_, 0.2);
-  nh_belly_crawl.param("reset_leg_end", cycle_reset_leg_end_, false);
+  nh_belly_crawl.param("reset_leg_end", cycle_reset_leg_end_, true);
+  nh_belly_crawl.param("reset_baselink", cycle_reset_baselink_, true);
   nh_belly_crawl.param("belly_debug", belly_debug_, false);
   nh_belly_crawl.param("limb_debug", limb_debug_, false);
 
@@ -126,10 +127,12 @@ void BellyCrawl::limbSubStateMachine()
       raiseLeg(limb_num);
 
       // update the foot postion, and thus the joint angles
-      for (auto& leg_end:  target_leg_ends_) {
+      auto target_leg_ends = getTargetLegEnds();
+      for (auto& leg_end:  target_leg_ends) {
         tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
         leg_end.p += KDL::Vector(delta.x(), delta.y(), delta.z());
       }
+      setTargetLegEnds(target_leg_ends);
 
       // shift to PHASE1
       ROS_INFO_STREAM(prefix << " shift to PHASE1 for raise all limbs");
@@ -269,8 +272,6 @@ void BellyCrawl::limbSubStateMachine()
 
       // workaround: condition for whole state machine
       phase_ = PHASE2; // move to belly move
-      resetTargetLegEnds(); // reset the target leg ends
-
       break;
     }
   default:
@@ -297,11 +298,9 @@ void BellyCrawl::bellySubStateMachine()
   case belly_.PHASE0:
     {
       std::string prefix("[Spidar][Belly Crawl][Baselink][Phase0]");
-
       walk_controller_->setFloatingBellyMode(true);
+      addTargetBaselinkPos(tf::Vector3(0, 0, belly_.raise_height_)); // TODO: only horizontal ground
 
-      target_pos += tf::Vector3(0, 0, belly_.raise_height_); // TODO: only horizontal ground
-      setTargetBaselinkPos(target_pos);
       init_pos_ = curr_pos;
 
       // shift to belly_.PHASE1

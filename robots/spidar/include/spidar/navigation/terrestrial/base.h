@@ -79,11 +79,17 @@ namespace aerial_robot_navigation
         inline tf::Vector3 getTargetBaselinkVel() {return target_baselink_vel_;}
         inline sensor_msgs::JointState getTargetJointState() {return target_joint_state_;}
         inline std::vector<KDL::Rotation> getTargetLinkRots() {return target_link_rots_;}
+        inline std::vector<KDL::Frame> getTargetLegEnds() {return target_leg_ends_;}
         inline bool getRaiseLegFlag() const { return raise_leg_flag_; }
         inline bool getLowerLegFlag() const { return lower_leg_flag_; }
         inline bool isRaiseLegConverge() const { return raise_converge_; }
         inline int getFreeleg() const { return free_leg_id_; }
-        inline void setTargetBaselinkPos(tf::Vector3 pos) { target_baselink_pos_ = pos; }
+        void setTargetBaselinkPos(tf::Vector3 pos, bool update_joint_angle = true);
+        void addTargetBaselinkPos(tf::Vector3 delta_pos, bool update_joint_angle = true);
+        void setTargetBaselinkPose(tf::Vector3 pos, tf::Vector3 rpy, bool update_joint_angle = true);
+        void setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_angle = true);
+        void resetTargetLegEnds();
+
 
         void setController(aerial_robot_control::Spider::WalkController* controller){
           walk_controller_ = controller;
@@ -158,9 +164,6 @@ namespace aerial_robot_navigation
         void simulateFlightConfigCallback(const spinal::FlightConfigCmdConstPtr& msg);
 
         bool checkKinematics();
-        void resetTargetBaselink(tf::Vector3 pos, tf::Vector3 rpy);
-        void resetTargetLegEnds(std::vector<KDL::Frame> frames);
-        void resetTargetLegEnds();
 
         void raiseLeg(int leg_id);
         void lowerLeg();
@@ -168,7 +171,7 @@ namespace aerial_robot_navigation
         void contactLeg();
 
         void updateRobotModelForNav();
-        bool inverseKinematics();
+        bool updateJoinAngleFrominverseKinematics(bool allow_fail = false);
         void freeLegAction();
         void failSafeAction();
 

@@ -90,10 +90,6 @@ void Base::update()
     return;
   }
 
-  if(!inverseKinematics()) {
-    return;
-  }
-
   // update robot model for navigation
   updateRobotModelForNav();
 
@@ -108,7 +104,7 @@ void Base::update()
 }
 
 // calculate target joint angle from target baselink based on IK
-bool Base::inverseKinematics()
+bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
 {
   const int leg_num = spidar_robot_model_->getRotorNum() / 2;
   const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
@@ -129,10 +125,12 @@ bool Base::inverseKinematics()
   double l2 = -1; // distance from "linkx+1" to "linkx+1_foot"
 
   const auto& names = target_joint_state_.name;
-  auto& target_angles = target_joint_state_.position;
+  auto target_angles = target_joint_state_.position;
   KDL::Frame fr_baselink = seg_tf_map.at(spidar_robot_model_->getBaselinkName());
 
   std::stringstream ss;
+
+  bool fail = false;
 
   for (int i = 0; i < leg_num; i++) {
     std::string yaw_frame_name = std::string("joint_junction_link") + std::to_string(2 * i + 1);
@@ -183,7 +181,8 @@ bool Base::inverseKinematics()
       ROS_WARN_STREAM("[Spider][Navigator] leg " << i + 1 << ": b_dd exceeds the valid scope: " << b_dd
                        << "; end pos: " << aerial_robot_model::kdlToEigen(fw_end.p).transpose()
                        << "; baselink pos: " << aerial_robot_model::kdlToEigen(fw_target_baselink.p).transpose());
-      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+
+      fail = true;
       continue;
     }
 
@@ -198,26 +197,26 @@ bool Base::inverseKinematics()
     // check validity
     if(fabs(angle) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
-      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      fail = true;
       continue;
     }
 
     if(fabs(theta1) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_pitch exceeds the valid range, angle is " << theta1);
-      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      fail = true;
       continue;
     }
 
     if(fabs(theta2) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 2 << "_pitch exceeds the valid range, angle is " << theta2);
-      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      fail = true;
       continue;
     }
 
     // set the target joint angles
     if(names.at(4 * i) != std::string("joint") + std::to_string(2*i+1) + std::string("_yaw")) {
       ROS_WARN_STREAM("[Spider][Navigator] name order is different. ID" << i << " name is " << names.at(4 * i));
-      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      fail = true;
       continue;
     }
 
@@ -237,6 +236,13 @@ bool Base::inverseKinematics()
        << target_angles.at(4 * i + 2) << ", " << target_angles.at(4 * i + 3) << ") ";
   }
   ROS_DEBUG_STREAM_THROTTLE(1.0, "[Spider][Walk][Navigator] analytical joint angles from leg end and baselink: " << ss.str());
+
+
+  if (fail && !allow_fail) {
+    return false;
+  }
+
+  target_joint_state_.position = target_angles;
 
   return true;
 }
@@ -298,7 +304,7 @@ void Base::kinematicSimulate()
     for (auto& f: target_leg_ends_) {
       f.p += KDL::Vector(0, 0, z_offset);
     }
-    target_baselink_pos_ += tf::Vector3(0, 0, z_offset);
+    addTargetBaselinkPos(tf::Vector3(0, 0, z_offset));
   }
 
   // baselink odometry
@@ -503,42 +509,25 @@ bool Base::checkKinematics()
   if (reset_baselink_flag_) {
     tf::Vector3 baselink_pos = estimator_->getPos(Frame::BASELINK, estimate_mode_);
     tf::Vector3 baselink_rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
-    resetTargetBaselink(baselink_pos, baselink_rpy);
+
+    bool joint_angle_update_flag = true;
+    if (getTargetLegEnds().size() == 0 || reset_leg_ends_flag_) { // wait for the target leg ends updated
+      joint_angle_update_flag = false;
+    }
+
+    setTargetBaselinkPose(baselink_pos, baselink_rpy, joint_angle_update_flag);
 
     reset_baselink_flag_ = false;
   }
 
   // update target leg end frame (position)
   if (reset_leg_ends_flag_) {
-    resetTargetLegEnds(curr_leg_ends);
+    setTargetLegEnds(curr_leg_ends);
     reset_leg_ends_flag_ = false;
   }
 
   return true;
 }
-
-void Base::resetTargetBaselink(tf::Vector3 pos, tf::Vector3 rpy)
-{
-  target_baselink_pos_ = pos;
-  target_baselink_rpy_ = rpy;
-}
-
-void Base::resetTargetLegEnds(std::vector<KDL::Frame> frames)
-{
-  target_leg_ends_ = frames;
-}
-
-void Base::resetTargetLegEnds()
-{
-  std::vector<KDL::Frame> curr_leg_ends;
-  if(!getCurrentLegEndsPos(curr_leg_ends)) {
-    return ;
-  }
-
-  resetTargetLegEnds(curr_leg_ends);
-}
-
-
 
 void Base::setJointIndexMap()
 {
@@ -562,6 +551,49 @@ void Base::setJointIndexMap()
   }
 }
 
+void Base::setTargetBaselinkPos(tf::Vector3 pos, bool update_joint_angle)
+{
+  target_baselink_pos_ = pos;
+
+  if (update_joint_angle) {
+    updateJoinAngleFrominverseKinematics();
+  }
+}
+
+void Base::addTargetBaselinkPos(tf::Vector3 delta_pos, bool update_joint_angle)
+{
+  target_baselink_pos_ += delta_pos;
+  setTargetBaselinkPos(target_baselink_pos_, update_joint_angle);
+}
+
+void Base::setTargetBaselinkPose(tf::Vector3 pos, tf::Vector3 rpy, bool update_joint_angle)
+{
+  target_baselink_pos_ = pos;
+  target_baselink_rpy_ = rpy;
+
+  if (update_joint_angle) {
+    updateJoinAngleFrominverseKinematics();
+  }
+}
+
+void Base::setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_angle)
+{
+  target_leg_ends_ = frames;
+
+  if (update_joint_angle) {
+    updateJoinAngleFrominverseKinematics(true);
+  }
+}
+
+void Base::resetTargetLegEnds()
+{
+  std::vector<KDL::Frame> curr_leg_ends;
+  if(!getCurrentLegEndsPos(curr_leg_ends)) {
+    return ;
+  }
+
+  setTargetLegEnds(curr_leg_ends);
+}
 
 tf::Vector3 Base::getCurrentBaselinkPos()
 {
@@ -866,7 +898,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      target_baselink_pos_ += tf::Vector3(0, 0, 0.2);
+      addTargetBaselinkPos(tf::Vector3(0, 0, 0.2));
       ROS_INFO_STREAM("stand-up");
 
       prev_joy_cmd = joy_cmd;
@@ -879,7 +911,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      target_baselink_pos_ -= tf::Vector3(0, 0, 0.2);
+      addTargetBaselinkPos(tf::Vector3(0, 0, -0.2));
       ROS_INFO_STREAM("sit-down");
 
       prev_joy_cmd = joy_cmd;

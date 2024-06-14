@@ -86,7 +86,9 @@ void QuadrupedPrimitiveWalk::stateMachine()
       }
 
       // update the foot postion, and thus the joint angles
-      target_leg_ends_.at(leg_id_).p += KDL::Vector(stride_, 0, 0); // only along x axis
+      auto target_leg_ends = getTargetLegEnds();
+      target_leg_ends.at(leg_id_).p += KDL::Vector(stride_, 0, 0); // only along x axis
+      setTargetLegEnds(target_leg_ends);
 
 
       // reset the timestamp to check joint convergence
@@ -200,7 +202,8 @@ void QuadrupedPrimitiveWalk::stateMachine()
         // WIP: the leg selection.
         //      move baselink only after leg4 (all front legs are updated)
         // WIP: forward move
-        target_baselink_pos_ += tf::Vector3(stride_, 0, 0);
+        addTargetBaselinkPos(tf::Vector3(stride_, 0, 0));
+
         move_baselink_ = true;
       }
 
@@ -219,12 +222,12 @@ void QuadrupedPrimitiveWalk::stateMachine()
 
         // move center link
         tf::Vector3 baselink_pos = estimator_->getPos(Frame::BASELINK, estimate_mode_);
-        double err = target_baselink_pos_.x() - baselink_pos.x();
+        double err = getTargetBaselinkPos().x() - baselink_pos.x();
 
         if (fabs(err) > baselink_converge_thresh_) {
           // no reach enough convergence position
           ROS_INFO_STREAM_THROTTLE(0.1, prefix << " no reach enough convergence position, target x: "
-                                   << target_baselink_pos_.x() << ", current x: " << baselink_pos.x()
+                                   << getTargetBaselinkPos().x() << ", current x: " << baselink_pos.x()
                                    << ", converge thresh: " << baselink_converge_thresh_);
 
           // reset the timestamp to check baselink convergence
