@@ -1,8 +1,8 @@
 # Teleop Basic Param
 
-flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/base
+#flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/base
 #flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/quadruped_primitive_walk
-#flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/belly_crawl
+flight_navigation_plugin_name: aerial_robot_navigation/spidar/terrestrial/belly_crawl
 
 navigation:
   xy_control_mode: 0
