@@ -112,6 +112,9 @@ bool Base::inverseKinematics()
 {
   const int leg_num = spidar_robot_model_->getRotorNum() / 2;
   const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
+  std::vector<KDL::Frame> curr_leg_ends;
+  getCurrentLegEndsPos(curr_leg_ends);
+
 
   // calculate the target joint angles from baselink and end position
   KDL::Frame fw_target_baselink;
@@ -177,10 +180,11 @@ bool Base::inverseKinematics()
     double d = sqrt(x_e * x_e + y_e * y_e);
     double b_dd = b_d / d;
     if (fabs(b_dd) > 1) {
-      ROS_ERROR_STREAM("[Spider][Navigator] leg " << i + 1 << ": b_dd exceeds the valid scope: " << b_dd
+      ROS_WARN_STREAM("[Spider][Navigator] leg " << i + 1 << ": b_dd exceeds the valid scope: " << b_dd
                        << "; end pos: " << aerial_robot_model::kdlToEigen(fw_end.p).transpose()
                        << "; baselink pos: " << aerial_robot_model::kdlToEigen(fw_target_baselink.p).transpose());
-      return false;
+      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      continue;
     }
 
     double phi = atan2(y_e, x_e);
@@ -192,27 +196,29 @@ bool Base::inverseKinematics()
     double theta2 = theta2_d - theta1;
 
     // check validity
-    double angle_limit = 1.74;
-    if(fabs(angle) > angle_limit ) {
-      ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
-      return false;
+    if(fabs(angle) > joint_angle_limit_) {
+      ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
+      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      continue;
     }
 
-    angle_limit = 1.7;
-    if(fabs(theta1) > angle_limit ) {
-      ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_pitch exceeds the valid range, angle is " << theta1);
-      return false;
+    if(fabs(theta1) > joint_angle_limit_) {
+      ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_pitch exceeds the valid range, angle is " << theta1);
+      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      continue;
     }
 
-    if(fabs(theta2) > angle_limit) {
-      ROS_ERROR_STREAM("[Spider][Navigator] joint" << i * 2 + 2 << "_pitch exceeds the valid range, angle is " << theta2);
-      return false;
+    if(fabs(theta2) > joint_angle_limit_) {
+      ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 2 << "_pitch exceeds the valid range, angle is " << theta2);
+      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      continue;
     }
 
     // set the target joint angles
     if(names.at(4 * i) != std::string("joint") + std::to_string(2*i+1) + std::string("_yaw")) {
-      ROS_ERROR_STREAM("[Spider][Navigator] name order is different. ID" << i << " name is " << names.at(4 * i));
-      return false;
+      ROS_WARN_STREAM("[Spider][Navigator] name order is different. ID" << i << " name is " << names.at(4 * i));
+      target_leg_ends_.at(i) = curr_leg_ends.at(i);
+      continue;
     }
 
     // special process for raising leg
@@ -674,6 +680,7 @@ void Base::rosParamInit()
   getParam<double>(nh_walk, "converge_time_thresh", converge_time_thresh_, 0.5);
   getParam<bool>(nh_walk, "kinematic_simulation", kinematic_simulation_, false);
   getParam<double>(nh_walk, "sim_joint_lpf_rate", sim_joint_lpf_rate_, 0.5);
+  getParam<double>(nh_walk, "joint_angle_limit", joint_angle_limit_, 1.57);
 
   ros::NodeHandle nh_failsafe(nh_walk, "failsafe");
   getParam<double>(nh_failsafe, "baselink_rot_thresh", baselink_rot_thresh_, 0.2);

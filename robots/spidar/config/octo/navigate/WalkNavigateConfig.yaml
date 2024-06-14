@@ -40,6 +40,7 @@ navigation:
     constant_angle_thresh: 0.02
     check_interval: 0.1
     converge_time_thresh: 0.5
+    joint_angle_limit: 1.7    
 
     failsafe:
       baselink_rot_thresh: 0.2

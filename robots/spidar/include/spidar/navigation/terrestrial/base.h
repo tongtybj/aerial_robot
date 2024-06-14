@@ -117,6 +117,7 @@ namespace aerial_robot_navigation
         double opposite_raise_leg_thresh_;
         double check_interval_;
         double converge_time_thresh_;
+        double joint_angle_limit_;
 
         double contact_check_start_t_, contact_check_prev_t_;
         std::vector<double> contact_check_prev_joint_angles_;
