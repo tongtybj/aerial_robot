@@ -522,6 +522,17 @@ void Base::resetTargetLegEnds(std::vector<KDL::Frame> frames)
   target_leg_ends_ = frames;
 }
 
+void Base::resetTargetLegEnds()
+{
+  std::vector<KDL::Frame> curr_leg_ends;
+  if(!getCurrentLegEndsPos(curr_leg_ends)) {
+    return ;
+  }
+
+  resetTargetLegEnds(curr_leg_ends);
+}
+
+
 
 void Base::setJointIndexMap()
 {

@@ -159,6 +159,7 @@ namespace aerial_robot_navigation
         bool checkKinematics();
         void resetTargetBaselink(tf::Vector3 pos, tf::Vector3 rpy);
         void resetTargetLegEnds(std::vector<KDL::Frame> frames);
+        void resetTargetLegEnds();
 
         void raiseLeg(int leg_id);
         void lowerLeg();

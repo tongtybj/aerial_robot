@@ -269,6 +269,7 @@ void BellyCrawl::limbSubStateMachine()
 
       // workaround: condition for whole state machine
       phase_ = PHASE2; // move to belly move
+      resetTargetLegEnds(); // reset the target leg ends
 
       break;
     }
