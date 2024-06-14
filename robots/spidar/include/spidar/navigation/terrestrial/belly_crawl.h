@@ -49,8 +49,9 @@ namespace aerial_robot_navigation
 
         enum
           {
-           PHASE0, // limb motion
-           PHASE1, // belly motion
+           PHASE0, // initialize phase
+           PHASE1, // limb motion
+           PHASE2, // belly motion
           };
 
       public:

@@ -69,15 +69,21 @@ void BellyCrawl::stateMachine()
 
   case PHASE0:
     {
+      iterativeUpdateTargetPos();
+      phase_ = PHASE1;
+      break;
+    }
+  case PHASE1:
+    {
       if (belly_debug_) {
-        phase_ = PHASE1;
+        phase_ = PHASE2;
         break;
       }
 
       limbSubStateMachine();
       break;
     }
-  case PHASE1:
+  case PHASE2:
     {
       if (limb_debug_) {
         reset();
@@ -262,7 +268,7 @@ void BellyCrawl::limbSubStateMachine()
       }
 
       // workaround: condition for whole state machine
-      phase_ = PHASE1; // move to belly move
+      phase_ = PHASE2; // move to belly move
 
       break;
     }
@@ -309,7 +315,7 @@ void BellyCrawl::bellySubStateMachine()
 
       double diff = curr_pos.z() - init_pos_.z();
 
-      ROS_INFO_STREAM_THROTTLE(0.1, prefix << " curr z: " << curr_pos.z() << "; target z: " << init_pos_.z());
+      ROS_INFO_STREAM_THROTTLE(0.1, prefix << " curr z: " << curr_pos.z() << "; target z: " << target_pos_.z() << "; init z: " << init_pos_.z());
 
       if (diff > belly_.raise_thresh_) {
         ROS_INFO_STREAM(prefix << " baselink has raised to a enough height, move horizontally");
@@ -420,11 +426,8 @@ void BellyCrawl::bellySubStateMachine()
         reset_baselink_flag_ = true;
       }
 
-
       // workaround: condition for whole state machine
-      phase_ = PHASE0; // move to limb move
-      iterativeUpdateTargetPos();
-
+      phase_ = PHASE0; // move to initialize phase
       if (target_pos_ == final_target_pos_) {
         ROS_INFO_STREAM(prefix << " complete the iterative move");
         reset();
@@ -455,8 +458,6 @@ void BellyCrawl::setPose(tf::Vector3 pos, double yaw)
   final_target_pos_ = pos;
   final_target_yaw_ = yaw;
 
-  iterativeUpdateTargetPos();
-
   move_flag_ = true;
 }
 
@@ -485,7 +486,6 @@ void BellyCrawl::iterativeUpdateTargetPos()
   } else {
     target_pos_ = target_pos + (final_target_pos_ - target_pos).normalize() * stride_;
   }
-
 }
 
 void BellyCrawl::moveCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
@@ -528,14 +528,14 @@ void BellyCrawl::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 
       if (move_flag_) {
 
-        // PHASE0: limb motion
-        if (phase_ == PHASE0) {
+        // PHASE1: limb motion
+        if (phase_ == PHASE1) {
           ROS_WARN_STREAM("[Spider][Walk][Navigation][Joy] instantly lower the raised leg");
           lowerLeg();
         }
 
-        // PHASE1: belly motion
-        if (phase_ == PHASE1) {
+        // PHASE2: belly motion
+        if (phase_ == PHASE2) {
           ROS_WARN_STREAM("[Spider][Walk][Navigation][Joy] instantly lower the baselink");
 
           /* servo off */
