@@ -9,8 +9,11 @@ BellyCrawl::BellyCrawl()
   phase_ = PHASE0;
   move_flag_ = false;
 
-  belly_.phase_ = belly_.PHASE0;
   limb_.phase_ = belly_.PHASE0;
+  belly_.phase_ = belly_.PHASE0;
+
+  limb_.prev_t_ = 0;
+  belly_.prev_t_ = 0;
 }
 
 
@@ -24,6 +27,8 @@ void BellyCrawl::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 
   move_sub_ = nh_.subscribe("walk/belly_crawl/traget/delta_pos", 1, &BellyCrawl::moveCallback, this);
 
+  prev_target_joint_angles_ = target_joint_state_.position;
+  final_target_joint_angles_ = target_joint_state_.position;
 }
 
 void BellyCrawl::rosParamInit()
@@ -91,7 +96,6 @@ void BellyCrawl::stateMachine()
         break;
       }
 
-
       bellySubStateMachine();
 
       break;
@@ -120,19 +124,8 @@ void BellyCrawl::limbSubStateMachine()
       // all legs contact to the ground
       std::string prefix("[Spider][Belly Crawl][Limb][Phase0]");
 
-      // set the static belly mode
-      walk_controller_->setFloatingBellyMode(false);
-
       // start raise all limbs
-      raiseLeg(limb_num);
-
-      // update the foot postion, and thus the joint angles
-      auto target_leg_ends = getTargetLegEnds();
-      for (auto& leg_end:  target_leg_ends) {
-        tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
-        leg_end.p += KDL::Vector(delta.x(), delta.y(), delta.z());
-      }
-      setTargetLegEnds(target_leg_ends);
+      raiseAllLimbs();
 
       // shift to PHASE1
       ROS_INFO_STREAM(prefix << " shift to PHASE1 for raise all limbs");
@@ -150,10 +143,37 @@ void BellyCrawl::limbSubStateMachine()
         break;
       }
 
+      // set target joint angles for inside yaw and outside pitch to the real (final) one
+      const int leg_num = spidar_robot_model_->getRotorNum() / 2;
+      for (int j = 0; j < leg_num; j++) {
+
+        // inside yaw joint
+        int i = j * 4;
+        target_joint_state_.position.at(i) = final_target_joint_angles_.at(i);
+
+        // outside pitch joint
+        i = j * 4 + 3;
+        target_joint_state_.position.at(i) = final_target_joint_angles_.at(i);
+
+      }
+
+      // shift to PHASE2
+      ROS_INFO_STREAM(prefix << " shift to PHASE2 for all limbs horizontal move");
+      limb_.phase_ = limb_.PHASE2;
+
+      break;
+    }
+  case limb_.PHASE2:
+    {
+      // free leg is raising
+      std::string prefix("[Spider][Belly Crawl][Limb][Phase2]");
+
       bool converge = true;
 
       // 2. check the inside yaw joint of each limb to lower leg
-      for (int j = 0; j < limb_num; j++) {
+      for (int l = 0; l < limb_num; l++) {
+
+        int j = 4 * l;
 
         double target_angle = target_joint_state_.position.at(j);
         double current_angle = getCurrentJointAngles().at(j);
@@ -162,7 +182,7 @@ void BellyCrawl::limbSubStateMachine()
         if (fabs(err) > limb_.joint_err_thresh_) {
           // joint angle error too big
 
-          ROS_INFO_STREAM_THROTTLE(0.5, prefix << " the angle error of joint" << j/2 + 1 << "_yaw does not converge, " << err << "(" << limb_.joint_err_thresh_ << ")");
+          ROS_INFO_STREAM_THROTTLE(0.5, prefix << " the angle error of joint" << j/2 + 1 << "_yaw does not converge, " << err << "(" << limb_.joint_err_thresh_ << "), target_angle: " << target_angle << ", current_angle: " << current_angle);
 
           converge = false;
 
@@ -171,7 +191,9 @@ void BellyCrawl::limbSubStateMachine()
       }
 
       // 3. check the outside pitch joint of free leg to lower leg
-      for (int j = 0; j < limb_num; j++) {
+      for (int l = 0; l < limb_num; l++) {
+
+        int j = 4 * l;
 
         double target_angle = target_joint_state_.position.at(j + 3);
         double current_angle = getCurrentJointAngles().at(j + 3);
@@ -180,7 +202,8 @@ void BellyCrawl::limbSubStateMachine()
         if (fabs(err) > limb_.joint_err_thresh_ ) {
           // joint angle error too big
 
-          ROS_INFO_STREAM_THROTTLE(0.5, prefix << " the angle error of joint" << j/2 + 2 << "_pitch does not converge, " << err << "(" << limb_.joint_err_thresh_ << ")");
+          ROS_INFO_STREAM_THROTTLE(0.5, prefix << " the angle error of joint" << j/2 + 2 << "_pitch does not converge, " << err << "(" << limb_.joint_err_thresh_ << "), target_angle: " << target_angle << ", current_angle: " << current_angle);
+
 
           converge = false;
 
@@ -188,23 +211,21 @@ void BellyCrawl::limbSubStateMachine()
         }
       }
 
-      if (!converge) {
-        break;
-      }
+      if (!converge) { break; }
 
-      // reach the target joint yaw to lower leg
-      lowerLeg();
+      // lower all limbs
+      lowerAllLimbs();
 
       // shift to PHASE2
-      ROS_INFO_STREAM(prefix << " shift to PHASE2 for lower all limbs");
-      limb_.phase_ = limb_.PHASE2;
+      ROS_INFO_STREAM(prefix << " shift to PHASE3 for lower all limbs");
+      limb_.phase_ = limb_.PHASE3;
 
       break;
     }
-  case limb_.PHASE2:
+  case limb_.PHASE3:
     {
       // free leg is lowering
-      std::string prefix("[Spider][Belly Crawl][Limb][Phase2]");
+      std::string prefix("[Spider][Belly Crawl][Limb][Phase3]");
 
       if (lower_leg_flag_) {
         // still in lowering phase, skip
@@ -232,14 +253,14 @@ void BellyCrawl::limbSubStateMachine()
       }
 
       limb_.servo_switch_t_ = t;
-      limb_.phase_ = limb_.PHASE3;
-      ROS_INFO_STREAM(prefix << " shift to PHASE3 for final fit");
+      limb_.phase_ = limb_.PHASE4;
+      ROS_INFO_STREAM(prefix << " shift to PHASE4 for final fit");
 
       break;
     }
-  case limb_.PHASE3:
+  case limb_.PHASE4:
     {
-      std::string prefix("[Spider][Belly Crawl][Limb][Phase2]");
+      std::string prefix("[Spider][Belly Crawl][Limb][Phase4]");
 
       if (t - limb_.servo_switch_t_ < limb_.servo_switch_duration_) {
         break;
@@ -443,6 +464,77 @@ void BellyCrawl::bellySubStateMachine()
   belly_.prev_t_ = t;
 }
 
+void BellyCrawl::raiseAllLimbs()
+{
+  const int leg_num = spidar_robot_model_->getRotorNum() / 2;
+  const auto current_joint_angles = getCurrentJointAngles();
+
+  free_leg_id_ = leg_num;
+
+  raise_leg_flag_ = true;
+  raise_converge_ = false;
+  lower_leg_flag_ = false;
+
+  spidar_robot_model_->setFreeleg(free_leg_id_);
+  walk_controller_->startRaiseLeg();
+
+  // set the static belly mode
+  walk_controller_->setFloatingBellyMode(false);
+
+  // save the previous target joint angles
+  prev_target_joint_angles_ = target_joint_state_.position;
+
+  // update the foot postion, and thus the joint angles
+  auto target_leg_ends = getTargetLegEnds();
+  for (auto& leg_end:  target_leg_ends) {
+    tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
+    leg_end.p += KDL::Vector(delta.x(), delta.y(), delta.z());
+  }
+  setTargetLegEnds(target_leg_ends);
+
+  // save the final (real) target joint angles
+  final_target_joint_angles_ = target_joint_state_.position;
+
+  // simple strategy: add an offset for the raising leg that has different target joint angle
+  for (int j = 0; j < leg_num; j++) {
+
+    // inside pitch joint
+    int i = j * 4 + 1;
+    // do not riase the leg that has the constant target angle
+    if (prev_target_joint_angles_.at(i) == final_target_joint_angles_.at(i)) continue;
+    double base_angle = (current_joint_angles.at(i) < final_target_joint_angles_.at(i))? \
+      current_joint_angles.at(i):final_target_joint_angles_.at(i);
+    target_joint_state_.position.at(i) = base_angle - raise_angle_;
+
+    // inside yaw joint
+    i = j * 4;
+    target_joint_state_.position.at(i) = prev_target_joint_angles_.at(i);
+
+    // outside pitch joint
+    i = j * 4 + 3;
+    target_joint_state_.position.at(i) = prev_target_joint_angles_.at(i);
+  }
+}
+
+void BellyCrawl::lowerAllLimbs()
+{
+  lower_leg_flag_ = true;
+  raise_leg_flag_ = false;
+  raise_converge_ = false;
+  walk_controller_->startLowerLeg();
+
+  resetContactStatus(); // reset contact variables
+
+  const int leg_num = spidar_robot_model_->getRotorNum() / 2;
+  // simple strategy: remove an offset for the raising leg
+  for (int j = 0; j < leg_num; j++) {
+
+    // inside pitch joint
+    int i = j * 4 + 1;
+    target_joint_state_.position.at(i) = final_target_joint_angles_.at(i);
+  }
+}
+
 void BellyCrawl::setPose(tf::Transform pose)
 {
   tf::Vector3 pos = pose.getOrigin();
@@ -531,7 +623,7 @@ void BellyCrawl::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         // PHASE1: limb motion
         if (phase_ == PHASE1) {
           ROS_WARN_STREAM("[Spider][Walk][Navigation][Joy] instantly lower the raised leg");
-          lowerLeg();
+          lowerAllLimbs();
         }
 
         // PHASE2: belly motion
