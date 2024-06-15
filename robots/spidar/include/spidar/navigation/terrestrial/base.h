@@ -165,8 +165,8 @@ namespace aerial_robot_navigation
 
         bool checkKinematics();
 
-        void raiseLeg(int leg_id);
-        void lowerLeg();
+        virtual void raiseLeg(int leg_id);
+        virtual void lowerLeg();
         void resetContactStatus();
         void contactLeg();
 

@@ -94,7 +94,6 @@ void WalkController::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   target_joint_angles_.name = spidar_robot_model_->getLinkJointNames();
   int joint_num = spidar_robot_model_->getLinkJointNames().size();
   target_joint_angles_.position.assign(joint_num, 0);
-  prior_raise_leg_target_joint_angles_ = target_joint_angles_;
 
   target_joint_torques_.name.resize(0);
   target_joint_torques_.position.resize(0);
@@ -953,32 +952,6 @@ void WalkController::jointControl()
     target_joint_torques_.effort.push_back(tor);
   }
 
-  // special process raise leg
-  // TODO: move to navigation
-  if (raise_flag && !raise_converge) {
-
-    for (int j = 0; j < leg_num; j++) {
-
-      if (free_leg_id < leg_num && free_leg_id != j) {
-        continue;
-      }
-
-      // inside pitch joint of the free leg
-      int i = j * 4 + 1;
-
-      // raise separate motion
-      if (prior_raise_leg_target_joint_angles_.position.at(i) - current_angles.at(i) < 0.05) {
-        // inside yaw joint of the free leg
-        i = j * 4;
-        target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-        // outside pitch joint of the free leg
-        i = j * 4 + 3;
-        target_angles.at(i) = prior_raise_leg_target_joint_angles_.position.at(i);
-      }
-    }
-
-  }
-
   if (navigator_->getNaviState() == aerial_robot_navigation::ARM_ON_STATE &&
       !set_init_servo_torque_) {
     set_init_servo_torque_ = true;
@@ -1083,7 +1056,6 @@ void WalkController::sendCmd()
 void WalkController::startRaiseLeg()
 {
   free_leg_force_ratio_ = 1;
-  prior_raise_leg_target_joint_angles_ = target_joint_angles_;
   ROS_INFO_STREAM("[Spider][Walk][Thrust Control] start raise leg");
 }
 

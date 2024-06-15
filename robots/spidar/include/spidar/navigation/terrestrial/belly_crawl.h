@@ -80,6 +80,8 @@ namespace aerial_robot_navigation
         tf::Vector3 prev_pos_;
         double final_target_yaw_;
         double target_yaw_;
+        std::vector<double> prev_target_joint_angles_;
+        std::vector<double> final_target_joint_angles_;
 
         int phase_;
         bool move_flag_;
@@ -143,6 +145,8 @@ namespace aerial_robot_navigation
         Belly belly_;
 
 
+        void raiseAllLimbs();
+        void lowerAllLimbs();
         void stateMachine();
         void limbSubStateMachine();
         void bellySubStateMachine();

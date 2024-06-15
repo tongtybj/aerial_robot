@@ -220,13 +220,6 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
       continue;
     }
 
-    // special process for raising leg
-    if (i == free_leg_id_ || leg_num == free_leg_id_) {
-
-      // simple action
-      if (raise_leg_flag_) theta1 -= raise_angle_;
-    }
-
     target_angles.at(4 * i) = angle;
     target_angles.at(4 * i + 1) = theta1;
     target_angles.at(4 * i + 2) = 0;
@@ -235,14 +228,24 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
     ss << "(" << target_angles.at(4 * i) << ", " << target_angles.at(4 * i + 1) << ", "
        << target_angles.at(4 * i + 2) << ", " << target_angles.at(4 * i + 3) << ") ";
   }
-  ROS_DEBUG_STREAM_THROTTLE(1.0, "[Spider][Walk][Navigator] analytical joint angles from leg end and baselink: " << ss.str());
 
+  ROS_INFO_STREAM("[Spider][Walk][Navigator] analytical joint angles from leg end and baselink");
+  
 
   if (fail && !allow_fail) {
     return false;
   }
 
   target_joint_state_.position = target_angles;
+
+
+  std::stringstream ss2;
+  for (int i = 0; i < leg_num; i++) {
+    ss2 << "(" << target_angles.at(4 * i) << ", " << target_angles.at(4 * i + 1) << ", "
+        << target_angles.at(4 * i + 2) << ", " << target_angles.at(4 * i + 3) << ") ";
+  }
+
+  ROS_INFO_STREAM(ss2.str());
 
   return true;
 }
@@ -345,9 +348,8 @@ void Base::freeLegAction()
   const int leg_num = spidar_robot_model_->getRotorNum() / 2;
   const auto current_joint_angles = getCurrentJointAngles();
 
-
-  // raise leg
-  if (raise_leg_flag_) {
+  // special process raise leg
+  if (raise_leg_flag_ && !raise_converge_) {
 
     bool all_raise_converge = false;
 
@@ -669,6 +671,19 @@ void Base::raiseLeg(int leg_id)
 
   spidar_robot_model_->setFreeleg(free_leg_id_);
   walk_controller_->startRaiseLeg();
+
+  const int leg_num = spidar_robot_model_->getRotorNum() / 2;
+  const auto current_joint_angles = getCurrentJointAngles();
+
+
+  // simple strategy: add an offset for the raising leg
+  for (int j = 0; j < leg_num; j++) {
+
+    if (free_leg_id_ < leg_num && free_leg_id_ != j) continue;
+
+    int i = j * 4 + 1;
+    target_joint_state_.position.at(i) = current_joint_angles.at(i) - raise_angle_;
+  }
 }
 
 void Base::lowerLeg()
@@ -679,6 +694,16 @@ void Base::lowerLeg()
   walk_controller_->startLowerLeg();
 
   resetContactStatus(); // reset contact variables
+
+  // simple strategy: remove an offset for the raising leg
+  const int leg_num = spidar_robot_model_->getRotorNum() / 2;
+  for (int j = 0; j < leg_num; j++) {
+
+    if (free_leg_id_ < leg_num && free_leg_id_ != j) continue;
+
+    int i = j * 4 + 1;
+    target_joint_state_.position.at(i) += raise_angle_;
+  }
 }
 
 void Base::contactLeg()
