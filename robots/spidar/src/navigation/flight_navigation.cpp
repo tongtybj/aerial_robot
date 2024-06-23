@@ -11,11 +11,10 @@ FlightNavigator::FlightNavigator():
 
 void FlightNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                                  boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
-                                 boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
-                                 double loop_du)
+                                 boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator)
 {
   /* initialize the flight control */
-  DragonNavigator::initialize(nh, nhp, robot_model, estimator, loop_du);
+  DragonNavigator::initialize(nh, nhp, robot_model, estimator);
 
   ros::NodeHandle land_nh(nh_, "navigation/land");
   getParam<double>(land_nh, "inside_land_pitch_angle", inside_land_pitch_angle_, -0.1);
@@ -24,8 +23,11 @@ void FlightNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 
 void FlightNavigator::landingProcess()
 {
+
   if(getForceLandingFlag() || getNaviState() == LAND_STATE)
     {
+      target_omega_.setValue(0,0,0); // for sure to  target angular velocity is zero
+
       if(!level_flag_)
         {
           const auto joint_state = robot_model_->kdlJointToMsg(robot_model_->getJointPositions());
@@ -63,16 +65,24 @@ void FlightNavigator::landingProcess()
 
 
           joint_control_pub_.publish(joint_control_msg);
-          final_target_baselink_rot_.setValue(0, 0, 0);
 
-          double curr_roll = estimator_->getState(State::ROLL_BASE, estimate_mode_)[0];
-          double curr_pitch = estimator_->getState(State::PITCH_BASE, estimate_mode_)[0];
+          final_target_baselink_rot_.setRPY(0, 0, 0);
 
-          if(fabs(fabs(curr_pitch) - M_PI/2) < 0.05 && fabs(curr_roll) > M_PI/2) // singularity of XYZ Euler
-            curr_roll = 0;
+          tf::Vector3 base_euler = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
 
-          /* force set the current deisre tilt to current estimated tilt */
-          curr_target_baselink_rot_.setValue(curr_roll, curr_pitch, 0);
+          if(fabs(fabs(base_euler.y()) - M_PI/2) > 0.2)
+            {
+              /* force set the current deisre tilt to current estimated tilt */
+              curr_target_baselink_rot_.setRPY(base_euler.x(), base_euler.y(), 0); // case1
+            }
+          else
+            { // singularity of XYZ Euler
+
+              double r,p,y;
+              tf::Matrix3x3(curr_target_baselink_rot_).getRPY(r,p,y);
+              if(fabs(fabs(p) - M_PI/2) > 0.2)
+                curr_target_baselink_rot_.setRPY(0, base_euler.y(), 0); // case2
+            }
         }
 
       level_flag_ = true;

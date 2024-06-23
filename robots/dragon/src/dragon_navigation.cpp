@@ -181,6 +181,8 @@ void DragonNavigator::landingProcess()
                     target_cmd = 0;
                   else target_cmd = joint_state.position[i];
 
+
+                  joint_control_msg.name.push_back(joint_state.name.at(i));
                   joint_control_msg.position.push_back(target_cmd);
 
                 }

@@ -970,46 +970,48 @@ void DragonFullVectoringController::controlCore()
     }
 
 
-
-  // rotor interference compensation
-  rotorInterfereCompensation();
-
-  Eigen::VectorXd rotor_interfere_comp_acc = Eigen::VectorXd::Zero(6);
-  rotor_interfere_comp_acc(2) = 1 / robot_model_->getMass() * rotor_interfere_comp_wrench_(2);
-
-  bool torque_comp = false;
   std::stringstream ss;
-  if(overlap_positions_.size() == 1)
+  if(rotor_interfere_compensate_)
     {
-      ss << "do rotor interference torque compensation: " << overlap_rotors_.at(0) << " to " << overlap_segments_.at(0);
-      torque_comp = true;
-    }
+      // rotor interference compensation
+      rotorInterfereCompensation();
 
-  if(overlap_positions_.size() == 2)
-    {
-      if(overlap_rotors_.at(0).substr(0, 6) == overlap_rotors_.at(1).substr(0, 6))
+      Eigen::VectorXd rotor_interfere_comp_acc = Eigen::VectorXd::Zero(6);
+      rotor_interfere_comp_acc(2) = 1 / robot_model_->getMass() * rotor_interfere_comp_wrench_(2);
+
+      bool torque_comp = false;
+      if(overlap_positions_.size() == 1)
         {
-          ss << "do rotor interference torque compensation: " << overlap_rotors_.at(0) << " and " << overlap_rotors_.at(1);
+          ss << "do rotor interference torque compensation: " << overlap_rotors_.at(0) << " to " << overlap_segments_.at(0);
           torque_comp = true;
         }
-    }
 
-  if(low_fctmin_ || disable_torque_compensate_) torque_comp = false;
+      if(overlap_positions_.size() == 2)
+        {
+          if(overlap_rotors_.at(0).substr(0, 6) == overlap_rotors_.at(1).substr(0, 6))
+            {
+              ss << "do rotor interference torque compensation: " << overlap_rotors_.at(0) << " and " << overlap_rotors_.at(1);
+              torque_comp = true;
+            }
+        }
 
-  if(torque_comp)
-    {
-      ROS_INFO_STREAM(ss.str());
-      rotor_interfere_comp_acc.tail(3) = robot_model_->getInertia<Eigen::Matrix3d>().inverse() * rotor_interfere_comp_wrench_.tail(3);
-    }
+      if(low_fctmin_ || disable_torque_compensate_) torque_comp = false;
 
-  if(rotor_interfere_compensate_) // TODO move this scope
-    {
+      if(torque_comp)
+        {
+          ROS_INFO_STREAM(ss.str());
+          rotor_interfere_comp_acc.tail(3) = robot_model_->getInertia<Eigen::Matrix3d>().inverse() * rotor_interfere_comp_wrench_.tail(3);
+        }
+
+
+
       target_acc += rotor_interfere_comp_acc;
       target_acc_low_freq += rotor_interfere_comp_acc;
+
+      ss.str("");
+      for(int i = 0; i < overlap_rotors_.size(); i++) ss << overlap_rotors_.at(i) << " -> " << overlap_segments_.at(i) << "; ";
+      if(overlap_rotors_.size() > 0) ROS_DEBUG_STREAM("rotor interference: " << ss.str());
     }
-  ss.str("");
-  for(int i = 0; i < overlap_rotors_.size(); i++) ss << overlap_rotors_.at(i) << " -> " << overlap_segments_.at(i) << "; ";
-  if(overlap_rotors_.size() > 0) ROS_DEBUG_STREAM("rotor interference: " << ss.str());
 
   // external wrench compensation
   Eigen::MatrixXd rot_inv = Eigen::MatrixXd::Zero(6, 6);

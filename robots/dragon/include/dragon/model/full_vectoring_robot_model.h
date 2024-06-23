@@ -84,7 +84,7 @@ namespace Dragon
     Eigen::VectorXd calcFeasibleControlFxyDists(const std::vector<int>& gimbal_roll_lock, const std::vector<double>& locked_roll_angles, int rotor_num, const std::vector<Eigen::Matrix3d>& link_rot);
     Eigen::VectorXd calcFeasibleControlTDists(const std::vector<int>& gimbal_roll_lock, const std::vector<double>& locked_roll_angles, int rotor_num, const std::vector<Eigen::Vector3d>& rotor_pos, const std::vector<Eigen::Matrix3d>& link_rot, const Eigen::Matrix3d& cog_rot);
 
-  private:
+  protected:
 
     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_for_plan_;
 

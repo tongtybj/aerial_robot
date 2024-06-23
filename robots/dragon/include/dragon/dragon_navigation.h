@@ -52,7 +52,7 @@ namespace aerial_robot_navigation
     DragonNavigator();
     ~DragonNavigator(){}
 
-    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
+    virtual void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
                     boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator) override;
 
@@ -61,7 +61,7 @@ namespace aerial_robot_navigation
     inline const bool getLandingFlag() const { return landing_flag_; }
     inline const bool getEqCoGWorldFlag() const { return eq_cog_world_; }
 
-  private:
+  protected:
     ros::Publisher target_baselink_rpy_pub_; // to spinal
     ros::Publisher joint_control_pub_;
     ros::Subscriber final_target_baselink_rot_sub_, final_target_baselink_rpy_sub_;
@@ -71,7 +71,7 @@ namespace aerial_robot_navigation
     void reset() override;
 
     void servoTorqueProcess();
-    void landingProcess();
+    virtual void landingProcess();
     void gimbalControl();
     void baselinkRotationProcess();
     void rosParamInit() override;
