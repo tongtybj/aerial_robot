@@ -1,0 +1,7 @@
+package:
+  ["spidar"]
+
+spidar:
+  input: ["robots/octo/v1_leg/robot.urdf.xacro"]
+  filename: ["octo/v1_leg"]
+  meshdir: urdf/v1/mesh

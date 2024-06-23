@@ -1,0 +1,290 @@
+<?xml version="1.0" ?>
+<mujoco model="spidar">
+  <compiler angle="radian" autolimits="true" balanceinertia="true"/>
+  <statistic meansize="0.187046" extent="2.09508" center="0 0 -0.0166684"/>
+  <asset>
+    <mesh name="center_link" file="center_link.stl"/>
+    <mesh name="joint_junction_link_large_pitch_pulley" file="joint_junction_link_large_pitch_pulley.stl"/>
+    <mesh name="long_leg" file="long_leg.stl"/>
+    <mesh name="general_link" file="general_link.stl"/>
+    <mesh name="roll_link" file="roll_link.stl"/>
+    <mesh name="pitch_link" file="pitch_link.stl"/>
+    <mesh name="joint_junction_link" file="joint_junction_link.stl"/>
+    <mesh name="ZIPPY-3000-25C-6S" file="ZIPPY-3000-25C-6S.stl"/>
+    <mesh name="end_link" file="end_link.stl"/>
+    <mesh name="spinal" file="spinal.stl"/>
+    <mesh name="leg_cap" file="leg_cap.stl"/>
+  </asset>
+  <worldbody>
+    <body name="center_link" pos="0 0 0.2">
+      <inertial pos="0.0 0.0 0.027" mass="1.1780349" fullinertia="0.009512 0.009512 0.017150 0.000000 0.000000 0.000000"/>
+      <freejoint/>
+      <geom name="center_link" type="mesh" mesh="center_link" contype="1" conaffinity="0"/>
+      <geom name="fc" pos="-0.0129 -0.0044 0.0398284" type="mesh" mesh="spinal" contype="1" conaffinity="0"/>
+      <body name="joint_junction_link1" pos="0.12233 0.12233 -0.0155" quat="0.92388 0 0 0.382683">
+        <inertial pos="0.0221846 0.00554615 -0.0130546" quat="0.921455 0.0370403 0.173926 0.345397" mass="0.13" diaginertia="0.000279505 0.000247519 9.42653e-05"/>
+        <joint name="joint1_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+        <geom name="joint_junction_link1" type="mesh" mesh="joint_junction_link_large_pitch_pulley" contype="1" conaffinity="0"/>
+        <geom name="joint_junction_leg1" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+        <body name="link1" pos="0.0515 0 0">
+          <inertial pos="0.333302 -0.00111277 -0.0150755" quat="0.510216 0.470096 0.585749 0.419031" mass="0.94" diaginertia="0.0292733 0.0289485 0.000577734"/>
+          <joint name="joint1_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+          <geom name="link1" type="mesh" mesh="general_link" contype="1" conaffinity="0"/>
+          <geom name="bat1" pos="0.43 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+          <body name="joint_junction_link2" pos="0.523 0 0">
+            <inertial pos="0.0202459 0.00311475 -0.0133287" quat="0.902062 0.0517089 0.152803 0.400327" mass="0.122" diaginertia="0.000259361 0.000241546 7.79896e-05"/>
+            <joint name="joint2_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+            <geom name="joint_junction_link2" type="mesh" mesh="joint_junction_link" contype="1" conaffinity="0"/>
+            <geom name="joint_junction_leg2" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+            <body name="link2" pos="0.0515 0 0">
+              <inertial pos="0.318146 0.00609485 -0.0190433" quat="-0.204813 0.692075 -0.223649 0.65503" mass="0.854" diaginertia="0.0257829 0.0256037 0.000714694"/>
+              <joint name="joint2_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+              <geom name="link2" type="mesh" mesh="end_link" contype="1" conaffinity="0"/>
+              <geom name="bat2" pos="0.41 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+              <geom name="link2_foot" pos="0.5115 0 0" type="mesh" mesh="leg_cap" contype="1" conaffinity="0"/>
+              <body name="gimbal2_roll_module" pos="0.268 0 0">
+                <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+                <joint name="gimbal2_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+                <geom name="gimbal2_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+                <body name="gimbal2_pitch_module" pos="-0.0065 0 -0.027">
+                  <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+                  <joint name="gimbal2_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+                  <geom name="gimbal2_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+                  <body name="thrust2">
+                    <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                    <site name="rotor2" pos="0 0 0"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="gimbal1_roll_module" pos="0.268 0 0">
+            <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+            <joint name="gimbal1_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+            <geom name="gimbal1_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+            <body name="gimbal1_pitch_module" pos="-0.0065 0 -0.027">
+              <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+              <joint name="gimbal1_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+              <geom name="gimbal1_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+              <body name="thrust1">
+                <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                <site name="rotor1" pos="0 0 0"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="joint_junction_link3" pos="-0.12233 0.12233 -0.0155" quat="0.382683 0 0 0.92388">
+        <inertial pos="0.0221846 0.00554615 -0.0130546" quat="0.921455 0.0370403 0.173926 0.345397" mass="0.13" diaginertia="0.000279505 0.000247519 9.42653e-05"/>
+        <joint name="joint3_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+        <geom name="joint_junction_link3" type="mesh" mesh="joint_junction_link_large_pitch_pulley" contype="1" conaffinity="0"/>
+        <geom name="joint_junction_leg3" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+        <body name="link3" pos="0.0515 0 0">
+          <inertial pos="0.333302 -0.00111277 -0.0150755" quat="0.510216 0.470096 0.585749 0.419031" mass="0.94" diaginertia="0.0292733 0.0289485 0.000577734"/>
+          <joint name="joint3_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+          <geom name="link3" type="mesh" mesh="general_link" contype="1" conaffinity="0"/>
+          <geom name="bat3" pos="0.43 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+          <body name="joint_junction_link4" pos="0.523 0 0">
+            <inertial pos="0.0202459 0.00311475 -0.0133287" quat="0.902062 0.0517089 0.152803 0.400327" mass="0.122" diaginertia="0.000259361 0.000241546 7.79896e-05"/>
+            <joint name="joint4_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+            <geom name="joint_junction_link4" type="mesh" mesh="joint_junction_link" contype="1" conaffinity="0"/>
+            <geom name="joint_junction_leg4" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+            <body name="link4" pos="0.0515 0 0">
+              <inertial pos="0.318146 0.00609485 -0.0190433" quat="-0.204813 0.692075 -0.223649 0.65503" mass="0.854" diaginertia="0.0257829 0.0256037 0.000714694"/>
+              <joint name="joint4_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+              <geom name="link4" type="mesh" mesh="end_link" contype="1" conaffinity="0"/>
+              <geom name="bat4" pos="0.41 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+              <geom name="link4_foot" pos="0.5115 0 0" type="mesh" mesh="leg_cap" contype="1" conaffinity="0"/>
+              <body name="gimbal4_roll_module" pos="0.268 0 0">
+                <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+                <joint name="gimbal4_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+                <geom name="gimbal4_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+                <body name="gimbal4_pitch_module" pos="-0.0065 0 -0.027">
+                  <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+                  <joint name="gimbal4_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+                  <geom name="gimbal4_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+                  <body name="thrust4">
+                    <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                    <site name="rotor4" pos="0 0 0"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="gimbal3_roll_module" pos="0.268 0 0">
+            <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+            <joint name="gimbal3_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+            <geom name="gimbal3_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+            <body name="gimbal3_pitch_module" pos="-0.0065 0 -0.027">
+              <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+              <joint name="gimbal3_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+              <geom name="gimbal3_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+              <body name="thrust3">
+                <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                <site name="rotor3" pos="0 0 0"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="joint_junction_link5" pos="-0.12233 -0.12233 -0.0155" quat="-0.382683 0 0 0.92388">
+        <inertial pos="0.0221846 0.00554615 -0.0130546" quat="0.921455 0.0370403 0.173926 0.345397" mass="0.13" diaginertia="0.000279505 0.000247519 9.42653e-05"/>
+        <joint name="joint5_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+        <geom name="joint_junction_link5" type="mesh" mesh="joint_junction_link_large_pitch_pulley" contype="1" conaffinity="0"/>
+        <geom name="joint_junction_leg5" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+        <body name="link5" pos="0.0515 0 0">
+          <inertial pos="0.333302 -0.00111277 -0.0150755" quat="0.510216 0.470096 0.585749 0.419031" mass="0.94" diaginertia="0.0292733 0.0289485 0.000577734"/>
+          <joint name="joint5_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+          <geom name="link5" type="mesh" mesh="general_link" contype="1" conaffinity="0"/>
+          <geom name="bat5" pos="0.43 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+          <body name="joint_junction_link6" pos="0.523 0 0">
+            <inertial pos="0.0202459 0.00311475 -0.0133287" quat="0.902062 0.0517089 0.152803 0.400327" mass="0.122" diaginertia="0.000259361 0.000241546 7.79896e-05"/>
+            <joint name="joint6_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+            <geom name="joint_junction_link6" type="mesh" mesh="joint_junction_link" contype="1" conaffinity="0"/>
+            <geom name="joint_junction_leg6" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+            <body name="link6" pos="0.0515 0 0">
+              <inertial pos="0.318146 0.00609485 -0.0190433" quat="-0.204813 0.692075 -0.223649 0.65503" mass="0.854" diaginertia="0.0257829 0.0256037 0.000714694"/>
+              <joint name="joint6_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+              <geom name="link6" type="mesh" mesh="end_link" contype="1" conaffinity="0"/>
+              <geom name="bat6" pos="0.41 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+              <geom name="link6_foot" pos="0.5115 0 0" type="mesh" mesh="leg_cap" contype="1" conaffinity="0"/>
+              <body name="gimbal6_roll_module" pos="0.268 0 0">
+                <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+                <joint name="gimbal6_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+                <geom name="gimbal6_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+                <body name="gimbal6_pitch_module" pos="-0.0065 0 -0.027">
+                  <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+                  <joint name="gimbal6_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+                  <geom name="gimbal6_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+                  <body name="thrust6">
+                    <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                    <site name="rotor6" pos="0 0 0"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="gimbal5_roll_module" pos="0.268 0 0">
+            <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+            <joint name="gimbal5_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+            <geom name="gimbal5_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+            <body name="gimbal5_pitch_module" pos="-0.0065 0 -0.027">
+              <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+              <joint name="gimbal5_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+              <geom name="gimbal5_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+              <body name="thrust5">
+                <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                <site name="rotor5" pos="0 0 0"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="joint_junction_link7" pos="0.12233 -0.12233 -0.0155" quat="-0.92388 0 0 0.382683">
+        <inertial pos="0.0221846 0.00554615 -0.0130546" quat="0.921455 0.0370403 0.173926 0.345397" mass="0.13" diaginertia="0.000279505 0.000247519 9.42653e-05"/>
+        <joint name="joint7_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+        <geom name="joint_junction_link7" type="mesh" mesh="joint_junction_link_large_pitch_pulley" contype="1" conaffinity="0"/>
+        <geom name="joint_junction_leg7" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+        <body name="link7" pos="0.0515 0 0">
+          <inertial pos="0.333302 -0.00111277 -0.0150755" quat="0.510216 0.470096 0.585749 0.419031" mass="0.94" diaginertia="0.0292733 0.0289485 0.000577734"/>
+          <joint name="joint7_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+          <geom name="link7" type="mesh" mesh="general_link" contype="1" conaffinity="0"/>
+          <geom name="bat7" pos="0.43 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+          <body name="joint_junction_link8" pos="0.523 0 0">
+            <inertial pos="0.0202459 0.00311475 -0.0133287" quat="0.902062 0.0517089 0.152803 0.400327" mass="0.122" diaginertia="0.000259361 0.000241546 7.79896e-05"/>
+            <joint name="joint8_yaw" pos="0 0 0" axis="0 0 1" range="-1.9108 1.9108" damping="150"/>
+            <geom name="joint_junction_link8" type="mesh" mesh="joint_junction_link" contype="1" conaffinity="0"/>
+            <geom name="joint_junction_leg8" pos="0 0 -0.0283" quat="0.707107 0 0 0.707107" type="mesh" mesh="long_leg" contype="1" conaffinity="0"/>
+            <body name="link8" pos="0.0515 0 0">
+              <inertial pos="0.318146 0.00609485 -0.0190433" quat="-0.204813 0.692075 -0.223649 0.65503" mass="0.854" diaginertia="0.0257829 0.0256037 0.000714694"/>
+              <joint name="joint8_pitch" pos="0 0 0" axis="0 1 0" range="-1.9108 1.9108" damping="150"/>
+              <geom name="link8" type="mesh" mesh="end_link" contype="1" conaffinity="0"/>
+              <geom name="bat8" pos="0.41 0 -0.039" quat="0.707107 -0.707107 0 0" type="mesh" mesh="ZIPPY-3000-25C-6S" contype="1" conaffinity="0"/>
+              <geom name="link8_foot" pos="0.5115 0 0" type="mesh" mesh="leg_cap" contype="1" conaffinity="0"/>
+              <body name="gimbal8_roll_module" pos="0.268 0 0">
+                <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+                <joint name="gimbal8_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+                <geom name="gimbal8_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+                <body name="gimbal8_pitch_module" pos="-0.0065 0 -0.027">
+                  <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+                  <joint name="gimbal8_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+                  <geom name="gimbal8_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+                  <body name="thrust8">
+                    <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                    <site name="rotor8" pos="0 0 0"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="gimbal7_roll_module" pos="0.268 0 0">
+            <inertial pos="0.0145839 -0.0007152 -0.0219046" quat="0.885928 0.0669428 0.15987 0.430223" mass="0.275" diaginertia="0.000508807 0.000496706 0.000111487"/>
+            <joint name="gimbal7_roll" pos="0 0 0" axis="1 0 0" range="-18.8496 18.8496" damping="0.1"/>
+            <geom name="gimbal7_roll_module" type="mesh" mesh="roll_link" contype="1" conaffinity="0"/>
+            <body name="gimbal7_pitch_module" pos="-0.0065 0 -0.027">
+              <inertial pos="1.10995e-05 -0.00150863 -0.00109005" quat="0.500339 0.499661 -0.499661 0.500339" mass="0.43402" diaginertia="0.00778537 0.00759736 0.000402986"/>
+              <joint name="gimbal7_pitch" pos="0 0 0" axis="0 1 0" range="-18.8496 18.8496" damping="0.1"/>
+              <geom name="gimbal7_pitch_module" type="mesh" mesh="pitch_link" contype="1" conaffinity="0"/>
+              <body name="thrust7">
+                <inertial pos="0 0 0" mass="1e-05" diaginertia="1e-06 1e-06 1e-06"/>
+                <site name="rotor7" pos="0 0 0"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <site name="fc" pos="-0.0129 -0.0044 0.0398284"/>
+      <body name="fc" pos="-0.0129 -0.0044 0.0398284" quat="1 0 0 0">
+        <inertial pos="0.0128576 0.0044678 -0.0226530" mass="0.0354160" fullinertia="0.0000225 0.0000225 0.0000346 -0.0000001 0.0000000 0.0000000"/>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="rotor1" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor1"/>
+    <motor name="rotor2" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor2"/>
+    <motor name="rotor3" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor3"/>
+    <motor name="rotor4" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor4"/>
+    <motor name="rotor5" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor5"/>
+    <motor name="rotor6" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor6"/>
+    <motor name="rotor7" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor7"/>
+    <motor name="rotor8" ctrllimited="true" ctrlrange="0 36" gear="0 0 1 0 0 0.0" site="rotor8"/>
+    <position name="joint1_pitch" kp="40" joint="joint1_pitch"/>
+    <position name="joint3_pitch" kp="40" joint="joint3_pitch"/>
+    <position name="joint5_pitch" kp="40" joint="joint5_pitch"/>
+    <position name="joint7_pitch" kp="40" joint="joint7_pitch"/>
+    <position name="joint1_yaw" kp="40" joint="joint1_yaw"/>
+    <position name="joint3_yaw" kp="40" joint="joint3_yaw"/>
+    <position name="joint5_yaw" kp="40" joint="joint5_yaw"/>
+    <position name="joint7_yaw" kp="40" joint="joint7_yaw"/>
+    <position name="joint2_pitch" kp="40" joint="joint2_pitch"/>
+    <position name="joint2_yaw" kp="40" joint="joint2_yaw"/>
+    <position name="gimbal1_roll" kp="40" joint="gimbal1_roll"/>
+    <position name="gimbal1_pitch" kp="40" joint="gimbal1_pitch"/>
+    <position name="gimbal2_roll" kp="40" joint="gimbal2_roll"/>
+    <position name="gimbal2_pitch" kp="40" joint="gimbal2_pitch"/>
+    <position name="joint4_pitch" kp="40" joint="joint4_pitch"/>
+    <position name="joint4_yaw" kp="40" joint="joint4_yaw"/>
+    <position name="gimbal3_roll" kp="40" joint="gimbal3_roll"/>
+    <position name="gimbal3_pitch" kp="40" joint="gimbal3_pitch"/>
+    <position name="gimbal4_roll" kp="40" joint="gimbal4_roll"/>
+    <position name="gimbal4_pitch" kp="40" joint="gimbal4_pitch"/>
+    <position name="joint6_pitch" kp="40" joint="joint6_pitch"/>
+    <position name="joint6_yaw" kp="40" joint="joint6_yaw"/>
+    <position name="gimbal5_roll" kp="40" joint="gimbal5_roll"/>
+    <position name="gimbal5_pitch" kp="40" joint="gimbal5_pitch"/>
+    <position name="gimbal6_roll" kp="40" joint="gimbal6_roll"/>
+    <position name="gimbal6_pitch" kp="40" joint="gimbal6_pitch"/>
+    <position name="joint8_pitch" kp="40" joint="joint8_pitch"/>
+    <position name="joint8_yaw" kp="40" joint="joint8_yaw"/>
+    <position name="gimbal7_roll" kp="40" joint="gimbal7_roll"/>
+    <position name="gimbal7_pitch" kp="40" joint="gimbal7_pitch"/>
+    <position name="gimbal8_roll" kp="40" joint="gimbal8_roll"/>
+    <position name="gimbal8_pitch" kp="40" joint="gimbal8_pitch"/>
+  </actuator>
+  <sensor>
+    <accelerometer name="acc" site="fc"/>
+    <gyro name="gyro" site="fc"/>
+    <magnetometer name="mag" site="fc"/>
+  </sensor>
+  <include file="../../../../../../aerial_robot_3rdparty/mujoco_ros_control/config/world.xml"/>
+</mujoco>

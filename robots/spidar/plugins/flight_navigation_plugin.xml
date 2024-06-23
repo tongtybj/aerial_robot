@@ -1,0 +1,17 @@
+<library path="lib/libspidar_navigation">
+  <class name="aerial_robot_navigation/spidar/terrestrial/base" type="aerial_robot_navigation::Spider::Terrestrial::Base" base_class_type="aerial_robot_navigation::BaseNavigator">
+    <description> spidar base terrestrial navigation plugin</description>
+  </class>
+
+  <class name="aerial_robot_navigation/spidar/terrestrial/quadruped_primitive_walk" type="aerial_robot_navigation::Spider::Terrestrial::QuadrupedPrimitiveWalk" base_class_type="aerial_robot_navigation::BaseNavigator">
+    <description> spidar quadruped walk navigation plugin</description>
+  </class>
+
+  <class name="aerial_robot_navigation/spidar/terrestrial/belly_crawl" type="aerial_robot_navigation::Spider::Terrestrial::BellyCrawl" base_class_type="aerial_robot_navigation::BaseNavigator">
+    <description> spidar belly crawl navigation plugin</description>
+  </class>
+
+  <class name="aerial_robot_navigation/spidar/flight_navigation" type="aerial_robot_navigation::Spider::FlightNavigator" base_class_type="aerial_robot_navigation::BaseNavigator">
+    <description> spidar flight navigation plugin</description>
+  </class>
+</library>

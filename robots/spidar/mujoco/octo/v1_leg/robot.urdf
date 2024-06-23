@@ -1,0 +1,2124 @@
+<?xml version="1.0" ?>
+<robot name="spidar">
+   ### [N]
+    ### [N]
+    ### [N]
+  <baselink name="fc"/>
+  <thrust_link name="thrust"/>
+  <m_f_rate value="0"/>
+  #### CENTER LINK ####
+  #### LINK ####
+    #### dummy root link for KDL ####
+  <link name="root">
+    <inertial>
+      <mass value="0.00001"/>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <joint name="root_joint" type="fixed">
+    <parent link="root"/>
+    <child link="center_link"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### link ####
+  <link name="center_link">
+    <inertial>
+      <mass value="1.1780349"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.027"/>
+      <inertia ixx="0.009512" ixy="0.000000" ixz="0.000000" iyy="0.009512" iyz="0.000000" izz="0.017150"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="center_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="center_link">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="center_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="center_link">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="center_link">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <link name="joint_junction_link1">
+    <inertial>
+      <mass value="0.103"/>
+      <origin rpy="0 0 0" xyz="0.028 0.007 0.003"/>
+      <inertia ixx="0.000087" ixy="0.000016" ixz="-0.000010" iyy="0.000087" iyz="-0.000002" izz="0.000096"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link1">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link1">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link1">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint1_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link1"/>
+    <child link="link1"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link12joint_junction_leg1" type="fixed">
+    <parent link="joint_junction_link1"/>
+    <child link="joint_junction_leg1"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg1">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg1">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg1">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+  <link name="joint_junction_link3">
+    <inertial>
+      <mass value="0.103"/>
+      <origin rpy="0 0 0" xyz="0.028 0.007 0.003"/>
+      <inertia ixx="0.000087" ixy="0.000016" ixz="-0.000010" iyy="0.000087" iyz="-0.000002" izz="0.000096"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link3">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link3">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link3">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint3_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link3"/>
+    <child link="link3"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link32joint_junction_leg3" type="fixed">
+    <parent link="joint_junction_link3"/>
+    <child link="joint_junction_leg3"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg3">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg3">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg3">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+  <link name="joint_junction_link5">
+    <inertial>
+      <mass value="0.103"/>
+      <origin rpy="0 0 0" xyz="0.028 0.007 0.003"/>
+      <inertia ixx="0.000087" ixy="0.000016" ixz="-0.000010" iyy="0.000087" iyz="-0.000002" izz="0.000096"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link5">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link5">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link5">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint5_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link5"/>
+    <child link="link5"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link52joint_junction_leg5" type="fixed">
+    <parent link="joint_junction_link5"/>
+    <child link="joint_junction_leg5"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg5">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg5">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg5">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+  <link name="joint_junction_link7">
+    <inertial>
+      <mass value="0.103"/>
+      <origin rpy="0 0 0" xyz="0.028 0.007 0.003"/>
+      <inertia ixx="0.000087" ixy="0.000016" ixz="-0.000010" iyy="0.000087" iyz="-0.000002" izz="0.000096"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link7">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link_large_pitch_pulley.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link7">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link7">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint7_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link7"/>
+    <child link="link7"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link72joint_junction_leg7" type="fixed">
+    <parent link="joint_junction_link7"/>
+    <child link="joint_junction_leg7"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg7">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg7">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg7">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+    #### joints ####
+  <joint name="joint1_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="center_link"/>
+    <child link="joint_junction_link1"/>
+    <origin rpy="0 0 0.7853981633974483" xyz="0.12233 0.12233 -0.0155"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint3_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="center_link"/>
+    <child link="joint_junction_link3"/>
+    <origin rpy="0 0 2.356194490192345" xyz="-0.12233 0.12233 -0.0155"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint5_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="center_link"/>
+    <child link="joint_junction_link5"/>
+    <origin rpy="0 0 3.9269908169872414" xyz="-0.12233 -0.12233 -0.0155"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint7_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="center_link"/>
+    <child link="joint_junction_link7"/>
+    <origin rpy="0 0 5.497787143782138" xyz="0.12233 -0.12233 -0.0155"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+    #### hardware interface ####
+  <link name="link1">
+    <inertial>
+      <mass value="0.523"/>
+      <origin rpy="0 0 0" xyz="0.257 -0.002 0.004"/>
+      <inertia ixx="0.000519" ixy="-0.000246" ixz="0.001893" iyy="0.021290" iyz="-0.000044" izz="0.020931"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link1">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link1">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link1">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal1_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal1_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal1_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal1_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal1_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal1_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal1_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal1_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust1">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf1_left_mount" type="fixed">
+    <child link="edf1_left"/>
+    <parent link="gimbal1_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf1_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf1_right_mount" type="fixed">
+    <child link="edf1_right"/>
+    <parent link="gimbal1_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf1_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+  <link name="joint_junction_link2">
+    <inertial>
+      <mass value="0.095"/>
+      <origin rpy="0 0 0" xyz="0.026 0.004 0.004"/>
+      <inertia ixx="0.000074" ixy="0.000009" ixz="-0.000009" iyy="0.000079" iyz="-0.000001" izz="0.000079"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link2">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link2">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link2">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint2_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link2"/>
+    <child link="link2"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link22joint_junction_leg2" type="fixed">
+    <parent link="joint_junction_link2"/>
+    <child link="joint_junction_leg2"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg2">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg2">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg2">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+    #### joints ####
+    #### link joint ####
+  <joint name="joint2_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="link1"/>
+    <child link="joint_junction_link2"/>
+    <origin rpy="0 0 0" xyz="0.523 0 0"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+    #### gimbal joint ####
+  <joint name="gimbal1_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link1"/>
+    <child link="gimbal1_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal1_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal1_roll_module"/>
+    <child link="gimbal1_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor1" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal1_pitch_module"/>
+    <child link="thrust1"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link12bat1" type="fixed">
+    <parent link="link1"/>
+    <child link="bat1"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.430 0.0 -0.039"/>
+  </joint>
+  <link name="bat1">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat1">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <link name="link2">
+    <inertial>
+      <mass value="0.347"/>
+      <origin rpy="0 0 0" xyz="0.157 0.015 0"/>
+      <inertia ixx="0.000276" ixy="-0.000606" ixz="-0.000031" iyy="0.008551" iyz="0.000001" izz="0.008772"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link2">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link2">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link2">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal2_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal2_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal2_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal2_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal2_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal2_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal2_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal2_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust2">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust2">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf2_left_mount" type="fixed">
+    <child link="edf2_left"/>
+    <parent link="gimbal2_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf2_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf2_right_mount" type="fixed">
+    <child link="edf2_right"/>
+    <parent link="gimbal2_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf2_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+    #### joints ####
+    #### link joint ####
+    #### gimbal joint ####
+  <joint name="gimbal2_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link2"/>
+    <child link="gimbal2_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal2_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal2_roll_module"/>
+    <child link="gimbal2_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor2" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal2_pitch_module"/>
+    <child link="thrust2"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link22bat2" type="fixed">
+    <parent link="link2"/>
+    <child link="bat2"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.410 0.0 -0.039"/>
+  </joint>
+  <link name="bat2">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat2">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <link name="link3">
+    <inertial>
+      <mass value="0.523"/>
+      <origin rpy="0 0 0" xyz="0.257 -0.002 0.004"/>
+      <inertia ixx="0.000519" ixy="-0.000246" ixz="0.001893" iyy="0.021290" iyz="-0.000044" izz="0.020931"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link3">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link3">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link3">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal3_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal3_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal3_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal3_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal3_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal3_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal3_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal3_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust3">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust3">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf3_left_mount" type="fixed">
+    <child link="edf3_left"/>
+    <parent link="gimbal3_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf3_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf3_right_mount" type="fixed">
+    <child link="edf3_right"/>
+    <parent link="gimbal3_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf3_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+  <link name="joint_junction_link4">
+    <inertial>
+      <mass value="0.095"/>
+      <origin rpy="0 0 0" xyz="0.026 0.004 0.004"/>
+      <inertia ixx="0.000074" ixy="0.000009" ixz="-0.000009" iyy="0.000079" iyz="-0.000001" izz="0.000079"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link4">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link4">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link4">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint4_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link4"/>
+    <child link="link4"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link42joint_junction_leg4" type="fixed">
+    <parent link="joint_junction_link4"/>
+    <child link="joint_junction_leg4"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg4">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg4">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg4">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+    #### joints ####
+    #### link joint ####
+  <joint name="joint4_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="link3"/>
+    <child link="joint_junction_link4"/>
+    <origin rpy="0 0 0" xyz="0.523 0 0"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+    #### gimbal joint ####
+  <joint name="gimbal3_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link3"/>
+    <child link="gimbal3_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal3_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal3_roll_module"/>
+    <child link="gimbal3_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor3" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal3_pitch_module"/>
+    <child link="thrust3"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link32bat3" type="fixed">
+    <parent link="link3"/>
+    <child link="bat3"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.430 0.0 -0.039"/>
+  </joint>
+  <link name="bat3">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat3">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <link name="link4">
+    <inertial>
+      <mass value="0.347"/>
+      <origin rpy="0 0 0" xyz="0.157 0.015 0"/>
+      <inertia ixx="0.000276" ixy="-0.000606" ixz="-0.000031" iyy="0.008551" iyz="0.000001" izz="0.008772"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link4">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link4">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link4">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal4_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal4_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal4_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal4_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal4_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal4_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal4_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal4_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust4">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust4">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf4_left_mount" type="fixed">
+    <child link="edf4_left"/>
+    <parent link="gimbal4_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf4_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf4_right_mount" type="fixed">
+    <child link="edf4_right"/>
+    <parent link="gimbal4_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf4_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+    #### joints ####
+    #### link joint ####
+    #### gimbal joint ####
+  <joint name="gimbal4_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link4"/>
+    <child link="gimbal4_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal4_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal4_roll_module"/>
+    <child link="gimbal4_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor4" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal4_pitch_module"/>
+    <child link="thrust4"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link42bat4" type="fixed">
+    <parent link="link4"/>
+    <child link="bat4"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.410 0.0 -0.039"/>
+  </joint>
+  <link name="bat4">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat4">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <link name="link5">
+    <inertial>
+      <mass value="0.523"/>
+      <origin rpy="0 0 0" xyz="0.257 -0.002 0.004"/>
+      <inertia ixx="0.000519" ixy="-0.000246" ixz="0.001893" iyy="0.021290" iyz="-0.000044" izz="0.020931"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link5">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link5">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link5">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal5_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal5_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal5_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal5_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal5_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal5_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal5_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal5_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust5">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust5">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf5_left_mount" type="fixed">
+    <child link="edf5_left"/>
+    <parent link="gimbal5_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf5_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf5_right_mount" type="fixed">
+    <child link="edf5_right"/>
+    <parent link="gimbal5_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf5_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+  <link name="joint_junction_link6">
+    <inertial>
+      <mass value="0.095"/>
+      <origin rpy="0 0 0" xyz="0.026 0.004 0.004"/>
+      <inertia ixx="0.000074" ixy="0.000009" ixz="-0.000009" iyy="0.000079" iyz="-0.000001" izz="0.000079"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link6">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link6">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link6">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint6_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link6"/>
+    <child link="link6"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link62joint_junction_leg6" type="fixed">
+    <parent link="joint_junction_link6"/>
+    <child link="joint_junction_leg6"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg6">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg6">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg6">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+    #### joints ####
+    #### link joint ####
+  <joint name="joint6_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="link5"/>
+    <child link="joint_junction_link6"/>
+    <origin rpy="0 0 0" xyz="0.523 0 0"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+    #### gimbal joint ####
+  <joint name="gimbal5_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link5"/>
+    <child link="gimbal5_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal5_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal5_roll_module"/>
+    <child link="gimbal5_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor5" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal5_pitch_module"/>
+    <child link="thrust5"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link52bat5" type="fixed">
+    <parent link="link5"/>
+    <child link="bat5"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.430 0.0 -0.039"/>
+  </joint>
+  <link name="bat5">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat5">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <link name="link6">
+    <inertial>
+      <mass value="0.347"/>
+      <origin rpy="0 0 0" xyz="0.157 0.015 0"/>
+      <inertia ixx="0.000276" ixy="-0.000606" ixz="-0.000031" iyy="0.008551" iyz="0.000001" izz="0.008772"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link6">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link6">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link6">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal6_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal6_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal6_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal6_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal6_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal6_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal6_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal6_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust6">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust6">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf6_left_mount" type="fixed">
+    <child link="edf6_left"/>
+    <parent link="gimbal6_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf6_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf6_right_mount" type="fixed">
+    <child link="edf6_right"/>
+    <parent link="gimbal6_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf6_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+    #### joints ####
+    #### link joint ####
+    #### gimbal joint ####
+  <joint name="gimbal6_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link6"/>
+    <child link="gimbal6_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal6_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal6_roll_module"/>
+    <child link="gimbal6_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor6" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal6_pitch_module"/>
+    <child link="thrust6"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link62bat6" type="fixed">
+    <parent link="link6"/>
+    <child link="bat6"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.410 0.0 -0.039"/>
+  </joint>
+  <link name="bat6">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat6">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <link name="link7">
+    <inertial>
+      <mass value="0.523"/>
+      <origin rpy="0 0 0" xyz="0.257 -0.002 0.004"/>
+      <inertia ixx="0.000519" ixy="-0.000246" ixz="0.001893" iyy="0.021290" iyz="-0.000044" izz="0.020931"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link7">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="general_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link7">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link7">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal7_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal7_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal7_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal7_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal7_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal7_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal7_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal7_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust7">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust7">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf7_left_mount" type="fixed">
+    <child link="edf7_left"/>
+    <parent link="gimbal7_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf7_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf7_right_mount" type="fixed">
+    <child link="edf7_right"/>
+    <parent link="gimbal7_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf7_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+  <link name="joint_junction_link8">
+    <inertial>
+      <mass value="0.095"/>
+      <origin rpy="0 0 0" xyz="0.026 0.004 0.004"/>
+      <inertia ixx="0.000074" ixy="0.000009" ixz="-0.000009" iyy="0.000079" iyz="-0.000001" izz="0.000079"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_link8">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="joint_junction_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_link8">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="joint_junction_link8">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+  <joint name="joint8_pitch" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="joint_junction_link8"/>
+    <child link="link8"/>
+    <origin rpy="0 0 0" xyz="0.0515 0.0 0.0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+  <joint name="joint_junction_link82joint_junction_leg8" type="fixed">
+    <parent link="joint_junction_link8"/>
+    <child link="joint_junction_leg8"/>
+    <origin rpy="0 0 1.5707963267948966" xyz="0 0 -0.0283"/>
+  </joint>
+  <link name="joint_junction_leg8">
+    <inertial>
+      <mass value="0.027"/>
+      <origin rpy="0 0 0" xyz="0 0 -0.046"/>
+      <inertia ixx="0.000029" ixy="0.000000" ixz="0.000000" iyy="0.000029" iyz="0.000000" izz="0.000002"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </visual>
+    <collision name="joint_junction_leg8">
+      <geometry>
+        <mesh filename="long_leg.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="joint_junction_leg8">
+    <mu1>100</mu1>
+    <mu2>50</mu2>
+  </gazebo>
+    #### joints ####
+    #### link joint ####
+  <joint name="joint8_yaw" type="revolute">
+    <limit effort="6.6" lower="-1.9107963267948966" upper="1.9107963267948966" velocity="0.1"/>
+    <parent link="link7"/>
+    <child link="joint_junction_link8"/>
+    <origin rpy="0 0 0" xyz="0.523 0 0"/>
+    <axis xyz="0 0 1"/>
+    <dynamics damping="0.9" friction="0.0"/>
+  </joint>
+    #### gimbal joint ####
+  <joint name="gimbal7_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link7"/>
+    <child link="gimbal7_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal7_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal7_roll_module"/>
+    <child link="gimbal7_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor7" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal7_pitch_module"/>
+    <child link="thrust7"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link72bat7" type="fixed">
+    <parent link="link7"/>
+    <child link="bat7"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.430 0.0 -0.039"/>
+  </joint>
+  <link name="bat7">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat7">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <link name="link8">
+    <inertial>
+      <mass value="0.347"/>
+      <origin rpy="0 0 0" xyz="0.157 0.015 0"/>
+      <inertia ixx="0.000276" ixy="-0.000606" ixz="-0.000031" iyy="0.008551" iyz="0.000001" izz="0.008772"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link8">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="end_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link8">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="link8">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal roll ####
+  <link name="gimbal8_roll_module">
+    <inertial>
+      <mass value="0.275"/>
+      <origin rpy="0 0 0" xyz="0.0145839 -0.0007152 -0.0219046"/>
+      <inertia ixx="0.000456" ixy="0.000003" ixz="-0.000125" iyy="0.000504" iyz="-0.000009" izz="0.000157"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal8_roll_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="roll_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal8_roll_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal8_roll_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### gimbal pitch ####
+  <link name="gimbal8_pitch_module">
+    <inertial>
+      <mass value="0.434"/>
+      <origin rpy="0 0 0" xyz="0.0000111 -0.0015087 -0.0010901"/>
+      <inertia ixx="0.007595" ixy="0.000000" ixz="0.000000" iyy="0.000401" iyz="0.000010" izz="0.007781"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </visual>
+    <collision name="gimbal8_pitch_module">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="pitch_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="gimbal8_pitch_module">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+  <gazebo reference="gimbal8_pitch_module">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### thrust link (virtual) ####
+  <link name="thrust8">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <gazebo reference="thrust8">
+    <dampingFactor>0.00</dampingFactor>
+  </gazebo>
+    #### special part of duct fun (temporary)####
+  <joint name="edf8_left_mount" type="fixed">
+    <child link="edf8_left"/>
+    <parent link="gimbal8_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf8_left">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="edf8_right_mount" type="fixed">
+    <child link="edf8_right"/>
+    <parent link="gimbal8_pitch_module"/>
+    <origin rpy="0 0 0" xyz="0 -0.1335 0 "/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="edf8_right">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.00001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000002"/>
+    </inertial>
+  </link>
+    #### joint junction ####
+    #### joints ####
+    #### link joint ####
+    #### gimbal joint ####
+  <joint name="gimbal8_roll" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="link8"/>
+    <child link="gimbal8_roll_module"/>
+    <origin rpy="0 0 0" xyz="0.268 0.0 0.0"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+  <joint name="gimbal8_pitch" type="continuous">
+    <limit effort="1.5" lower="-18.84955592153876" upper="18.84955592153876" velocity="10.0"/>
+    <parent link="gimbal8_roll_module"/>
+    <child link="gimbal8_pitch_module"/>
+    <origin rpy="0 0 0" xyz="-0.0065 0.0 -0.027"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+    #### rotor joint (virtual) ####
+  <joint name="rotor8" type="continuous">
+    <limit effort="100.0" lower="0" upper="36" velocity="0.5"/>
+    <parent link="gimbal8_pitch_module"/>
+    <child link="thrust8"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+    #### battery ####
+  <joint name="link82bat8" type="fixed">
+    <parent link="link8"/>
+    <child link="bat8"/>
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.410 0.0 -0.039"/>
+  </joint>
+  <link name="bat8">
+    <inertial>
+      <mass value="0.417"/>
+      <origin rpy="0 0 0" xyz="-0.001 0.0 0.0"/>
+      <inertia ixx="0.000099" ixy="0.000000" ixz="-0.000001" iyy="0.000700" iyz="0.000000" izz="0.000673"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </visual>
+    <collision name="bat8">
+      <geometry>
+        <mesh filename="ZIPPY-3000-25C-6S.stl"/>
+      </geometry>
+    </collision>
+  </link>
+    #### end leg ####
+    #### hardware interface ####
+  <joint name="center_link2fc" type="fixed">
+    <parent link="center_link"/>
+    <child link="fc"/>
+    <origin rpy="0 0 0" xyz="-0.0129 -0.0044 0.0398284"/>
+  </joint>
+  <link name="fc">
+    <inertial>
+      <mass value="0.0354160"/>
+      <origin rpy="0 0 0" xyz="0.0128576 0.0044678 -0.0226530"/>
+      <inertia ixx="0.0000225" ixy="-0.0000001" ixz="0.0000000" iyy="0.0000225" iyz="0.0000000" izz="0.0000346"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="spinal.stl"/>
+      </geometry>
+    </visual>
+    <collision name="fc">
+      <geometry>
+        <mesh filename="spinal.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="center_link2pc" type="fixed">
+    <parent link="center_link"/>
+    <child link="pc"/>
+    <origin rpy="1.5707963267948966 0 0" xyz="0 0.089888 0.002"/>
+  </joint>
+  <link name="pc">
+    <inertial>
+      <mass value="0.1411331"/>
+      <origin rpy="0 0 0" xyz="0.0008915 0.0304136 0.0271590"/>
+      <inertia ixx="0.0000768" ixy="0.0000018" ixz="-0.0000024" iyy="0.0001380" iyz="0.0000071" izz="0.0001493"/>
+    </inertial>
+  </link>
+  <joint name="link22link2_foot" type="fixed">
+    <parent link="link2"/>
+    <child link="link2_foot"/>
+    <origin rpy="0 0 0" xyz="0.5115 0 0"/>
+    <limit effort="100" lower="0" upper="0" velocity="100"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="link2_foot">
+    <inertial>
+      <mass value="0.09"/>
+      <origin rpy="0 0 0" xyz="0.007 0 0"/>
+      <inertia ixx="0.000055" ixy="0" ixz="0" iyy="0.000047" iyz="0" izz="0.000055"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link2_foot">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link2_foot">
+    <mu1>0</mu1>
+    <mu2>0</mu2>
+  </gazebo>
+  <joint name="link42link4_foot" type="fixed">
+    <parent link="link4"/>
+    <child link="link4_foot"/>
+    <origin rpy="0 0 0" xyz="0.5115 0 0"/>
+    <limit effort="100" lower="0" upper="0" velocity="100"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="link4_foot">
+    <inertial>
+      <mass value="0.09"/>
+      <origin rpy="0 0 0" xyz="0.007 0 0"/>
+      <inertia ixx="0.000055" ixy="0" ixz="0" iyy="0.000047" iyz="0" izz="0.000055"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link4_foot">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link4_foot">
+    <mu1>0</mu1>
+    <mu2>0</mu2>
+  </gazebo>
+  <joint name="link62link6_foot" type="fixed">
+    <parent link="link6"/>
+    <child link="link6_foot"/>
+    <origin rpy="0 0 0" xyz="0.5115 0 0"/>
+    <limit effort="100" lower="0" upper="0" velocity="100"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="link6_foot">
+    <inertial>
+      <mass value="0.09"/>
+      <origin rpy="0 0 0" xyz="0.007 0 0"/>
+      <inertia ixx="0.000055" ixy="0" ixz="0" iyy="0.000047" iyz="0" izz="0.000055"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link6_foot">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link6_foot">
+    <mu1>0</mu1>
+    <mu2>0</mu2>
+  </gazebo>
+  <joint name="link82link8_foot" type="fixed">
+    <parent link="link8"/>
+    <child link="link8_foot"/>
+    <origin rpy="0 0 0" xyz="0.5115 0 0"/>
+    <limit effort="100" lower="0" upper="0" velocity="100"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <link name="link8_foot">
+    <inertial>
+      <mass value="0.09"/>
+      <origin rpy="0 0 0" xyz="0.007 0 0"/>
+      <inertia ixx="0.000055" ixy="0" ixz="0" iyy="0.000047" iyz="0" izz="0.000055"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </visual>
+    <collision name="link8_foot">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="leg_cap.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="link8_foot">
+    <mu1>0</mu1>
+    <mu2>0</mu2>
+  </gazebo>
+  <mujoco>
+    <compiler balanceinertia="true"/>
+    <option/>
+  </mujoco>
+</robot>

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <asset>
+    <contributor>
+      <author>Blender User</author>
+      <authoring_tool>Blender 3.0.1 commit date:2022-01-25, commit time:17:19, hash:dc2d18018171</authoring_tool>
+    </contributor>
+    <created>2022-07-25T12:30:17</created>
+    <modified>2022-07-25T12:30:17</modified>
+    <unit name="meter" meter="1"/>
+    <up_axis>Z_UP</up_axis>
+  </asset>
+  <library_cameras>
+    <camera id="Camera-camera" name="Camera">
+      <optics>
+        <technique_common>
+          <perspective>
+            <xfov sid="xfov">39.59775</xfov>
+            <aspect_ratio>1.777778</aspect_ratio>
+            <znear sid="znear">0.1</znear>
+            <zfar sid="zfar">100</zfar>
+          </perspective>
+        </technique_common>
+      </optics>
+      <extra>
+        <technique profile="blender">
+          <shiftx sid="shiftx" type="float">0</shiftx>
+          <shifty sid="shifty" type="float">0</shifty>
+          <dof_distance sid="dof_distance" type="float">10</dof_distance>
+        </technique>
+      </extra>
+    </camera>
+  </library_cameras>
+  <library_lights>
+    <light id="Light-light" name="Light">
+      <technique_common>
+        <point>
+          <color sid="color">1000 1000 1000</color>
+          <constant_attenuation>1</constant_attenuation>
+          <linear_attenuation>0</linear_attenuation>
+          <quadratic_attenuation>0.00111109</quadratic_attenuation>
+        </point>
+      </technique_common>
+      <extra>
+        <technique profile="blender">
+          <type sid="type" type="int">0</type>
+          <flag sid="flag" type="int">0</flag>
+          <mode sid="mode" type="int">1</mode>
+          <gamma sid="blender_gamma" type="float">1</gamma>
+          <red sid="red" type="float">1</red>
+          <green sid="green" type="float">1</green>
+          <blue sid="blue" type="float">1</blue>
+          <shadow_r sid="blender_shadow_r" type="float">0</shadow_r>
+          <shadow_g sid="blender_shadow_g" type="float">0</shadow_g>
+          <shadow_b sid="blender_shadow_b" type="float">0</shadow_b>
+          <energy sid="blender_energy" type="float">1000</energy>
+          <dist sid="blender_dist" type="float">29.99998</dist>
+          <spotsize sid="spotsize" type="float">75</spotsize>
+          <spotblend sid="spotblend" type="float">0.15</spotblend>
+          <att1 sid="att1" type="float">0</att1>
+          <att2 sid="att2" type="float">1</att2>
+          <falloff_type sid="falloff_type" type="int">2</falloff_type>
+          <clipsta sid="clipsta" type="float">0.04999995</clipsta>
+          <clipend sid="clipend" type="float">30.002</clipend>
+          <bias sid="bias" type="float">1</bias>
+          <soft sid="soft" type="float">3</soft>
+          <bufsize sid="bufsize" type="int">2880</bufsize>
+          <samp sid="samp" type="int">3</samp>
+          <buffers sid="buffers" type="int">1</buffers>
+          <area_shape sid="area_shape" type="int">1</area_shape>
+          <area_size sid="area_size" type="float">0.1</area_size>
+          <area_sizey sid="area_sizey" type="float">0.1</area_sizey>
+          <area_sizez sid="area_sizez" type="float">1</area_sizez>
+        </technique>
+      </extra>
+    </light>
+  </library_lights>
+  <library_effects>
+    <effect id="battery-effect">
+      <profile_COMMON>
+        <technique sid="common">
+          <lambert>
+            <emission>
+              <color sid="emission">0 0 0 1</color>
+            </emission>
+            <diffuse>
+              <color sid="diffuse">0.003488426 0 1 1</color>
+            </diffuse>
+            <index_of_refraction>
+              <float sid="ior">1.45</float>
+            </index_of_refraction>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+    <effect id="red_cable-effect">
+      <profile_COMMON>
+        <technique sid="common">
+          <lambert>
+            <emission>
+              <color sid="emission">0 0 0 1</color>
+            </emission>
+            <diffuse>
+              <color sid="diffuse">1 0 0.001644999 1</color>
+            </diffuse>
+            <index_of_refraction>
+              <float sid="ior">1.45</float>
+            </index_of_refraction>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+    <effect id="balck_cable-effect">
+      <profile_COMMON>
+        <technique sid="common">
+          <lambert>
+            <emission>
+              <color sid="emission">0 0 0 1</color>
+            </emission>
+            <diffuse>
+              <color sid="diffuse">0 0 0 1</color>
+            </diffuse>
+            <index_of_refraction>
+              <float sid="ior">1.45</float>
+            </index_of_refraction>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+  </library_effects>
+  <library_images/>
+  <library_materials>
+    <material id="battery-material" name="battery">
+      <instance_effect url="#battery-effect"/>
+    </material>
+    <material id="red_cable-material" name="red_cable">
+      <instance_effect url="#red_cable-effect"/>
+    </material>
+    <material id="balck_cable-material" name="balck_cable">
+      <instance_effect url="#balck_cable-effect"/>
+    </material>
+  </library_materials>
+  <library_geometries>
+    <geometry id="ZIPPY-3000-25C-6S-mesh" name="ZIPPY-3000-25C-6S">
+      <mesh>
+        <source id="ZIPPY-3000-25C-6S-mesh-positions">
+          <float_array id="ZIPPY-3000-25C-6S-mesh-positions-array" count="252">-67.5 -9.5 19.25 -67.5 9.5 19.25 -67.5 -8.375 18.94856 -67.5 -7.551443 18.125 -67.5 -10.625 18.94856 -67.5 -11.44856 18.125 -67.5 -13.5 21 -67.5 -11.75 17 -67.5 -13.5 -21 -67.5 -11.44856 15.875 -67.5 -10.625 15.05144 -67.5 -8.375 15.05144 -67.5 7.25 17 -67.5 -9.5 14.75 -67.5 7.551443 15.875 -67.5 8.375 15.05144 -67.5 10.625 15.05144 -67.5 11.44856 15.875 -67.5 13.5 -21 -67.5 11.75 17 -67.5 13.5 21 -67.5 11.44856 18.125 -67.5 8.375 18.94856 -67.5 7.551443 18.125 -67.5 -7.25 17 -67.5 -7.551443 15.875 -67.5 9.5 14.75 -67.5 10.625 18.94856 64.5 16.5 -21 -64.5 16.5 -21 64.5 16.5 21 -64.5 16.5 21 67.5 13.5 21 67.5 -13.5 21 67.5 13.5 -21 67.5 -13.5 -21 64.5 -16.5 21 -64.5 -16.5 21 64.5 -16.5 -21 -64.5 -16.5 -21 -66.62132 -15.62132 -21 -67.27164 -14.64805 -21 -67.09808 15 -21 -66 16.09808 -21 -65.64805 -16.27164 -21 67.09808 -15 -21 66 -16.09808 -21 67.09808 15 -21 66 16.09808 -21 -67.09808 15 21 -66 16.09808 21 -67.27164 -14.64805 21 -66.62132 -15.62132 21 -65.64805 -16.27164 21 67.09808 15 21 66 16.09808 21 67.09808 -15 21 66 -16.09808 21 -82.5 11.44856 18.125 -82.5 10.625 18.94856 -82.5 9.5 19.25 -82.5 8.375 18.94856 -82.5 7.551443 18.125 -82.5 7.25 17 -82.5 7.551443 15.875 -82.5 8.375 15.05144 -82.5 9.5 14.75 -82.5 10.625 15.05144 -82.5 11.44856 15.875 -82.5 11.75 17 -82.5 9.5 17 -82.5 -7.551443 18.125 -82.5 -8.375 18.94856 -82.5 -9.5 19.25 -82.5 -10.625 18.94856 -82.5 -11.44856 18.125 -82.5 -11.75 17 -82.5 -11.44856 15.875 -82.5 -10.625 15.05144 -82.5 -9.5 14.75 -82.5 -8.375 15.05144 -82.5 -7.551443 15.875 -82.5 -7.25 17 -82.5 -9.5 17</float_array>
+          <technique_common>
+            <accessor source="#ZIPPY-3000-25C-6S-mesh-positions-array" count="84" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="ZIPPY-3000-25C-6S-mesh-normals">
+          <float_array id="ZIPPY-3000-25C-6S-mesh-normals-array" count="249">-1 0 0 -1 9.09374e-6 0 -1 -1.95148e-5 0 -1 -5.09668e-7 0 -1 1.52311e-5 0 -1 -9.09374e-6 0 -1 1.17873e-5 0 -1 -7.77502e-7 0 -1 1.27114e-5 0 -1 -1.19714e-5 0 -1 -2.40331e-6 0 -1 2.40331e-6 0 0 1 0 1 0 0 0 -1 0 -7.27519e-6 0 -1 0 0 -1 1.02328e-6 0 -1 0 0 1 -2.55472e-6 0 1 0.2588193 0.9659259 0 0.7071034 0.7071102 0 0.7071109 0.7071027 0 0.9659237 0.2588269 0 0.9659275 0.2588129 0 -0.9659275 0.2588129 0 -0.9659237 0.2588269 0 -0.7071109 0.7071027 0 -0.7071034 0.7071102 0 -0.2588193 0.9659259 0 0.9659275 -0.2588129 0 0.9659237 -0.2588269 0 0.7071109 -0.7071027 0 0.7071034 -0.7071102 0 0.2588193 -0.9659259 0 -0.195093 -0.9807848 0 -0.1950911 -0.9807852 0 -0.5555681 -0.831471 0 -0.5555727 -0.831468 0 -0.8314687 -0.5555717 0 -0.9807848 -0.1950929 0 0 0.9659255 0.2588204 0 0.7071073 0.7071064 0 0.7071057 0.7071079 0 0.2588194 0.9659258 0 -0.2588194 0.9659258 0 -0.7071068 0.7071068 0 -0.7071062 0.7071075 0 -0.9659262 0.2588179 0 -0.9659257 0.2588196 0 -0.9659257 -0.2588198 0 -0.9659261 -0.2588182 0 -0.7071064 -0.7071072 0 -0.7071073 -0.7071064 0 -0.2588194 -0.9659258 0 0.2588194 -0.9659258 0 0.7071059 -0.7071077 0 0.7071077 -0.7071059 0 0.9659255 -0.2588206 0 0.9659264 -0.2588173 0 0.9659264 0.2588171 -1 -6.02818e-6 0 -1 -6.02815e-6 0 -1 6.02815e-6 0 -1 6.02816e-6 0 -1 -6.02816e-6 0 0 0.9659262 0.2588179 0 0.7071059 0.7071077 0 0.7071071 0.7071066 0 -0.7071055 0.7071081 0 -0.7071075 0.7071062 0 -0.9659255 0.2588204 0 -0.9659264 0.2588171 0 -0.9659264 -0.2588173 0 -0.9659255 -0.2588206 0 -0.7071077 -0.7071059 0 -0.7071059 -0.7071077 0 0.7071073 -0.7071064 0 0.7071064 -0.7071072 0 0.9659261 -0.2588182 0 0.9659257 -0.2588198 0 0.9659257 0.2588196 -1 6.02818e-6 0</float_array>
+          <technique_common>
+            <accessor source="#ZIPPY-3000-25C-6S-mesh-normals-array" count="83" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <vertices id="ZIPPY-3000-25C-6S-mesh-vertices">
+          <input semantic="POSITION" source="#ZIPPY-3000-25C-6S-mesh-positions"/>
+        </vertices>
+        <triangles material="battery-material" count="92">
+          <input semantic="VERTEX" source="#ZIPPY-3000-25C-6S-mesh-vertices" offset="0"/>
+          <input semantic="NORMAL" source="#ZIPPY-3000-25C-6S-mesh-normals" offset="1"/>
+          <p>0 0 1 0 2 0 2 0 1 0 3 0 4 0 5 0 6 0 6 0 5 0 7 0 6 0 7 0 8 0 8 1 7 1 9 1 8 2 9 2 10 2 11 0 12 0 13 0 13 0 12 0 14 0 13 3 14 3 15 3 16 4 17 4 18 4 18 5 17 5 19 5 18 0 19 0 20 0 20 0 19 0 21 0 1 0 22 0 3 0 3 0 22 0 23 0 3 0 23 0 24 0 24 0 23 0 12 0 24 0 12 0 25 0 25 0 12 0 11 0 10 6 13 6 8 6 8 7 13 7 15 7 8 0 15 0 18 0 18 8 15 8 26 8 18 9 26 9 16 9 21 0 27 0 20 0 20 10 27 10 1 10 20 0 1 0 6 0 6 0 1 0 0 0 6 11 0 11 4 11 28 12 29 12 30 12 30 12 29 12 31 12 32 13 33 13 34 13 34 13 33 13 35 13 36 14 37 14 38 14 38 14 37 14 39 14 40 15 41 15 8 15 39 16 29 16 38 16 38 16 29 16 28 16 42 16 43 16 18 16 18 16 43 16 29 16 18 16 29 16 8 16 8 16 29 16 39 16 8 17 39 17 40 17 40 16 39 16 44 16 45 16 46 16 35 16 35 16 46 16 38 16 35 16 38 16 34 16 34 16 38 16 28 16 34 16 28 16 47 16 47 16 28 16 48 16 31 18 37 18 30 18 30 18 37 18 36 18 6 18 37 18 20 18 20 18 37 18 31 18 20 18 31 18 49 18 49 18 31 18 50 18 6 18 51 18 37 18 37 19 51 19 52 19 37 18 52 18 53 18 54 18 55 18 32 18 32 18 55 18 30 18 32 18 30 18 33 18 33 18 30 18 36 18 33 18 36 18 56 18 56 18 36 18 57 18 28 20 30 20 55 20 28 20 55 20 48 20 48 21 55 21 54 21 48 22 54 22 47 22 47 23 54 23 32 23 47 24 32 24 34 24 18 25 20 25 49 25 18 26 49 26 42 26 42 27 49 27 50 27 42 28 50 28 43 28 43 29 50 29 31 29 43 29 31 29 29 29 35 30 33 30 56 30 35 31 56 31 45 31 45 32 56 32 57 32 45 33 57 33 46 33 46 34 57 34 36 34 46 34 36 34 38 34 39 35 37 35 53 35 39 36 53 36 44 36 44 37 53 37 52 37 44 38 52 38 40 38 40 39 52 39 51 39 40 39 51 39 41 39 41 40 51 40 6 40 41 40 6 40 8 40</p>
+        </triangles>
+        <triangles material="red_cable-material" count="36">
+          <input semantic="VERTEX" source="#ZIPPY-3000-25C-6S-mesh-vertices" offset="0"/>
+          <input semantic="NORMAL" source="#ZIPPY-3000-25C-6S-mesh-normals" offset="1"/>
+          <p>24 66 71 66 3 66 3 67 71 67 72 67 3 68 72 68 2 68 2 44 72 44 73 44 2 44 73 44 0 44 0 45 73 45 74 45 0 45 74 45 4 45 4 69 74 69 75 69 4 70 75 70 5 70 5 71 75 71 76 71 5 72 76 72 7 72 7 73 76 73 77 73 7 74 77 74 9 74 9 75 77 75 78 75 9 76 78 76 10 76 10 54 78 54 79 54 10 54 79 54 13 54 13 55 79 55 80 55 13 55 80 55 11 55 11 77 80 77 81 77 11 78 81 78 25 78 25 79 81 79 82 79 25 80 82 80 24 80 24 81 82 81 71 81 72 82 71 82 83 82 83 0 71 0 82 0 83 0 82 0 81 0 75 0 74 0 83 0 83 64 74 64 73 64 83 65 73 65 72 65 78 61 77 61 83 61 83 0 77 0 76 0 83 0 76 0 75 0 81 0 80 0 83 0 83 62 80 62 79 62 83 63 79 63 78 63</p>
+        </triangles>
+        <triangles material="balck_cable-material" count="36">
+          <input semantic="VERTEX" source="#ZIPPY-3000-25C-6S-mesh-vertices" offset="0"/>
+          <input semantic="NORMAL" source="#ZIPPY-3000-25C-6S-mesh-normals" offset="1"/>
+          <p>19 41 58 41 21 41 21 42 58 42 59 42 21 43 59 43 27 43 27 44 59 44 60 44 27 44 60 44 1 44 1 45 60 45 61 45 1 45 61 45 22 45 22 46 61 46 62 46 22 47 62 47 23 47 23 48 62 48 63 48 23 49 63 49 12 49 12 50 63 50 64 50 12 51 64 51 14 51 14 52 64 52 65 52 14 53 65 53 15 53 15 54 65 54 66 54 15 54 66 54 26 54 26 55 66 55 67 55 26 55 67 55 16 55 16 56 67 56 68 56 16 57 68 57 17 57 17 58 68 58 69 58 17 59 69 59 19 59 19 60 69 60 58 60 65 61 64 61 70 61 70 0 64 0 63 0 70 0 63 0 62 0 68 0 67 0 70 0 70 62 67 62 66 62 70 63 66 63 65 63 59 64 58 64 70 64 70 0 58 0 69 0 70 0 69 0 68 0 62 0 61 0 70 0 70 64 61 64 60 64 70 65 60 65 59 65</p>
+        </triangles>
+      </mesh>
+    </geometry>
+  </library_geometries>
+  <library_visual_scenes>
+    <visual_scene id="Scene" name="Scene">
+      <node id="ZIPPY-3000-25C-6S" name="ZIPPY-3000-25C-6S" type="NODE">
+        <matrix sid="transform">0.001 0 0 0 0 0.001 0 0 0 0 0.001 0 0 0 0 1</matrix>
+        <instance_geometry url="#ZIPPY-3000-25C-6S-mesh" name="ZIPPY-3000-25C-6S">
+          <bind_material>
+            <technique_common>
+              <instance_material symbol="battery-material" target="#battery-material"/>
+              <instance_material symbol="red_cable-material" target="#red_cable-material"/>
+              <instance_material symbol="balck_cable-material" target="#balck_cable-material"/>
+            </technique_common>
+          </bind_material>
+        </instance_geometry>
+      </node>
+      <node id="Camera" name="Camera" type="NODE">
+        <matrix sid="transform">0.6859207 -0.3240135 0.6515582 7.358891 0.7276763 0.3054208 -0.6141704 -6.925791 0 0.8953956 0.4452714 4.958309 0 0 0 1</matrix>
+        <instance_camera url="#Camera-camera"/>
+      </node>
+      <node id="Light" name="Light" type="NODE">
+        <matrix sid="transform">-0.2908646 -0.7711008 0.5663932 4.076245 0.9551712 -0.1998834 0.2183912 1.005454 -0.05518906 0.6045247 0.7946723 5.903862 0 0 0 1</matrix>
+        <instance_light url="#Light-light"/>
+      </node>
+    </visual_scene>
+  </library_visual_scenes>
+  <scene>
+    <instance_visual_scene url="#Scene"/>
+  </scene>
+</COLLADA>
