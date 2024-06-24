@@ -8,11 +8,11 @@ controller:
   gimbal_vectoring_check_flag: false
 
   # use integral (old) or separated (new) vectoring control method
-  integral_vectoring_allocation: false
+  integral_vectoring_allocation: true
 
   # choose a method for thrust, gimbal allocation, defualt please choose gradient (gradient descent) method
-  enable_static_allocation_method: true
-  enable_nonlinear_allocation_method: false
+  enable_static_allocation_method: false # fasle
+  enable_nonlinear_allocation_method: true
   enable_gradient_allocation_method: false
 
   allocation_refine_max_iteration: 5 # for both

@@ -1642,9 +1642,38 @@ bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::Vecto
   full_vectoring_allocation_solver.set_maxeval(100); // 100 times, TODO: rosparameter
 
   std::vector<double>lower_bounds(motor_num_ * 3  - gimbal_lock_num, -1e6);
-  for(int i = 0; i < motor_num_; i++) lower_bounds.at(i) = 0;
+  std::vector<double>upper_bounds(motor_num_ * 3  - gimbal_lock_num, 1e6);
+  col = 0;
+  for(int i = 0; i < motor_num_; i++)
+    {
+      // thrust
+      lower_bounds.at(i) = 0;
+
+      // gimbal
+      if(!start_rp_integration_) continue;
+
+      double margin_pitch = 0.2; // rad
+      double margin_roll = 0.15; // rad
+      if(roll_locked_gimbal_.at(i) == 0)
+        {
+          lower_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i) - margin_roll;
+          lower_bounds.at(motor_num_ + col + 1) = gimbal_angles.at(2 * i + 1) - margin_pitch;
+
+          upper_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i) + margin_roll;
+          upper_bounds.at(motor_num_ + col + 1) = gimbal_angles.at(2 * i + 1) + margin_pitch;
+
+          col += 2;
+        }
+      else
+        {
+          lower_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i + 1) - margin_roll;
+          upper_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i + 1) + margin_roll;
+          col += 1;
+        }
+    }
+
   full_vectoring_allocation_solver.set_lower_bounds(lower_bounds);
-  full_vectoring_allocation_solver.set_upper_bounds(std::vector<double>(motor_num_ * 3 - gimbal_lock_num, 1e6)); // TODO: no bounds
+  full_vectoring_allocation_solver.set_upper_bounds(upper_bounds);
   full_vectoring_allocation_solver.set_min_objective(thrustSumFunc, robot_model_for_control_.get());
   std::vector<double>tol(6, 1e-5); // => IMPORTANT: related to computation time (1e-8 is too stric), TODO: rosparameter
   full_vectoring_allocation_solver.add_equality_mconstraint(wrenchAllocationEqCons, this, tol);

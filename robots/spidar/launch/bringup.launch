@@ -112,27 +112,27 @@
 
   <group if = "$(eval arg('onboards_model') == 'v1_leg')">
     <group ns="$(arg robot_ns)/servo_controller/joints">
-      <!-- <param name="controller02/simulation/init_value" value="-0.1" /> -->
-      <!-- <param name="controller04/simulation/init_value" value="0.4" /> -->
-      <!-- <param name="controller06/simulation/init_value" value="-0.1" /> -->
-      <!-- <param name="controller08/simulation/init_value" value="0.4" /> -->
-      <!-- <param name="controller10/simulation/init_value" value="-0.1" /> -->
-      <!-- <param name="controller12/simulation/init_value" value="0.4" /> -->
-      <!-- <param name="controller14/simulation/init_value" value="-0.1" /> -->
-      <!-- <param name="controller16/simulation/init_value" value="0.4" /> -->
+      <param name="controller02/simulation/init_value" value="-0.1" />
+      <param name="controller04/simulation/init_value" value="0.4" />
+      <param name="controller06/simulation/init_value" value="-0.1" />
+      <param name="controller08/simulation/init_value" value="0.4" />
+      <param name="controller10/simulation/init_value" value="-0.1" />
+      <param name="controller12/simulation/init_value" value="0.4" />
+      <param name="controller14/simulation/init_value" value="-0.1" />
+      <param name="controller16/simulation/init_value" value="0.4" />
 
-      <param name="controller02/simulation/init_value" value="0.0" />
-      <param name="controller03/simulation/init_value" value="1.57" />
-      <param name="controller04/simulation/init_value" value="0.18" />
-      <param name="controller06/simulation/init_value" value="0.0" />
-      <param name="controller07/simulation/init_value" value="1.57" />
-      <param name="controller08/simulation/init_value" value="0.18" />
-      <param name="controller10/simulation/init_value" value="0.0" />
-      <param name="controller11/simulation/init_value" value="1.57" />
-      <param name="controller12/simulation/init_value" value="0.18" />
-      <param name="controller14/simulation/init_value" value="0.0" />
-      <param name="controller15/simulation/init_value" value="1.57" />
-      <param name="controller16/simulation/init_value" value="0.18" />
+      <!-- <param name="controller02/simulation/init_value" value="0.0" /> -->
+      <!-- <param name="controller03/simulation/init_value" value="1.57" /> -->
+      <!-- <param name="controller04/simulation/init_value" value="0.18" /> -->
+      <!-- <param name="controller06/simulation/init_value" value="0.0" /> -->
+      <!-- <param name="controller07/simulation/init_value" value="1.57" /> -->
+      <!-- <param name="controller08/simulation/init_value" value="0.18" /> -->
+      <!-- <param name="controller10/simulation/init_value" value="0.0" /> -->
+      <!-- <param name="controller11/simulation/init_value" value="1.57" /> -->
+      <!-- <param name="controller12/simulation/init_value" value="0.18" /> -->
+      <!-- <param name="controller14/simulation/init_value" value="0.0" /> -->
+      <!-- <param name="controller15/simulation/init_value" value="1.57" /> -->
+      <!-- <param name="controller16/simulation/init_value" value="0.18" /> -->
 
     </group>
 
