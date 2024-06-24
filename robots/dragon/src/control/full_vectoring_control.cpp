@@ -1063,7 +1063,7 @@ void DragonFullVectoringController::controlCore()
 
       // Strict allocation from nonlinear optimization
       if(enable_nonlinear_allocation_method_)
-        strictNonlinearAllocation(target_acc, external_wrench_map, extra_vectoring_forces_, gimbal_processed_joint, links_rotation_from_cog);
+        strictNonlinearAllocation(target_acc, external_wrench_map, extra_vectoring_forces_, gimbal_processed_joint, links_rotation_from_cog, target_base_thrust_, target_gimbal_angles_);
 
       // Allocation based on gradient descent method
       if(enable_gradient_allocation_method_)
@@ -1080,7 +1080,7 @@ void DragonFullVectoringController::controlCore()
           // Strict allocation from nonlinear optimization
           // TODO: no need
           if(enable_nonlinear_allocation_method_)
-            strictNonlinearAllocation(target_acc_low_freq, external_wrench_map, extra_vectoring_forces_, gimbal_processed_joint, links_rotation_from_cog);
+            strictNonlinearAllocation(target_acc_low_freq, external_wrench_map, extra_vectoring_forces_, gimbal_processed_joint, links_rotation_from_cog, target_base_thrust_, target_gimbal_angles_);
 
           // Allocation based on gradient descent method
           // TODO: no need
@@ -1599,7 +1599,7 @@ bool DragonFullVectoringController::staticIterativeAllocation(const int iterativ
   return false;
 }
 
-bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::VectorXd target_acc, const std::map<std::string, Dragon::ExternalWrench>& external_wrench_map, const std::vector<Eigen::Vector3d>& extra_vectoring_forces, KDL::JntArray& gimbal_processed_joint, const std::vector<Eigen::Matrix3d>& links_rotation_from_cog)
+bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::VectorXd target_acc, const std::map<std::string, Dragon::ExternalWrench>& external_wrench_map, const std::vector<Eigen::Vector3d>& extra_vectoring_forces, KDL::JntArray& gimbal_processed_joint, const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, std::vector<double>& thrust_forces, std::vector<double>& gimbal_angles)
 {
   if (external_wrench_map.size() > 0) ROS_ERROR("Currently strictNonlinearAllocation does not support the external wrench compensation");
 
@@ -1659,6 +1659,34 @@ bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::Vecto
   else sqp_ave_cnt_ = 0.6 * sqp_ave_cnt_ + 0.4 * sqp_cnt_;
 
   if(sqp_cnt_ > 50) ROS_WARN_STREAM("[strict nonlinear allocation] SQP constraint result: " <<  result << "; count: " << sqp_cnt_ << "; time: " << ros::Time::now().toSec() - t);
+
+
+  col = 0;
+  for(int i = 0; i < motor_num_; i++)
+    {
+      thrust_forces.at(i) = thrust_force_gimbal_angles.at(i);
+      if(!start_rp_integration_)
+        {
+          gimbal_angles.at(2 * i) = gimbal_nominal_angles_.at(2 * i);
+          gimbal_angles.at(2 * i + 1) = gimbal_nominal_angles_.at(2 * i + 1);
+        }
+      else
+        {
+          if(roll_locked_gimbal_.at(i) == 0)
+            {
+              gimbal_angles.at(2 * i) = thrust_force_gimbal_angles.at(motor_num_ + col);
+              gimbal_angles.at(2 * i + 1) = thrust_force_gimbal_angles.at(motor_num_ + col + 1);
+              col += 2;
+            }
+          else
+            {
+              gimbal_angles.at(2 * i) = gimbal_nominal_angles_.at(2 * i); // lock the gimbal roll
+              gimbal_angles.at(2 * i + 1) = thrust_force_gimbal_angles.at(motor_num_ + col);
+
+              col += 1;
+            }
+        }
+    }
 
   if(control_verbose_)
     {
@@ -1723,6 +1751,8 @@ bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::Vecto
           ROS_WARN_STREAM("[strict nonlinear allocation] can not converge in iteration " << sqp_cnt_ << ", the max wrench diff is: " << wrench_diff.cwiseAbs().maxCoeff() << "; vector: " << wrench_diff.transpose() << "; target wrench:" << target_wrench.transpose());
         }
     }
+
+  return true;
 }
 
 bool DragonFullVectoringController::gradientDescentAllocation(const int iterative_cnt, const Eigen::VectorXd target_acc, const std::map<std::string, Dragon::ExternalWrench>& external_wrench_map, const std::vector<Eigen::Vector3d>& extra_vectoring_forces, KDL::JntArray& gimbal_processed_joint, const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, std::vector<double>& thrust_forces, std::vector<double>& gimbal_angles)
