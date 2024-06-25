@@ -1653,7 +1653,7 @@ bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::Vecto
       if(!start_rp_integration_) continue;
 
       double margin_pitch = 0.2; // rad
-      double margin_roll = 0.15; // rad
+      double margin_roll = 0.1; // rad
       if(roll_locked_gimbal_.at(i) == 0)
         {
           lower_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i) - margin_roll;
@@ -1662,12 +1662,47 @@ bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::Vecto
           upper_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i) + margin_roll;
           upper_bounds.at(motor_num_ + col + 1) = gimbal_angles.at(2 * i + 1) + margin_pitch;
 
+          if (init_gimbal_angles.at(2 * i) < lower_bounds.at(motor_num_ + col) ||
+              init_gimbal_angles.at(2 * i) > upper_bounds.at(motor_num_ + col))
+            {
+              ROS_WARN_STREAM("gimbal" << i + 1 << "_roll: init angle: " <<
+                              init_gimbal_angles.at(2 * i) << "; lower bound: " <<
+                              lower_bounds.at(motor_num_ + col) << "; upper bound: " <<
+                              upper_bounds.at(motor_num_ + col));
+
+              thrust_force_gimbal_angles.at(motor_num_ + col) = gimbal_angles.at(2 * i);
+            }
+
+          if (init_gimbal_angles.at(2 * i + 1) < lower_bounds.at(motor_num_ + col + 1) ||
+              init_gimbal_angles.at(2 * i + 1) > upper_bounds.at(motor_num_ + col + 1))
+            {
+              ROS_WARN_STREAM("gimbal" << i + 1 << "_pitch: init angle: " <<
+                              init_gimbal_angles.at(2 * i + 1) << "; lower bound: " <<
+                              lower_bounds.at(motor_num_ + col + 1) << "; upper bound: " <<
+                              upper_bounds.at(motor_num_ + col + 1));
+
+              thrust_force_gimbal_angles.at(motor_num_ + col + 1) = gimbal_angles.at(2 * i + 1);
+            }
+
+
           col += 2;
         }
       else
         {
-          lower_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i + 1) - margin_roll;
-          upper_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i + 1) + margin_roll;
+          lower_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i + 1) - margin_pitch;
+          upper_bounds.at(motor_num_ + col) = gimbal_angles.at(2 * i + 1) + margin_pitch;
+
+          if (init_gimbal_angles.at(2 * i + 1) < lower_bounds.at(motor_num_ + col) ||
+              init_gimbal_angles.at(2 * i + 1) > upper_bounds.at(motor_num_ + col))
+            {
+              ROS_WARN_STREAM("[roll lock] gimbal" << i + 1 << "_pitch: init angle: " <<
+                              init_gimbal_angles.at(2 * i + 1) << "; lower bound: " <<
+                              lower_bounds.at(motor_num_ + col) << "; upper bound: " <<
+                              upper_bounds.at(motor_num_ + col));
+
+              thrust_force_gimbal_angles.at(motor_num_ + col) = gimbal_angles.at(2 * i + 1);
+            }
+
           col += 1;
         }
     }
@@ -1687,7 +1722,7 @@ bool DragonFullVectoringController::strictNonlinearAllocation(const Eigen::Vecto
   if(sqp_ave_cnt_ == 0) sqp_ave_cnt_ = sqp_cnt_;
   else sqp_ave_cnt_ = 0.6 * sqp_ave_cnt_ + 0.4 * sqp_cnt_;
 
-  if(sqp_cnt_ > 50) ROS_WARN_STREAM("[strict nonlinear allocation] SQP constraint result: " <<  result << "; count: " << sqp_cnt_ << "; time: " << ros::Time::now().toSec() - t);
+  if(sqp_cnt_ > 100) ROS_WARN_STREAM("[strict nonlinear allocation] SQP constraint result: " <<  result << "; count: " << sqp_cnt_ << "; time: " << ros::Time::now().toSec() - t);
 
 
   col = 0;
