@@ -44,6 +44,9 @@ void DragonFullVectoringController::initialize(ros::NodeHandle nh, ros::NodeHand
   fz_bias_ = 0;
   tx_bias_ = 0;
   ty_bias_ = 0;
+
+  force_lock_roll_sub_ = nh_.subscribe("force_lock_roll", 1, &DragonFullVectoringController::forceLockRollCallback, this);
+
   wrench_estimate_thread_ = boost::thread([this]()
                                           {
                                             ros::NodeHandle control_nh(nh_, "controller");
@@ -563,10 +566,23 @@ void DragonFullVectoringController::controlCore()
   KDL::JntArray gimbal_processed_joint = dragon_robot_model_->getJointPositions();
   robot_model_for_control_->updateRobotModel(gimbal_processed_joint);
 
-  const auto roll_locked_gimbal = dragon_robot_model_->getRollLockedGimbal();
+  auto roll_locked_gimbal = dragon_robot_model_->getRollLockedGimbal();
   const auto links_rotation_from_cog = dragon_robot_model_->getLinksRotationFromCog<Eigen::Matrix3d>();
-  const auto gimbal_nominal_angles = dragon_robot_model_->getGimbalNominalAngles();
+  auto gimbal_nominal_angles = dragon_robot_model_->getGimbalNominalAngles();
   const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
+
+  /* WIP: force lock all gimbal roll angles to zero */
+  if (force_lock_all_angle_)
+    {
+      for (int i = 0; i < motor_num_; i ++)
+        {
+          if (i % 2 == 1) continue;
+
+          roll_locked_gimbal.at(i) = 1;
+          gimbal_nominal_angles.at(2 * i) = 0;
+        }
+    }
+
 
   int gimbal_lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0);
   Eigen::MatrixXd full_q_mat = Eigen::MatrixXd::Zero(6, 3 * motor_num_ - gimbal_lock_num);
@@ -902,6 +918,11 @@ void DragonFullVectoringController::rosParamInit()
   getParam<double>(control_nh, "joint_torque_weight", joint_torque_weight_, 1.0);
 
   getParam<double>(control_nh, "torque_allocation_matrix_inv_pub_interval", torque_allocation_matrix_inv_pub_interval_, 0.1);
+}
+
+void DragonFullVectoringController::forceLockRollCallback(const std_msgs::Bool& msg)
+{
+  force_lock_all_angle_ = msg.data;
 }
 
 /* plugin registration */

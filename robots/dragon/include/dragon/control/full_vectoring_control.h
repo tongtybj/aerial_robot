@@ -42,6 +42,7 @@
 #include <spinal/RollPitchYawTerm.h>
 #include <spinal/RollPitchYawTerms.h>
 #include <spinal/TorqueAllocationMatrixInv.h>
+#include <std_msgs/Bool.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <tf_conversions/tf_eigen.h>
 #include <dragon/sensor/imu.h>
@@ -129,6 +130,10 @@ namespace aerial_robot_control
 
     double torque_allocation_matrix_inv_pub_stamp_;
     double torque_allocation_matrix_inv_pub_interval_;
+
+    ros::Subscriber force_lock_roll_sub_;
+    void forceLockRollCallback(const std_msgs::Bool& msg);
+    bool force_lock_all_angle_{false};
 
     void externalWrenchEstimate();
     const Eigen::VectorXd getTargetWrenchAccCog()
