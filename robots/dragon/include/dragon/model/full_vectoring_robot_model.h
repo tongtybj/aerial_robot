@@ -42,6 +42,9 @@
 #include <sstream>
 #include <tf_conversions/tf_kdl.h>
 
+// alias
+using RobotModelPtr = boost::shared_ptr<aerial_robot_model::transformable::RobotModel>;
+
 namespace Dragon
 {
 
@@ -59,7 +62,7 @@ namespace Dragon
     void addCompThrustToStaticThrust() override;
     void calcJointTorque(const bool update_jacobian = true) override;
 
-    inline boost::shared_ptr<aerial_robot_model::transformable::RobotModel> getRobotModelForPlan() { return robot_model_for_plan_;}
+    inline RobotModelPtr getRobotModelForPlan() { return robot_model_for_plan_;}
     inline const Eigen::VectorXd& getHoverVectoringF() const {return hover_vectoring_f_;}
 
     const std::vector<int> getRollLockedGimbal()
@@ -93,9 +96,24 @@ namespace Dragon
     static void getShortestPath(double& roll_angle, const double prev_roll_angle, \
                                 double& pitcn_angle, const double prev_pitch_angle);
 
+
+    static void updateJointTorqueMatrices(RobotModelPtr robot_model, \
+                                          const KDL::JntArray& gimbal_processed_joint, \
+                                          const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, \
+                                          const std::vector<int>& roll_locked_gimbal, \
+                                          const std::vector<double>& gimbal_nominal_angles, \
+                                          const double thrust_force_weight, const double joint_torque_weight, \
+                                          Eigen::MatrixXd& A1, Eigen::VectorXd& b1, Eigen::MatrixXd& Psi);
+
+    static void compensateJointTorque(const Eigen::MatrixXd& A1, const Eigen::MatrixXd& Psi, \
+                                      const Eigen::VectorXd& b1, const Eigen::VectorXd& b2, \
+                                      const Eigen::MatrixXd& full_q_mat_inv, const Eigen::MatrixXd& full_q_mat, \
+                                      const double joint_torque_weight, \
+                                      Eigen::VectorXd& target_vectoring_f);
+
   private:
 
-    boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_for_plan_;
+    RobotModelPtr robot_model_for_plan_;
 
     Eigen::VectorXd hover_vectoring_f_;
 

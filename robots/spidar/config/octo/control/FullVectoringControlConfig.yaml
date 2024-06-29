@@ -29,7 +29,6 @@ controller:
 
   thrust_force_weight: 1.0
   joint_torque_weight: 0.0 # 10.0 ~ 20.0
-  joint_torque_thresh: 1.0 # = target_acc_z / gravity
 
   xy:
     p_gain: 3.6

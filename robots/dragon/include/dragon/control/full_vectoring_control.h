@@ -47,6 +47,9 @@
 #include <dragon/sensor/imu.h>
 #include <visualization_msgs/MarkerArray.h>
 
+// alias
+using DragonModelPtr = boost::shared_ptr<Dragon::FullVectoringRobotModel>;
+
 namespace aerial_robot_control
 {
   class DragonFullVectoringController: public PoseLinearController
@@ -78,8 +81,8 @@ namespace aerial_robot_control
     ros::Publisher rpy_gain_pub_;
     ros::Publisher torque_allocation_matrix_inv_pub_;
 
-    boost::shared_ptr<Dragon::FullVectoringRobotModel> dragon_robot_model_;
-    boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_for_control_;
+    DragonModelPtr dragon_robot_model_;
+    RobotModelPtr robot_model_for_control_;
     std::vector<float> target_base_thrust_;
     std::vector<double> target_gimbal_angles_;
     Eigen::VectorXd target_vectoring_f_;
@@ -123,8 +126,6 @@ namespace aerial_robot_control
     double takeoff_acc_z_thresh_;
 
     double thrust_force_weight_, joint_torque_weight_;
-    double joint_torque_thresh_;
-    bool on_ground_;
 
     double torque_allocation_matrix_inv_pub_stamp_;
     double torque_allocation_matrix_inv_pub_interval_;

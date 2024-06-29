@@ -24,8 +24,6 @@ void DragonFullVectoringController::initialize(ros::NodeHandle nh, ros::NodeHand
   target_base_thrust_.resize(motor_num_);
   target_gimbal_angles_.resize(motor_num_ * 2, 0);
 
-  on_ground_ = true;
-
   gimbal_control_pub_ = nh_.advertise<sensor_msgs::JointState>("gimbals_ctrl", 1);
   flight_cmd_pub_ = nh_.advertise<spinal::FourAxisCommand>("four_axes/command", 1);
   target_vectoring_force_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("debug/target_vectoring_force", 1);
@@ -573,69 +571,14 @@ void DragonFullVectoringController::controlCore()
   int gimbal_lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0);
   Eigen::MatrixXd full_q_mat = Eigen::MatrixXd::Zero(6, 3 * motor_num_ - gimbal_lock_num);
 
-  // for considering joint torque
-  robot_model_for_control_->calcBasicKinematicsJacobian(); // for get joint torque
-  const auto& thrust_coord_jacobians = robot_model_for_control_->getThrustCoordJacobians();
-  const int joint_num = robot_model_for_control_->getJointNum();
-  const int link_joint_num = robot_model_for_control_->getLinkJointIndices().size();
-  const int rotor_num = robot_model_for_control_->getRotorNum();
-  const int f_ndof = 3 * rotor_num - gimbal_lock_num;
-
-  Eigen::MatrixXd A1_all = Eigen::MatrixXd::Zero(joint_num, f_ndof);
-  int cnt = 0;
-  for (int i = 0; i < rotor_num; i++) {
-    Eigen::MatrixXd a = -thrust_coord_jacobians.at(i).topRows(3).rightCols(joint_num).transpose();
-    Eigen::MatrixXd r = links_rotation_from_cog.at(i);
-    if(roll_locked_gimbal.at(i) == 0) { /* 3DoF */
-      // describe force w.r.t. local (link) frame
-      A1_all.middleCols(cnt, 3) = a * r;
-      cnt += 3;
-    }
-    else { /* gimbal lock: 2Dof */
-      // describe force w.r.t. local (link) frame
-      Eigen::MatrixXd mask(3,2);
-      mask << 1, 0, 0, 0, 0, 1;
-      Eigen::MatrixXd r_dash = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0));
-      A1_all.middleCols(cnt, 2) = a * r * r_dash * mask;
-      cnt += 2;
-    }
-  }
-  Eigen::VectorXd b1_all = Eigen::VectorXd::Zero(joint_num);
-
-  Eigen::VectorXd real_g = robot_model_for_control_->getGravity();
-  Eigen::VectorXd g = real_g;
-  if(navigator_->getNaviState() == aerial_robot_navigation::TAKEOFF_STATE) {
-    if (on_ground_) {
-      g = target_wrench_acc_cog(Z) * real_g.normalized();
-      // ROS_INFO_THROTTLE(0.1, "reduced g");
-    }
-
-    if (target_wrench_acc_cog(Z) > joint_torque_thresh_ * real_g.norm()) {
-      on_ground_ = false;
-    }
-  }
-  for(const auto& inertia : robot_model_for_control_->getInertiaMap()) {
-    Eigen::MatrixXd cog_coord_jacobian = robot_model_for_control_->getJacobian(gimbal_processed_joint, inertia.first, inertia.second.getCOG());
-    b1_all -= cog_coord_jacobian.rightCols(joint_num).transpose() * inertia.second.getMass() * (-g);
-  }
-
-  // only consider link joint
-  Eigen::MatrixXd A1 = Eigen::MatrixXd::Zero(link_joint_num, f_ndof);
-  Eigen::VectorXd b1 = Eigen::VectorXd::Zero(link_joint_num);
-  cnt = 0;
-  for(int i = 0; i < joint_num; i++) {
-    if(robot_model_for_control_->getJointNames().at(i) == robot_model_for_control_->getLinkJointNames().at(cnt))
-      {
-        A1.row(cnt) = A1_all.row(i);
-        b1(cnt) = b1_all(i);
-        cnt++;
-      }
-    if(cnt == link_joint_num) break;
-  }
-  Eigen::MatrixXd W1 = thrust_force_weight_ * Eigen::MatrixXd::Identity(f_ndof, f_ndof);
-  Eigen::MatrixXd W2 = joint_torque_weight_ * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
-  Eigen::MatrixXd Psi = (W1 + A1.transpose() * W2 * A1).inverse();
-
+  Eigen::MatrixXd A1;
+  Eigen::VectorXd b1;
+  Eigen::MatrixXd Psi;
+  Dragon::FullVectoringRobotModel::updateJointTorqueMatrices(robot_model_for_control_,                 \
+                                                             gimbal_processed_joint, links_rotation_from_cog, \
+                                                             roll_locked_gimbal, gimbal_nominal_angles, \
+                                                             thrust_force_weight_, joint_torque_weight_, \
+                                                             A1, b1, Psi);
 
   double t = ros::Time::now().toSec();
   for(int j = 0; j < allocation_refine_max_iteration_; j++)
@@ -666,32 +609,25 @@ void DragonFullVectoringController::controlCore()
             }
         }
 
-
-      // the offset for the joint torque constraint
-      tf::Vector3 acc_bias_w(0, 0, pid_controllers_.at(Z).result());
-      //tf::Vector3 acc_bias_w(0, 0, pid_controllers_.at(Z).getPTerm() + pid_controllers_.at(Z).getITerm());
-      tf::Vector3 acc_bias_cog = uav_rot.inverse() * acc_bias_w;
-      Eigen::VectorXd wrench_bias = Eigen::VectorXd::Zero(6);
-      wrench_bias.head(3) = Eigen::Vector3d(acc_bias_cog.x(), acc_bias_cog.y(), acc_bias_cog.z());
-
-
       inertia_inv = robot_model_for_control_->getInertia<Eigen::Matrix3d>().inverse(); // update
       full_q_mat.topRows(3) =  mass_inv * full_q_mat.topRows(3);
       full_q_mat.bottomRows(3) =  inertia_inv * full_q_mat.bottomRows(3);
       Eigen::MatrixXd full_q_mat_inv = aerial_robot_model::pseudoinverse(full_q_mat);
-      target_vectoring_f_ = full_q_mat_inv * (target_wrench_acc_cog - wrench_bias);
+      target_vectoring_f_ = full_q_mat_inv * target_wrench_acc_cog;
 
-      //consider joint torque
-      Eigen::VectorXd b2 = -wrench_bias; // only consider the bias 
-      Eigen::MatrixXd A2 = full_q_mat;
-      Eigen::MatrixXd C = Psi * A2.transpose() * (A2 * Psi * A2.transpose()).inverse();
-      Eigen::MatrixXd E = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
-      target_vectoring_f_ += (- C * b2 - (E - C * A2) * Psi * A1.transpose() * W2 * b1);
-      // target_vectoring_f_ = (- C * (-target_wrench_acc_cog) - (E - C * A2) * Psi * A1.transpose() * W2 * b1); // all components for joint torque restraint
-      // ROS_INFO_STREAM_THROTTLE(1.0, "total acc is : " << target_wrench_acc_cog.transpose() << "; diff is: " << (A2 * target_vectoring_f_ + b2).transpose());
-      // ROS_INFO_STREAM_THROTTLE(1.0, "total joint torque is: " << (A1 * target_vectoring_f_ + b1).transpose());
-      // ROS_INFO_STREAM_THROTTLE(1.0, "target thrust is: " << target_vectoring_f_.transpose());
+      // compesante joint torque, only if the robot is flying or almost flying.
+      if (start_rp_integration_)
+        {
+          tf::Vector3 acc_bias_w(0, 0, pid_controllers_.at(Z).result()); // TODO: maybe only I term is better
+          //tf::Vector3 acc_bias_w(0, 0, pid_controllers_.at(Z).getPTerm() + pid_controllers_.at(Z).getITerm());
+          tf::Vector3 acc_bias_cog = uav_rot.inverse() * acc_bias_w;
+          Eigen::VectorXd wrench_bias = Eigen::VectorXd::Zero(6);
+          wrench_bias.head(3) = Eigen::Vector3d(acc_bias_cog.x(), acc_bias_cog.y(), acc_bias_cog.z());
 
+          Dragon::FullVectoringRobotModel::compensateJointTorque(A1, Psi, b1, -wrench_bias, \
+                                                                 full_q_mat_inv, full_q_mat, joint_torque_weight_, \
+                                                                 target_vectoring_f_);
+        }
 
       if(control_verbose_) ROS_DEBUG_STREAM("vectoring force for control in iteration "<< j+1 << ": " << target_vectoring_f_.transpose());
       last_col = 0;
@@ -830,7 +766,6 @@ void DragonFullVectoringController::externalWrenchEstimate()
   prev_est_wrench_timestamp_ = ros::Time::now().toSec();
 }
 
-
 void DragonFullVectoringController::sendCmd()
 {
   PoseLinearController::sendCmd();
@@ -925,7 +860,6 @@ void DragonFullVectoringController::setAttitudeGains()
 
 void DragonFullVectoringController::reset() {
   PoseLinearController::reset();
-  on_ground_ = true;
 
   setAttitudeGains();
 }
@@ -966,7 +900,6 @@ void DragonFullVectoringController::rosParamInit()
 
   getParam<double>(control_nh, "thrust_force_weight", thrust_force_weight_, 1.0);
   getParam<double>(control_nh, "joint_torque_weight", joint_torque_weight_, 1.0);
-  getParam<double>(control_nh, "joint_torque_thresh", joint_torque_thresh_, 1.0);
 
   getParam<double>(control_nh, "torque_allocation_matrix_inv_pub_interval", torque_allocation_matrix_inv_pub_interval_, 0.1);
 }
