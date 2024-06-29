@@ -47,6 +47,7 @@
 #include <tf_conversions/tf_eigen.h>
 #include <dragon/sensor/imu.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <OsqpEigen/OsqpEigen.h>
 
 // alias
 using DragonModelPtr = boost::shared_ptr<Dragon::FullVectoringRobotModel>;

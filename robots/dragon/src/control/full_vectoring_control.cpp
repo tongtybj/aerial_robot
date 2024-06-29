@@ -628,8 +628,13 @@ void DragonFullVectoringController::controlCore()
       inertia_inv = robot_model_for_control_->getInertia<Eigen::Matrix3d>().inverse(); // update
       full_q_mat.topRows(3) =  mass_inv * full_q_mat.topRows(3);
       full_q_mat.bottomRows(3) =  inertia_inv * full_q_mat.bottomRows(3);
+
+      // allocation
+      // 1. solve by psuedo-inverse
+      double s_t1 = ros::WallTime::now().toSec();
       Eigen::MatrixXd full_q_mat_inv = aerial_robot_model::pseudoinverse(full_q_mat);
       target_vectoring_f_ = full_q_mat_inv * target_wrench_acc_cog;
+
 
       // compesante joint torque, only if the robot is flying or almost flying.
       if (start_rp_integration_)
@@ -644,6 +649,75 @@ void DragonFullVectoringController::controlCore()
                                                                  full_q_mat_inv, full_q_mat, joint_torque_weight_, \
                                                                  target_vectoring_f_);
         }
+
+      double t_diff = ros::WallTime::now().toSec() - s_t1;
+
+      // 2. solve by QP
+      OsqpEigen::Solver qp_solver;
+      qp_solver.settings()->setVerbosity(false);
+      qp_solver.settings()->setWarmStart(true);
+      int f_ndof = 3 * motor_num_ - gimbal_lock_num;
+      qp_solver.data()->setNumberOfVariables(f_ndof);
+      qp_solver.data()->setNumberOfConstraints(6 + f_ndof);
+
+
+      // 2.1 cost function
+      Eigen::MatrixXd hessian = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
+      Eigen::SparseMatrix<double> hessian_sparse = hessian.sparseView();
+      Eigen::VectorXd gradient = Eigen::VectorXd::Zero(f_ndof);
+      qp_solver.data()->setHessianMatrix(hessian_sparse);
+      qp_solver.data()->setGradient(gradient);
+
+      // 2.2 constraint (except of range)
+      Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(6 + f_ndof, f_ndof);
+      constraints.topRows(6) = full_q_mat;
+      constraints.bottomRows(f_ndof) = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
+      Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
+      qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
+      double thrust_range = 100;
+      Eigen::VectorXd lower_bound = Eigen::VectorXd::Ones(6 + f_ndof) * -thrust_range;
+      Eigen::VectorXd upper_bound = Eigen::VectorXd::Ones(6 + f_ndof) * thrust_range;
+
+      if (force_lock_all_angle_)
+        {
+          // WIP: the inside gimbal pitch should not have larger angle than the tilt of link
+          // x is along the link direction, and z is orthonogal to that
+          int col = 0;
+          for (int i = 0; i < motor_num_; i ++)
+            {
+              if (i % 2 == 0) upper_bound(6 + col + 1) = 0;
+
+              if (roll_locked_gimbal.at(i)) col +=2;
+              else col +=3;
+            }
+        }
+
+      lower_bound.head(6) = target_wrench_acc_cog;
+      upper_bound.head(6) = target_wrench_acc_cog;
+
+      qp_solver.data()->setLowerBound(lower_bound);
+      qp_solver.data()->setUpperBound(upper_bound);
+
+      if(!qp_solver.initSolver()) {
+        ROS_ERROR_STREAM("can not initialize qp solver");
+        return;
+      }
+
+      // TODO1: set the initial value
+      // TODO2: the error of not resolvable
+      double s_t = ros::WallTime::now().toSec();
+      bool res = qp_solver.solve(); // with large range: x 1.5
+
+      if(!res) {
+        ROS_ERROR_STREAM("can not solve QP");
+      } else {
+        Eigen::VectorXd target_vectoring_f_qp = qp_solver.getSolution();
+        ROS_INFO_STREAM_THROTTLE(1.0, "\n target_vectoring_f_: " << target_vectoring_f_.transpose() << "\n "
+                                 "target_vectoring_f_qp: " << target_vectoring_f_qp.transpose());
+        ROS_INFO_THROTTLE(1.0, "Inv solve time: %f, QP solve time: %f", t_diff, ros::WallTime::now().toSec() - s_t);
+        target_vectoring_f_ = target_vectoring_f_qp;
+      }
+
 
       if(control_verbose_) ROS_DEBUG_STREAM("vectoring force for control in iteration "<< j+1 << ": " << target_vectoring_f_.transpose());
       last_col = 0;
