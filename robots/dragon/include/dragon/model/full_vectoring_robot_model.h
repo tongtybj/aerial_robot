@@ -90,6 +90,9 @@ namespace Dragon
 
     bool stabilityCheck(bool verbose) override;
 
+    static void getShortestPath(double& roll_angle, const double prev_roll_angle, \
+                                double& pitcn_angle, const double prev_pitch_angle);
+
   private:
 
     boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_for_plan_;

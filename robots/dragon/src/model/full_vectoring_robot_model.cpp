@@ -124,7 +124,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
 
   const auto joint_index_map = getJointIndexMap();
   KDL::JntArray gimbal_processed_joint = joint_positions;
-  std::vector<double> gimbal_nominal_angles(0);
+  std::vector<double> gimbal_prime_angles(0);
   std::vector<KDL::Rotation> links_rotation_from_cog(0);
   std::vector<int> roll_locked_gimbal(getRotorNum(), 0);
 
@@ -138,8 +138,8 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       double r, p, y;
       links_rotation_from_cog.back().GetRPY(r, p, y);
 
-      gimbal_nominal_angles.push_back(-r);
-      gimbal_nominal_angles.push_back(-p);
+      gimbal_prime_angles.push_back(-r);
+      gimbal_prime_angles.push_back(-p);
     }
   setLinksRotationFromCog(links_rotation_from_cog);
 
@@ -149,12 +149,19 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       for(int i = 0; i < getRotorNum(); ++i)
         {
           std::string s = std::to_string(i + 1);
-          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_nominal_angles.at(i * 2);
-          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_nominal_angles.at(i * 2 + 1);
+          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_prime_angles.at(i * 2);
+          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_prime_angles.at(i * 2 + 1);
         }
       robot_model_for_plan_->updateRobotModel(gimbal_processed_joint);
 
-      setGimbalNominalAngles(gimbal_nominal_angles);
+      setGimbalNominalAngles(gimbal_prime_angles);
+    }
+
+  std::vector<double>  gimbal_nominal_angles = getGimbalNominalAngles();
+  for(int i = 0; i < getRotorNum(); ++i)
+    {
+      getShortestPath(gimbal_prime_angles.at(i * 2), gimbal_nominal_angles.at(i * 2),
+                      gimbal_prime_angles.at(i * 2 + 1), gimbal_nominal_angles.at(i * 2 + 1));
     }
 
   /* 2. check the orientation (pitch angle) of link to decide whether to lock gimbal roll */
@@ -163,12 +170,12 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
   bool roll_lock_status_change = false;
   for(int i = 0; i < getRotorNum(); ++i)
     {
-      if(fabs(gimbal_nominal_angles.at(i * 2 + 1)) > max_pitch)
-        max_pitch = fabs(gimbal_nominal_angles.at(i * 2 + 1));
+      if(fabs(gimbal_prime_angles.at(i * 2 + 1)) > max_pitch)
+        max_pitch = fabs(gimbal_prime_angles.at(i * 2 + 1));
 
-      if(fabs(fabs(gimbal_nominal_angles.at(i * 2 + 1)) - M_PI /2) < gimbal_lock_threshold_)
+      if(fabs(fabs(gimbal_prime_angles.at(i * 2 + 1)) - M_PI /2) < gimbal_lock_threshold_)
         {
-          ROS_DEBUG_STREAM_NAMED("robot_model", "link" << i+1 << " pitch: " << -gimbal_nominal_angles.at(i * 2 + 1) << " exceeds");
+          ROS_DEBUG_STREAM_NAMED("robot_model", "link" << i+1 << " pitch: " << -gimbal_prime_angles.at(i * 2 + 1) << " exceeds");
           roll_locked_gimbal.at(i) = 1;
         }
       else
@@ -231,8 +238,8 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
           for(int i = 0; i < getRotorNum(); ++i)
             {
               std::string s = std::to_string(i + 1);
-              gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_nominal_angles.at(i * 2);
-              gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_nominal_angles.at(i * 2 + 1);
+              gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_prime_angles.at(i * 2);
+              gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_prime_angles.at(i * 2 + 1);
             }
           robot_model_for_plan_->updateRobotModel(gimbal_processed_joint);
           std::map<std::string, KDL::Frame> seg_tf_map = robot_model_for_plan_->getSegmentsTf();
@@ -259,7 +266,6 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
 
   /* 4: smooth the nominal gimbal angles, to avoid sudden change */
   int gimbal_lock_index = 0;
-  std::vector<double>  gimbal_nominal_angles_curr = getGimbalNominalAngles();
   for(int i = 0; i < getRotorNum(); ++i)
     {
       /* only smooth roll angles */
@@ -270,41 +276,46 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
               ROS_DEBUG_NAMED("robot_model", "smooth the gimbal roll angle %d, for after free the lock", i+1);
               roll_locked_gimbal.at(i) = 1; // force change back to lock status
 
-              if(gimbal_nominal_angles.at(i * 2) - gimbal_nominal_angles_curr.at(i * 2) > gimbal_roll_change_threshold_)
-                gimbal_nominal_angles_curr.at(i * 2) += gimbal_roll_change_threshold_;
-              else if(gimbal_nominal_angles.at(i * 2) - gimbal_nominal_angles_curr.at(i * 2) < - gimbal_roll_change_threshold_)
-                gimbal_nominal_angles_curr.at(i * 2) -= gimbal_roll_change_threshold_;
+              double diff = gimbal_prime_angles.at(i * 2) - gimbal_nominal_angles.at(i * 2);
+              if (diff > M_PI) diff -= 2 * M_PI;
+              if (diff < -M_PI) diff += 2 * M_PI;
+
+              if(diff > gimbal_roll_change_threshold_)
+                gimbal_nominal_angles.at(i * 2) += gimbal_roll_change_threshold_;
+              else if(diff < - gimbal_roll_change_threshold_)
+                gimbal_nominal_angles.at(i * 2) -= gimbal_roll_change_threshold_;
               else
                 {
-                  gimbal_nominal_angles_curr.at(i * 2) = gimbal_nominal_angles.at(i * 2);
+                  gimbal_nominal_angles.at(i * 2) = gimbal_prime_angles.at(i * 2);
                   roll_lock_angle_smooth_.at(i) = 0; // stop smoothing
                   if(debug_verbose_) ROS_INFO_STREAM_NAMED("robot_model", "free the gimbal roll after the smoothing for rotor" << i+1);
                 }
 
-              if(debug_verbose_) ROS_DEBUG_STREAM_NAMED("robot_model", "smoothing rotor " << i + 1 << ", desired roll angle: " << gimbal_nominal_angles.at(i * 2) << ", curr angle: " << gimbal_nominal_angles_curr.at(i * 2));
+              if(debug_verbose_) ROS_DEBUG_STREAM_NAMED("robot_model", "smoothing rotor " << i + 1 << ", desired roll angle: " << gimbal_prime_angles.at(i * 2) << ", curr angle: " << gimbal_nominal_angles.at(i * 2));
 
             }
           else
             {
-              gimbal_nominal_angles_curr.at(i * 2) = gimbal_nominal_angles.at(i * 2);
+              gimbal_nominal_angles.at(i * 2) = gimbal_prime_angles.at(i * 2);
             }
         }
       else
         {
           assert(roll_lock_angle_smooth_.at(i) == 1);
 
-          if(locked_angles_.at(gimbal_lock_index) - gimbal_nominal_angles_curr.at(i * 2) > gimbal_roll_change_threshold_)
-            gimbal_nominal_angles_curr.at(i * 2) += gimbal_roll_change_threshold_;
-          else if(locked_angles_.at(gimbal_lock_index) - gimbal_nominal_angles_curr.at(i * 2) < - gimbal_roll_change_threshold_)
-            gimbal_nominal_angles_curr.at(i * 2) -= gimbal_roll_change_threshold_;
+          double diff = locked_angles_.at(gimbal_lock_index) - gimbal_nominal_angles.at(i * 2);
+          if(diff > gimbal_roll_change_threshold_)
+            gimbal_nominal_angles.at(i * 2) += gimbal_roll_change_threshold_;
+          else if(diff < - gimbal_roll_change_threshold_)
+            gimbal_nominal_angles.at(i * 2) -= gimbal_roll_change_threshold_;
           else
-            gimbal_nominal_angles_curr.at(i * 2) = locked_angles_.at(gimbal_lock_index);
+            gimbal_nominal_angles.at(i * 2) = locked_angles_.at(gimbal_lock_index);
 
-          if(debug_verbose_) ROS_DEBUG_STREAM_NAMED("robot_model", "smoothing rotor " << i + 1 << ", desired roll angle: " << locked_angles_.at(gimbal_lock_index) << ", curr angle: " << gimbal_nominal_angles_curr.at(i * 2));
+          if(debug_verbose_) ROS_DEBUG_STREAM_NAMED("robot_model", "smoothing rotor " << i + 1 << ", desired roll angle: " << locked_angles_.at(gimbal_lock_index) << ", curr angle: " << gimbal_nominal_angles.at(i * 2));
 
           gimbal_lock_index++;
         }
-      gimbal_nominal_angles_curr.at(i * 2 + 1) = gimbal_nominal_angles.at(i * 2 + 1);
+      gimbal_nominal_angles.at(i * 2 + 1) = gimbal_prime_angles.at(i * 2 + 1);
     }
   gimbal_lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0); // update
 
@@ -313,8 +324,8 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
   for(int i = 0; i < getRotorNum(); ++i)
     {
       std::string s = std::to_string(i + 1);
-      gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_nominal_angles_curr.at(i * 2);
-      gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_nominal_angles_curr.at(i * 2 + 1);
+      gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_nominal_angles.at(i * 2);
+      gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_nominal_angles.at(i * 2 + 1);
     }
   robot_model_for_plan_->updateRobotModel(gimbal_processed_joint);
 
@@ -343,7 +354,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       // describe force w.r.t. local (link) frame
       Eigen::MatrixXd mask(3,2);
       mask << 1, 0, 0, 0, 0, 1;
-      Eigen::MatrixXd r_dash = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles_curr.at(i * 2), 0, 0));
+      Eigen::MatrixXd r_dash = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0));
       A1_all.middleCols(cnt, 2) = a * r * r_dash * mask;
       cnt += 2;
     }
@@ -395,7 +406,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
           else
             {
               /* gimbal lock: 2Dof */
-              full_q_mat.block(0, last_col, 6, 2) = wrench_map * aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i)) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles_curr.at(i * 2), 0, 0)) * mask;
+              full_q_mat.block(0, last_col, 6, 2) = wrench_map * aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i)) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0)) * mask;
               last_col += 2;
             }
         }
@@ -419,7 +430,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
         }
         else { /* gimbal lock: 2Dof */
           // describe force w.r.t. local (link) frame
-          Eigen::MatrixXd r_dash = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles_curr.at(i * 2), 0, 0));
+          Eigen::MatrixXd r_dash = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0));
           A1_all.middleCols(cnt, 2) = a * r * r_dash * mask;
           cnt += 2;
         }
@@ -469,8 +480,17 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
               static_thrust(i) = hover_vectoring_f.segment(last_col, 3).norm();
               Eigen::Vector3d f = hover_vectoring_f.segment(last_col, 3);
 
-              gimbal_nominal_angles_curr.at(i * 2) = atan2(-f[1], f[2]);
-              gimbal_nominal_angles_curr.at(i * 2 + 1) = atan2(f[0], -f[1] * sin(gimbal_nominal_angles_curr.at(i * 2)) + f[2] * cos(gimbal_nominal_angles_curr.at(i * 2)));
+              double prev_roll_angle = gimbal_nominal_angles.at(2 * i);
+              double prev_pitch_angle = gimbal_nominal_angles.at(2 * i + 1);
+
+              double roll_angle = atan2(-f.y(), f.z());
+              double pitch_angle = atan2(f.x(), -f.y() * sin(roll_angle) + f.z() * cos(roll_angle));
+
+              getShortestPath(roll_angle, prev_roll_angle, pitch_angle, prev_pitch_angle);
+
+              gimbal_nominal_angles.at(2 * i) = roll_angle;
+              gimbal_nominal_angles.at(2 * i + 1) = pitch_angle;
+
               last_col += 3;
             }
           else
@@ -479,7 +499,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
               Eigen::Vector2d f = hover_vectoring_f.segment(last_col, 2);
 
               // roll is locked
-              gimbal_nominal_angles_curr.at(i * 2 + 1) = atan2(f[0], f[1]);
+              gimbal_nominal_angles.at(i * 2 + 1) = atan2(f[0], f[1]);
               last_col += 2;
             }
         }
@@ -489,8 +509,8 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       for(int i = 0; i < getRotorNum(); ++i)
         {
           std::string s = std::to_string(i + 1);
-          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_nominal_angles_curr.at(i * 2);
-          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_nominal_angles_curr.at(i * 2 + 1);
+          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_roll"))->second) = gimbal_nominal_angles.at(i * 2);
+          gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_nominal_angles.at(i * 2 + 1);
         }
       robot_model_for_plan_->updateRobotModel(gimbal_processed_joint);
       rotors_origin_from_cog = robot_model_for_plan_->getRotorsOriginFromCog<Eigen::Vector3d>();
@@ -523,7 +543,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
                 }
               else
                 { /* gimbal lock: 2Dof */
-                  hover_vectoring_f_.segment(3 * i, 3) =  aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i)) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles_curr.at(i * 2), 0, 0)) * mask * hover_vectoring_f.segment(col, 2);
+                  hover_vectoring_f_.segment(3 * i, 3) =  aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i)) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0)) * mask * hover_vectoring_f.segment(col, 2);
                   col += 2;
                 }
             }
@@ -548,7 +568,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
                 }
               else
                 { /* gimbal lock: 2Dof */
-                  hover_vectoring_f_.segment(3 * i, 3) =  aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i)) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles_curr.at(i * 2), 0, 0)) * mask * hover_vectoring_f.segment(col, 2);
+                  hover_vectoring_f_.segment(3 * i, 3) =  aerial_robot_model::kdlToEigen(links_rotation_from_cog.at(i)) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0)) * mask * hover_vectoring_f.segment(col, 2);
                   col += 2;
                 }
             }
@@ -579,7 +599,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
     }
   setEdfsOriginFromCog(f_edfs);
 
-  setGimbalNominalAngles(gimbal_nominal_angles_curr);
+  setGimbalNominalAngles(gimbal_nominal_angles);
   setGimbalProcessedJoint(gimbal_processed_joint);
   setRollLockedGimbal(roll_locked_gimbal);
 
@@ -840,6 +860,41 @@ bool FullVectoringRobotModel::stabilityCheck(bool verbose)
 {
   return aerial_robot_model::RobotModel::stabilityCheck(verbose);
 }
+
+void FullVectoringRobotModel::getShortestPath(double& roll_angle, const double prev_roll_angle, \
+                                              double& pitch_angle, const double prev_pitch_angle)
+{
+  double roll_diff = roll_angle - prev_roll_angle;
+  double pitch_diff = pitch_angle - prev_pitch_angle;
+
+  // 1. solve the problem of discontinuity of radian
+  if (roll_diff > M_PI) roll_angle -= 2 * M_PI;
+  if (roll_diff < - M_PI) roll_angle += 2 * M_PI;
+  if (pitch_diff > M_PI) pitch_angle -= 2 * M_PI;
+  if (pitch_diff < - M_PI) pitch_angle += 2 * M_PI;
+
+  // 2. solve the dual solution issue of 2-DoF gimbal
+  // there are two option to achieve the same thrust direction (roll, pitch, roll) ad (roll + PI, pitch + PI)
+  roll_diff = roll_angle - prev_roll_angle;
+  pitch_diff = pitch_angle - prev_pitch_angle;
+  if (fabs(roll_diff) > M_PI/2)
+    {
+      if (roll_diff > M_PI/2) roll_angle -= M_PI;
+      if (roll_diff < -M_PI/2) roll_angle += M_PI;
+
+      if (pitch_angle > 0) pitch_angle = M_PI - pitch_angle;
+      else pitch_angle = -M_PI - pitch_angle;
+    }
+
+  // 3. solve the problem of discontinuity of radian again
+  roll_diff = roll_angle - prev_roll_angle;
+  pitch_diff = pitch_angle - prev_pitch_angle;
+  if (roll_diff > M_PI) roll_angle -= 2 * M_PI;
+  if (roll_diff < - M_PI) roll_angle += 2 * M_PI;
+  if (pitch_diff > M_PI) pitch_angle -= 2 * M_PI;
+  if (pitch_diff < - M_PI) pitch_angle += 2 * M_PI;
+}
+
 
 
 /* plugin registration */

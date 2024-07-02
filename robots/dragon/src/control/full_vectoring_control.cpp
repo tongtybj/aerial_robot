@@ -699,14 +699,20 @@ void DragonFullVectoringController::controlCore()
         {
           if(roll_locked_gimbal.at(i) == 0)
             {
-              Eigen::Vector3d f_i = target_vectoring_f_.segment(last_col, 3);
-              target_base_thrust_.at(i) = f_i.norm();
+              Eigen::Vector3d f = target_vectoring_f_.segment(last_col, 3);
+              target_base_thrust_.at(i) = f.norm();
 
-              double gimbal_i_roll = atan2(-f_i.y(), f_i.z());
-              double gimbal_i_pitch = atan2(f_i.x(), -f_i.y() * sin(gimbal_i_roll) + f_i.z() * cos(gimbal_i_roll));
+              double prev_roll_angle = target_gimbal_angles_.at(2 * i);
+              double prev_pitch_angle = target_gimbal_angles_.at(2 * i + 1);
 
-              target_gimbal_angles_.at(2 * i) = gimbal_i_roll;
-              target_gimbal_angles_.at(2 * i + 1) = gimbal_i_pitch;
+              double roll_angle = atan2(-f.y(), f.z());
+              double pitch_angle = atan2(f.x(), -f.y() * sin(roll_angle) + f.z() * cos(roll_angle));
+
+              Dragon::FullVectoringRobotModel::getShortestPath(roll_angle, prev_roll_angle, \
+                                                               pitch_angle, prev_pitch_angle);
+
+              target_gimbal_angles_.at(2 * i) = roll_angle;
+              target_gimbal_angles_.at(2 * i + 1) = pitch_angle;
 
               last_col += 3;
             }
