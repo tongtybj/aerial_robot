@@ -620,7 +620,15 @@ void DragonFullVectoringController::controlCore()
           else
             {
               /* gimbal lock: 2Dof */
-              full_q_mat.middleCols(last_col, 2) = wrench_map * links_rotation_from_cog.at(i) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0)) * mask;
+
+              Eigen::MatrixXd pitch_rot = Eigen::MatrixXd::Identity(3, 3);
+
+              if (force_lock_all_angle_)
+                {
+                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, force_tilt_limit_angle_, 0));
+                }
+
+              full_q_mat.middleCols(last_col, 2) = wrench_map * links_rotation_from_cog.at(i) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0)) * pitch_rot * mask;
               last_col += 2;
             }
         }
@@ -685,7 +693,7 @@ void DragonFullVectoringController::controlCore()
           int col = 0;
           for (int i = 0; i < motor_num_; i ++)
             {
-              if (i % 2 == 0) upper_bound(6 + col + 1) = 0;
+              if (i % 2 == 0) lower_bound(6 + col + 1) = 0;
 
               if (roll_locked_gimbal.at(i)) col +=2;
               else col +=3;
@@ -715,7 +723,7 @@ void DragonFullVectoringController::controlCore()
         ROS_INFO_STREAM_THROTTLE(1.0, "\n target_vectoring_f_: " << target_vectoring_f_.transpose() << "\n "
                                  "target_vectoring_f_qp: " << target_vectoring_f_qp.transpose());
         ROS_INFO_THROTTLE(1.0, "Inv solve time: %f, QP solve time: %f", t_diff, ros::WallTime::now().toSec() - s_t);
-        target_vectoring_f_ = target_vectoring_f_qp;
+        // target_vectoring_f_ = target_vectoring_f_qp;
       }
 
 
@@ -741,11 +749,21 @@ void DragonFullVectoringController::controlCore()
             }
           else
             {
-              Eigen::VectorXd f_i = target_vectoring_f_.segment(last_col, 2);
-              target_base_thrust_.at(i) = f_i.norm();
+              Eigen::VectorXd f_2d = target_vectoring_f_.segment(last_col, 2);
+              target_base_thrust_.at(i) = f_2d.norm();
+
+
+              Eigen::MatrixXd pitch_rot = Eigen::MatrixXd::Identity(3, 3);
+              Eigen::MatrixXd mask(3,2);
+              mask << 1, 0, 0, 0, 0, 1;
+              if (force_lock_all_angle_)
+                {
+                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, force_tilt_limit_angle_, 0));
+                }
+              Eigen::VectorXd f = pitch_rot * mask * f_2d;
 
               target_gimbal_angles_.at(2 * i) = gimbal_nominal_angles.at(2 * i); // lock the gimbal roll
-              target_gimbal_angles_.at(2 * i + 1) = atan2(f_i(0), f_i(1));
+              target_gimbal_angles_.at(2 * i + 1) = atan2(f.x(), f.z());
 
               last_col += 2;
             }
@@ -994,9 +1012,14 @@ void DragonFullVectoringController::rosParamInit()
   getParam<double>(control_nh, "torque_allocation_matrix_inv_pub_interval", torque_allocation_matrix_inv_pub_interval_, 0.1);
 }
 
-void DragonFullVectoringController::forceLockRollCallback(const std_msgs::Bool& msg)
+void DragonFullVectoringController::forceLockRollCallback(const std_msgs::Float32& msg)
 {
-  force_lock_all_angle_ = msg.data;
+  force_tilt_limit_angle_ = msg.data;
+
+  if (fabs(force_tilt_limit_angle_) <= M_PI)
+    force_lock_all_angle_ = true;
+  else
+    force_lock_all_angle_ = false;
 }
 
 /* plugin registration */
