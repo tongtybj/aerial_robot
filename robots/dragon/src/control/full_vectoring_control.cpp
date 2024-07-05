@@ -512,6 +512,118 @@ void DragonFullVectoringController::rotorInterfereCompensate(Eigen::VectorXd& ta
   target_wrench_acc += rotor_interfere_comp_acc;
 }
 
+void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr robot_model, RotorInterfereMap& interfere_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles)
+{
+  int rotor_num = robot_model->getRotorNum();
+  std::string thrust_link = robot_model->getThrustLinkName();
+  const auto& seg_tf_map = robot_model->getSegmentsTf();
+  const auto rotors_pos = robot_model->getRotorsOriginFromCog<KDL::Vector>();
+
+  double angle_max_thresh = 1.2; // TODO: parameter
+  double angle_min_thresh = 0.4; // TODO: parameter
+  double collision_padding_rate = 1.2; // TODO: parameter
+  double dist_thresh = robot_model->getEdfRadius() * 4 + 0.05; // > 2 x diameter
+
+  interfere_map = RotorInterfereMap{};
+
+  std::stringstream ss_map;
+  ss_map << "\n";
+
+  for(int i = 0; i < rotor_num; i++)
+    {
+      auto pos_i = rotors_pos.at(i); // position w.r.t. CoG
+
+      std::string rotor_i = thrust_link + std::to_string(i + 1);
+      auto pose_i = seg_tf_map.at(rotor_i); // pose w.r.t. Baselink (Root)
+
+      std::vector<std::pair<int, Eigen::Vector3d>> bound_list;
+
+      for (int j = 0; j < rotor_num; j++)
+        {
+          if (i == j) continue;
+
+
+          std::string rotor_j = thrust_link + std::to_string(j + 1);
+          auto pose_j = seg_tf_map.at(rotor_j); // pose w.r.t. Baselink (Root)
+
+          // relativel position from the i-th rotor
+          auto rel_pose = pose_i.Inverse() * pose_j;
+          auto rel_pos = aerial_robot_model::kdlToEigen(rel_pose.p);
+
+          // skip if the j-th rotor is not align in the same plane;
+          if (fabs(rel_pos.y()) > dist_thresh) continue;
+
+          double angle = atan2(-rel_pos.x(), -rel_pos.z()); // only consider the pitch angle
+          // skip if the j-th rotor is far from i-th
+          if (fabs(angle) > angle_max_thresh) continue;
+
+          // calculate the bound angle
+
+          double r = robot_model->getEdfRadius() * collision_padding_rate;
+
+          double x1 = 0;
+          double y1 = 0;
+          double x2 = rel_pos.x();
+          double y2 = rel_pos.z();
+
+          double b = y1 - y2;
+
+          double a1 = x2 + r - x1;
+          double l1 = sqrt(pow(a1, 2) + pow(b, 2));
+          double phi1 = atan2(r, l1);
+          double theta1 = atan2(a1, b) + phi1;
+          theta1 = -theta1;
+
+          double a2 = x2 - r - x1;
+          double l2 = sqrt(pow(a2, 2) + pow(b, 2));
+          double phi2 = atan2(r, l2);
+          double theta2 = atan2(a2, b) - phi2;
+          theta2 = -theta2;
+
+          //ss_map << "(" << i + 1 << ", " << j + 1 << "): " << angle << ", " << rel_pos.transpose() << ", theta1: " << theta1 << ", theta2: " << theta2 << "\n";
+
+          Eigen::Vector3d angle_v;
+          if (fabs(theta1) < fabs(theta2)) angle_v = Eigen::Vector3d(angle, theta1, theta2);
+          else angle_v = Eigen::Vector3d(angle, theta2, theta1);
+
+          bound_list.push_back(std::make_pair(j, angle_v));
+        }
+
+      if (bound_list.size() == 0) continue;
+
+      // sort
+      std::sort(bound_list.begin(), bound_list.end(),  \
+                [](auto const& lhs, auto const& rhs) { \
+                  return fabs(lhs.second(0)) < fabs(rhs.second(0));
+                });
+      // only consider when the prime interference is critical
+      double prime_tilt_angle = bound_list.at(0).second(0);
+      if (fabs(prime_tilt_angle) > angle_min_thresh) continue;
+
+      // TODO: consider the sub-prime interference!
+
+      interfere_map.insert(std::make_pair(i, bound_list));
+
+      roll_locked_gimbal.at(i) = 1;
+      gimbal_nominal_angles.at(2 * i) = 0;
+    }
+
+  if (interfere_map.size() > 0)
+    {
+      for (const auto& it: interfere_map)
+        {
+          ss_map << "rotor" << it.first+1 << ": \n";
+          for(const auto& bound: it.second)
+            {
+              ss_map << "\t rotor" << bound.first + 1 << ": " << bound.second.transpose() << " \n";
+            }
+        }
+
+      ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
+    }
+}
+
+
 void DragonFullVectoringController::controlCore()
 {
   /* TODO: saturation of z control */
@@ -571,6 +683,11 @@ void DragonFullVectoringController::controlCore()
   auto gimbal_nominal_angles = dragon_robot_model_->getGimbalNominalAngles();
   const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
 
+
+  // workround: rotor interfere avoid
+  RotorInterfereMap interfere_map;
+  rotorInterfereAvoid(dragon_robot_model_, interfere_map, roll_locked_gimbal, gimbal_nominal_angles);
+
   /* WIP: force lock all gimbal roll angles to zero */
   if (force_lock_all_angle_)
     {
@@ -625,7 +742,15 @@ void DragonFullVectoringController::controlCore()
 
               if (force_lock_all_angle_)
                 {
-                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, force_tilt_limit_angle_, 0));
+                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + force_tilt_limit_angle_;
+                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
+                }
+
+              auto map_it = interfere_map.find(i);
+              if (map_it != interfere_map.end())
+                {
+                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + map_it->second.at(0).second(1);
+                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
                 }
 
               full_q_mat.middleCols(last_col, 2) = wrench_map * links_rotation_from_cog.at(i) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0)) * pitch_rot * mask;
@@ -658,7 +783,9 @@ void DragonFullVectoringController::controlCore()
                                                                  target_vectoring_f_);
         }
 
-      double t_diff = ros::WallTime::now().toSec() - s_t1;
+      double t_diff_inv = ros::WallTime::now().toSec() - s_t1;
+      static double ave_t_diff_inv = t_diff_inv;
+      ave_t_diff_inv = 0.8 * ave_t_diff_inv + 0.2 * t_diff_inv;
 
       // 2. solve by QP
       OsqpEigen::Solver qp_solver;
@@ -693,12 +820,39 @@ void DragonFullVectoringController::controlCore()
           int col = 0;
           for (int i = 0; i < motor_num_; i ++)
             {
-              if (i % 2 == 0) lower_bound(6 + col + 1) = 0;
+              if (i % 2 == 0)
+                {
+                  if (force_tilt_limit_angle_ < 0) upper_bound(6 + col) = 0;
+                  if (force_tilt_limit_angle_ > 0) lower_bound(6 + col) = 0;
+                }
 
               if (roll_locked_gimbal.at(i)) col +=2;
               else col +=3;
             }
         }
+
+      if (interfere_map.size() > 0)
+        {
+          int col = 0;
+          for (int i = 0; i < motor_num_; i ++)
+            {
+              auto map_it = interfere_map.find(i);
+              if (map_it != interfere_map.end())
+                {
+                  double tilt_angle = map_it->second.at(0).second(1);
+                  double sub_tilt_angle = map_it->second.at(0).second(2);
+
+                  if (tilt_angle < 0 && sub_tilt_angle > 0) upper_bound(6 + col) = 0;
+                  if (tilt_angle > 0 && sub_tilt_angle < 0) lower_bound(6 + col) = 0;
+                  if (tilt_angle > 0 && sub_tilt_angle > 0) upper_bound(6 + col) = 0;
+                  if (tilt_angle < 0 && sub_tilt_angle < 0) lower_bound(6 + col) = 0;
+                }
+
+              if (roll_locked_gimbal.at(i)) col +=2;
+              else col +=3;
+            }
+        }
+
 
       lower_bound.head(6) = target_wrench_acc_cog;
       upper_bound.head(6) = target_wrench_acc_cog;
@@ -716,14 +870,20 @@ void DragonFullVectoringController::controlCore()
       double s_t = ros::WallTime::now().toSec();
       bool res = qp_solver.solve(); // with large range: x 1.5
 
+
       if(!res) {
         ROS_ERROR_STREAM("can not solve QP");
       } else {
         Eigen::VectorXd target_vectoring_f_qp = qp_solver.getSolution();
+
+        double t_diff_qp = ros::WallTime::now().toSec() - s_t;
+        static double ave_t_diff_qp = t_diff_qp;
+        ave_t_diff_qp = 0.8 * ave_t_diff_qp + 0.2 * t_diff_qp;
+
         ROS_INFO_STREAM_THROTTLE(1.0, "\n target_vectoring_f_: " << target_vectoring_f_.transpose() << "\n "
                                  "target_vectoring_f_qp: " << target_vectoring_f_qp.transpose());
-        ROS_INFO_THROTTLE(1.0, "Inv solve time: %f, QP solve time: %f", t_diff, ros::WallTime::now().toSec() - s_t);
-        // target_vectoring_f_ = target_vectoring_f_qp;
+        ROS_INFO_THROTTLE(1.0, "Inv solve time: %f, QP solve time: %f", ave_t_diff_inv, ave_t_diff_qp);
+        target_vectoring_f_ = target_vectoring_f_qp;
       }
 
 
@@ -758,8 +918,16 @@ void DragonFullVectoringController::controlCore()
               mask << 1, 0, 0, 0, 0, 1;
               if (force_lock_all_angle_)
                 {
-                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, force_tilt_limit_angle_, 0));
+                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + force_tilt_limit_angle_;
+                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
                 }
+              auto map_it = interfere_map.find(i);
+              if (map_it != interfere_map.end())
+                {
+                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + map_it->second.at(0).second(1);
+                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
+                }
+
               Eigen::VectorXd f = pitch_rot * mask * f_2d;
 
               target_gimbal_angles_.at(2 * i) = gimbal_nominal_angles.at(2 * i); // lock the gimbal roll

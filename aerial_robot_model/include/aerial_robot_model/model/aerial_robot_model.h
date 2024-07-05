@@ -102,6 +102,7 @@ namespace aerial_robot_model {
     std::map<std::string, KDL::Frame> fullForwardKinematics(const sensor_msgs::JointState& state) {return fullForwardKinematics(jointMsgToKdl(state)); }
 
     const KDL::Tree& getTree() const { return tree_; }
+    const std::string getThrustLinkName() const { return thrust_link_; }
     const urdf::Model& getUrdfModel() const { return model_; }
     const double getVerbose() const { return verbose_; }
 
