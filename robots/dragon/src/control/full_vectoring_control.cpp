@@ -697,19 +697,16 @@ void DragonFullVectoringController::controlCore()
       last_col = 0;
       for(int i = 0; i < motor_num_; i++)
         {
+          double prev_roll_angle = target_gimbal_angles_.at(2 * i);
+          double prev_pitch_angle = target_gimbal_angles_.at(2 * i + 1);
+
           if(roll_locked_gimbal.at(i) == 0)
             {
               Eigen::Vector3d f = target_vectoring_f_.segment(last_col, 3);
               target_base_thrust_.at(i) = f.norm();
 
-              double prev_roll_angle = target_gimbal_angles_.at(2 * i);
-              double prev_pitch_angle = target_gimbal_angles_.at(2 * i + 1);
-
               double roll_angle = atan2(-f.y(), f.z());
               double pitch_angle = atan2(f.x(), -f.y() * sin(roll_angle) + f.z() * cos(roll_angle));
-
-              Dragon::FullVectoringRobotModel::getShortestPath(roll_angle, prev_roll_angle, \
-                                                               pitch_angle, prev_pitch_angle);
 
               target_gimbal_angles_.at(2 * i) = roll_angle;
               target_gimbal_angles_.at(2 * i + 1) = pitch_angle;
@@ -726,6 +723,10 @@ void DragonFullVectoringController::controlCore()
 
               last_col += 2;
             }
+
+          Dragon::FullVectoringRobotModel::getShortestPath(target_gimbal_angles_.at(2 * i), prev_roll_angle, \
+                                                           target_gimbal_angles_.at(2 * i + 1), prev_pitch_angle);
+
         }
 
       /* before leave ground in takeoff phase, no active gimbal control, so use nominal values */

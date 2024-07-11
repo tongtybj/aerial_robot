@@ -157,12 +157,6 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       setGimbalNominalAngles(gimbal_prime_angles);
     }
 
-  std::vector<double>  gimbal_nominal_angles = getGimbalNominalAngles();
-  for(int i = 0; i < getRotorNum(); ++i)
-    {
-      getShortestPath(gimbal_prime_angles.at(i * 2), gimbal_nominal_angles.at(i * 2),
-                      gimbal_prime_angles.at(i * 2 + 1), gimbal_nominal_angles.at(i * 2 + 1));
-    }
 
   /* 2. check the orientation (pitch angle) of link to decide whether to lock gimbal roll */
   // TODO: we should not use the link pitch angle to decide, should use the angle between link and gimbal (thus means the gimbal pitch angle)
@@ -215,6 +209,12 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
   ROS_DEBUG_STREAM_THROTTLE_NAMED(1.0, "robot_model", "max link pitch: " << max_pitch);
 
   /* 3. calculate the optimized locked gimbal roll angles */
+  std::vector<double>  gimbal_nominal_angles = getGimbalNominalAngles();
+  for(int i = 0; i < getRotorNum(); ++i)
+    {
+      getShortestPath(gimbal_prime_angles.at(i * 2), gimbal_nominal_angles.at(i * 2),
+                      gimbal_prime_angles.at(i * 2 + 1), gimbal_nominal_angles.at(i * 2 + 1));
+    }
   int gimbal_lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0);
 
   if(gimbal_lock_num > 0)
@@ -475,18 +475,16 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       last_col = 0;
       for(int i = 0; i < getRotorNum(); i++)
         {
+          double prev_roll_angle = gimbal_nominal_angles.at(2 * i);
+          double prev_pitch_angle = gimbal_nominal_angles.at(2 * i + 1);
+
           if(roll_locked_gimbal.at(i) == 0)
             {
               static_thrust(i) = hover_vectoring_f.segment(last_col, 3).norm();
               Eigen::Vector3d f = hover_vectoring_f.segment(last_col, 3);
 
-              double prev_roll_angle = gimbal_nominal_angles.at(2 * i);
-              double prev_pitch_angle = gimbal_nominal_angles.at(2 * i + 1);
-
               double roll_angle = atan2(-f.y(), f.z());
               double pitch_angle = atan2(f.x(), -f.y() * sin(roll_angle) + f.z() * cos(roll_angle));
-
-              getShortestPath(roll_angle, prev_roll_angle, pitch_angle, prev_pitch_angle);
 
               gimbal_nominal_angles.at(2 * i) = roll_angle;
               gimbal_nominal_angles.at(2 * i + 1) = pitch_angle;
@@ -502,6 +500,9 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
               gimbal_nominal_angles.at(i * 2 + 1) = atan2(f[0], f[1]);
               last_col += 2;
             }
+
+          getShortestPath(gimbal_nominal_angles.at(2 * i), prev_roll_angle, \
+                          gimbal_nominal_angles.at(2 * i + 1), prev_pitch_angle);
         }
 
       /* 5.2.3. check the change of the rotor origin whether converge*/
@@ -868,10 +869,8 @@ void FullVectoringRobotModel::getShortestPath(double& roll_angle, const double p
   double pitch_diff = pitch_angle - prev_pitch_angle;
 
   // 1. solve the problem of discontinuity of radian
-  if (roll_diff > M_PI) roll_angle -= 2 * M_PI;
-  if (roll_diff < - M_PI) roll_angle += 2 * M_PI;
-  if (pitch_diff > M_PI) pitch_angle -= 2 * M_PI;
-  if (pitch_diff < - M_PI) pitch_angle += 2 * M_PI;
+  roll_angle -= std::round(roll_diff / (2 * M_PI)) * 2 * M_PI;
+  pitch_angle -= std::round(pitch_diff / (2 * M_PI)) * 2 * M_PI;
 
   // 2. solve the dual solution issue of 2-DoF gimbal
   // there are two option to achieve the same thrust direction (roll, pitch, roll) ad (roll + PI, pitch + PI)
