@@ -127,7 +127,10 @@ namespace Dragon
     void getParamFromRos();
 
     /* gimbal roll angle optimization problem */
-    std::vector<double>  calcBestLockGimbalRoll(const std::vector<int>& gimbal_roll_lock, const std::vector<int>& prev_gimbal_roll_lock, const std::vector<double>& prev_opt_locked_roll_angles);
+    bool calcBestLockGimbalRoll(const std::vector<int>& gimbal_roll_lock, \
+                                const std::vector<int>& prev_gimbal_roll_lock, \
+                                const std::vector<double>& prev_angles, \
+                                std::vector<double>& locked_angles);
 
     void calcStaticThrust() override;
     void calcFeasibleControlFDists() {}; // do nothing

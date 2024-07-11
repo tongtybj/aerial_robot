@@ -252,7 +252,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
             }
 
           setRollLockedGimbalForPlan(roll_locked_gimbal);
-          locked_angles_ = calcBestLockGimbalRoll(roll_locked_gimbal, prev_roll_locked_gimbal_, locked_angles_);
+          calcBestLockGimbalRoll(roll_locked_gimbal, prev_roll_locked_gimbal_, gimbal_nominal_angles, locked_angles_);
           prev_roll_locked_gimbal_ = roll_locked_gimbal;
           prev_links_rotation_from_cog_ = links_rotation_from_cog;
         }
@@ -705,61 +705,53 @@ Eigen::VectorXd FullVectoringRobotModel::calcFeasibleControlTDists(const std::ve
 }
 
 
-std::vector<double> FullVectoringRobotModel::calcBestLockGimbalRoll(const std::vector<int>& roll_locked_gimbal, const std::vector<int>& prev_roll_locked_gimbal, const std::vector<double>& prev_opt_locked_angles)
+bool FullVectoringRobotModel::calcBestLockGimbalRoll(const std::vector<int>& roll_locked_gimbal, const std::vector<int>& prev_roll_locked_gimbal, const std::vector<double>& prev_angles, std::vector<double>& locked_angles)
 {
-  int rotor_num = getRotorNum();
-  std::vector<Eigen::Vector3d> rotor_pos = robot_model_for_plan_->getRotorsOriginFromCog<Eigen::Vector3d>();
-  std::vector<Eigen::Vector3d> gimbal_roll_pos = getGimbalRollOriginFromCog<Eigen::Vector3d>();
+  const int rotor_num = getRotorNum();
+  const auto gimbal_roll_pos = getGimbalRollOriginFromCog<Eigen::Vector3d>();
+  const auto link_rot = getLinksRotationFromCog<Eigen::Matrix3d>();
+
+  /****
+       Since the position of the force acting point would change according to the gimbal roll,
+       there is a diffiretial chain about the roll angle.
+       But we here approximate it to the gimbal roll frame along the link axis,
+       rather than the true force acting point (gimbal pitch frame).
+       The offset is 0.037m, which is a small offset in the optimization problem.
+  ****/
+  auto rotor_pos = robot_model_for_plan_->getRotorsOriginFromCog<Eigen::Vector3d>();
   for(int i = 0; i < rotor_num; i++)
     {
-      /*
-         Since the position of the force acting point would change according to the gimbal roll,
-there is a diffiretial chain about the roll angle. But we here approximate it to the gimbal roll frame along the link axis, rather than the true force acting point (gimbal pitch frame). The offset is 0.037m, which is a small offset in the optimization problem.
-       */
-      if(roll_locked_gimbal.at(i) == 1) rotor_pos.at(i) = gimbal_roll_pos.at(i);
+      if(roll_locked_gimbal.at(i) == 0) continue;
+      rotor_pos.at(i) = gimbal_roll_pos.at(i);
     }
-  const std::vector<Eigen::Matrix3d> link_rot = getLinksRotationFromCog<Eigen::Matrix3d>();
 
-#if 1
-  /* TODO: use nonlinear differentiable optimization methods, such as SQP */
 
   /* nonlinear optimization for vectoring angles planner */
-  double start_t = ros::Time::now().toSec();
-  int num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0);
-  nlopt::opt nl_solver(nlopt::LN_COBYLA, num);
+  const int lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0);
+  /* TODO: use nonlinear differentiable optimization methods, such as SQP */
+  nlopt::opt nl_solver(nlopt::LN_COBYLA, lock_num);
   nl_solver.set_max_objective(minimumControlWrench, this);
   nl_solver.set_xtol_rel(1e-4); //1e-4
   nl_solver.set_maxeval(1000); // 1000 times
-  ROS_DEBUG_NAMED("robot_model", "nlopt init time: %f", ros::Time::now().toSec() - start_t); // TODO: change to DEBUG
 
-  std::vector<double> lb(num, - M_PI / 2 - 0.1);
-  std::vector<double> ub(num, M_PI / 2 + 0.1);
-  std::vector<double> opt_locked_angles(num);
+  std::vector<double> lb(0);
+  std::vector<double> ub(0);
 
-  int lock_cnt = 0;
-  assert(prev_opt_locked_angles.size() == std::accumulate(prev_roll_locked_gimbal.begin(), prev_roll_locked_gimbal.end(), 0));
-
-  for(int i = 0; i < roll_locked_gimbal.size(); i++)
+  locked_angles.resize(0);
+  for(int i = 0; i < rotor_num; i++)
     {
-      if(roll_locked_gimbal.at(i) == prev_roll_locked_gimbal.at(i))
-        {
-          if(roll_locked_gimbal.at(i) == 1)
-            {
-              /* update the range by using the last optimization result with the assumption that the motion is cotinuous */
-              lb.at(lock_cnt) = prev_opt_locked_angles.at(lock_cnt) - gimbal_delta_angle_;
-              ub.at(lock_cnt) = prev_opt_locked_angles.at(lock_cnt) + gimbal_delta_angle_;
-              opt_locked_angles.at(lock_cnt) = prev_opt_locked_angles.at(lock_cnt);
-              lock_cnt++;
-            }
-        }
-      else
-        {
-          /* reset all range */
-          lb.resize(num, - M_PI / 2 - 0.1);
-          ub.resize(num, M_PI / 2 + 0.1);
-          opt_locked_angles.resize(num, 0);
-          break;
-        }
+      const int lock_status = roll_locked_gimbal.at(i);
+      const int prev_lock_status = prev_roll_locked_gimbal.at(i);
+      const double prev_angle = prev_angles.at(2*i);
+
+      if(!lock_status) continue;
+
+      double margin = gimbal_delta_angle_;
+      if(lock_status != prev_lock_status) margin = M_PI/2;
+
+      locked_angles.push_back(prev_angle);
+      lb.push_back(prev_angle - margin);
+      ub.push_back(prev_angle + margin);
     }
 
   nl_solver.set_lower_bounds(lb);
@@ -773,37 +765,28 @@ there is a diffiretial chain about the roll angle. But we here approximate it to
   min_torque_normalized_weight_ = min_torque_weight_ / max_min_torque;
 
   double max_min_control_wrench;
-  start_t = ros::Time::now().toSec();
-  nlopt::result result = nl_solver.optimize(opt_locked_angles, max_min_control_wrench);
+  double start_t = ros::WallTime::now().toSec();
+  nlopt::result result = nl_solver.optimize(locked_angles, max_min_control_wrench);
 
-  ROS_DEBUG_STREAM_NAMED("robot_model", "nlopt process time: " << ros::Time::now().toSec() - start_t);  // change to DEBUG
+  if (result < 0)
+    {
+      ROS_WARN_STREAM_NAMED("robot_model", "nlopt failure to solve the optimal lock roll angle");
+      return false;
+    }
+
+  ROS_DEBUG_STREAM_NAMED("robot_model", "nlopt process time: " << ros::WallTime::now().toSec() - start_t);
   ROS_DEBUG_STREAM_NAMED("robot_model", "nlopt: opt result: " << max_min_control_wrench);
 
   std::stringstream ss;
-  for(auto angle: opt_locked_angles) ss << angle << ", ";
+  for(auto angle: locked_angles) ss << angle << ", ";
   ROS_INFO_STREAM_NAMED("robot_model", "nlopt: locked angles: " << ss.str());
-
-  const auto f_min_list = calcFeasibleControlFxyDists(roll_locked_gimbal, opt_locked_angles, rotor_num, link_rot);
-  const auto t_min_list = calcFeasibleControlTDists(roll_locked_gimbal, opt_locked_angles, rotor_num, rotor_pos, link_rot);
-
-  ROS_DEBUG_NAMED("robot_model", "opt F min: %f, opt T min: %f", f_min_list.minCoeff(), t_min_list.minCoeff());
-
-  return opt_locked_angles;
-
-#else
-  /* simplest way: roll = 0 */
-  std::vector<double> locked_angles(0);
-  for(auto i: roll_locked_gimbal)
-    {
-      if(i == 1) locked_angles.push_back(0);
-    }
 
   const auto f_min_list = calcFeasibleControlFxyDists(roll_locked_gimbal, locked_angles, rotor_num, link_rot);
   const auto t_min_list = calcFeasibleControlTDists(roll_locked_gimbal, locked_angles, rotor_num, rotor_pos, link_rot);
 
-  ROS_DEBUG_NAMED("robot_model", "F min: %f, T min: %f", f_min_list.minCoeff(), t_min_list.minCoeff());
-  return locked_angles;
-#endif
+  ROS_DEBUG_NAMED("robot_model", "opt F min: %f, opt T min: %f", f_min_list.minCoeff(), t_min_list.minCoeff());
+
+  return true;
 }
 
 void FullVectoringRobotModel::calcStaticThrust()
