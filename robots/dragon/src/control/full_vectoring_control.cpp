@@ -600,8 +600,6 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
       double prime_tilt_angle = bound_list.at(0).second(0);
       if (fabs(prime_tilt_angle) > angle_min_thresh) continue;
 
-      // TODO: consider the sub-prime interference!
-
       interfere_map.insert(std::make_pair(i, bound_list));
 
       roll_locked_gimbal.at(i) = 1;
@@ -619,7 +617,7 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
             }
         }
 
-      ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
+      ROS_DEBUG_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
     }
 }
 
@@ -740,19 +738,6 @@ void DragonFullVectoringController::controlCore()
 
               Eigen::MatrixXd pitch_rot = Eigen::MatrixXd::Identity(3, 3);
 
-              if (force_lock_all_angle_)
-                {
-                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + force_tilt_limit_angle_;
-                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
-                }
-
-              auto map_it = interfere_map.find(i);
-              if (map_it != interfere_map.end())
-                {
-                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + map_it->second.at(0).second(1);
-                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
-                }
-
               full_q_mat.middleCols(last_col, 2) = wrench_map * links_rotation_from_cog.at(i) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(gimbal_nominal_angles.at(i * 2), 0, 0)) * pitch_rot * mask;
               last_col += 2;
             }
@@ -788,13 +773,17 @@ void DragonFullVectoringController::controlCore()
       ave_t_diff_inv = 0.8 * ave_t_diff_inv + 0.2 * t_diff_inv;
 
       // 2. solve by QP
+      int f_ndof = 3 * motor_num_ - gimbal_lock_num;
+      int cons_num = 6 + f_ndof;
+      if (force_lock_all_angle_) cons_num += motor_num_/2;
+      cons_num += interfere_map.size(); // consider the interfere map
+
       OsqpEigen::Solver qp_solver;
       qp_solver.settings()->setVerbosity(false);
       qp_solver.settings()->setWarmStart(true);
-      int f_ndof = 3 * motor_num_ - gimbal_lock_num;
-      qp_solver.data()->setNumberOfVariables(f_ndof);
-      qp_solver.data()->setNumberOfConstraints(6 + f_ndof);
 
+      qp_solver.data()->setNumberOfVariables(f_ndof);
+      qp_solver.data()->setNumberOfConstraints(cons_num);
 
       // 2.1 cost function
       Eigen::MatrixXd hessian = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
@@ -804,26 +793,30 @@ void DragonFullVectoringController::controlCore()
       qp_solver.data()->setGradient(gradient);
 
       // 2.2 constraint (except of range)
-      Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(6 + f_ndof, f_ndof);
+      Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(cons_num, f_ndof);
       constraints.topRows(6) = full_q_mat;
-      constraints.bottomRows(f_ndof) = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
-      Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
-      qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
-      double thrust_range = 100;
-      Eigen::VectorXd lower_bound = Eigen::VectorXd::Ones(6 + f_ndof) * -thrust_range;
-      Eigen::VectorXd upper_bound = Eigen::VectorXd::Ones(6 + f_ndof) * thrust_range;
+      constraints.middleRows(6, f_ndof) = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
+      double thrust_range = 40; // parameter
+      Eigen::VectorXd lower_bound = Eigen::VectorXd::Ones(cons_num) * -thrust_range;
+      Eigen::VectorXd upper_bound = Eigen::VectorXd::Ones(cons_num) * thrust_range;
+      lower_bound.head(6) = target_wrench_acc_cog;
+      upper_bound.head(6) = target_wrench_acc_cog;
 
       if (force_lock_all_angle_)
         {
-          // WIP: the inside gimbal pitch should not have larger angle than the tilt of link
-          // x is along the link direction, and z is orthonogal to that
           int col = 0;
           for (int i = 0; i < motor_num_; i ++)
             {
               if (i % 2 == 0)
                 {
-                  if (force_tilt_limit_angle_ < 0) upper_bound(6 + col) = 0;
-                  if (force_tilt_limit_angle_ > 0) lower_bound(6 + col) = 0;
+                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + force_tilt_limit_angle_;
+
+                  int j = 6 + f_ndof + i / 2;
+                  constraints(j, col) = cos(pitch_angle); // x
+                  constraints(j, col + 1) = -sin(pitch_angle); // z
+
+                  if (force_tilt_limit_angle_ < 0) upper_bound(j) = 0;
+                  if (force_tilt_limit_angle_ > 0) lower_bound(j) = 0;
                 }
 
               if (roll_locked_gimbal.at(i)) col +=2;
@@ -833,7 +826,9 @@ void DragonFullVectoringController::controlCore()
 
       if (interfere_map.size() > 0)
         {
+          int row = 6 + f_ndof;
           int col = 0;
+
           for (int i = 0; i < motor_num_; i ++)
             {
               auto map_it = interfere_map.find(i);
@@ -842,10 +837,18 @@ void DragonFullVectoringController::controlCore()
                   double tilt_angle = map_it->second.at(0).second(1);
                   double sub_tilt_angle = map_it->second.at(0).second(2);
 
-                  if (tilt_angle < 0 && sub_tilt_angle > 0) upper_bound(6 + col) = 0;
-                  if (tilt_angle > 0 && sub_tilt_angle < 0) lower_bound(6 + col) = 0;
-                  if (tilt_angle > 0 && sub_tilt_angle > 0) upper_bound(6 + col) = 0;
-                  if (tilt_angle < 0 && sub_tilt_angle < 0) lower_bound(6 + col) = 0;
+                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + tilt_angle;
+
+                  constraints(row, col) = cos(pitch_angle); // x
+                  constraints(row, col + 1) = -sin(pitch_angle); // z
+
+                  // TODO: consider the sub-prime interference!
+                  if (tilt_angle < 0 && sub_tilt_angle > 0) upper_bound(row) = 0;
+                  if (tilt_angle > 0 && sub_tilt_angle < 0) lower_bound(row) = 0;
+                  if (tilt_angle > 0 && sub_tilt_angle > 0) upper_bound(row) = 0;
+                  if (tilt_angle < 0 && sub_tilt_angle < 0) lower_bound(row) = 0;
+
+                  row ++;
                 }
 
               if (roll_locked_gimbal.at(i)) col +=2;
@@ -854,9 +857,8 @@ void DragonFullVectoringController::controlCore()
         }
 
 
-      lower_bound.head(6) = target_wrench_acc_cog;
-      upper_bound.head(6) = target_wrench_acc_cog;
-
+      Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
+      qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
       qp_solver.data()->setLowerBound(lower_bound);
       qp_solver.data()->setUpperBound(upper_bound);
 
@@ -916,17 +918,6 @@ void DragonFullVectoringController::controlCore()
               Eigen::MatrixXd pitch_rot = Eigen::MatrixXd::Identity(3, 3);
               Eigen::MatrixXd mask(3,2);
               mask << 1, 0, 0, 0, 0, 1;
-              if (force_lock_all_angle_)
-                {
-                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + force_tilt_limit_angle_;
-                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
-                }
-              auto map_it = interfere_map.find(i);
-              if (map_it != interfere_map.end())
-                {
-                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + map_it->second.at(0).second(1);
-                  pitch_rot = aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(0, pitch_angle, 0));
-                }
 
               Eigen::VectorXd f = pitch_rot * mask * f_2d;
 
