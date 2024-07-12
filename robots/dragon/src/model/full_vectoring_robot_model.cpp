@@ -583,19 +583,6 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
   setGimbalProcessedJoint(gimbal_processed_joint);
   setRollLockedGimbal(roll_locked_gimbal);
 
-  return;
-  Eigen::Matrix3d inertia_inv = getInertia<Eigen::Matrix3d>().inverse();
-  double mass_inv =  1 / getMass();
-  Eigen::MatrixXd full_q_mat = getVectoringForceWrenchMatrix();
-  full_q_mat.topRows(3) =  mass_inv * full_q_mat.topRows(3) ;
-  full_q_mat.bottomRows(3) =  inertia_inv * full_q_mat.bottomRows(3);
-  //ROS_INFO_STREAM_THROTTLE(1.0, "full_q_mat : \n" << full_q_mat);
-  ROS_INFO_STREAM_THROTTLE(1.0, "full_q_mat_inv : \n" << aerial_robot_model::pseudoinverse(full_q_mat));
-  //ROS_INFO_STREAM_THROTTLE(1.0, "mul : \n" << full_q_mat * aerial_robot_model::pseudoinverse(full_q_mat));
-  std::stringstream ss;
-  for(auto angle: gimbal_nominal_angles_curr) ss << angle << ", ";
-  ROS_INFO_STREAM_THROTTLE(1.0, "gimbal nominal angles: \n" << ss.str());
-  ROS_INFO_STREAM_THROTTLE(1.0, "hovering force: \n" << hover_vectoring_f_);
 }
 
 Eigen::VectorXd FullVectoringRobotModel::calcFeasibleControlFxyDists(const std::vector<int>& roll_locked_gimbal, const std::vector<double>& locked_angles, int rotor_num, const std::vector<Eigen::Matrix3d>& link_rot)
