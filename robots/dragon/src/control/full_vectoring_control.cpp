@@ -526,6 +526,31 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
 
   interfere_map = RotorInterfereMap{};
 
+  auto tangent_calc = [] (auto r, auto rel_pos)
+           {
+             double x1 = 0;
+             double y1 = 0;
+             double x2 = rel_pos.x();
+             double y2 = rel_pos.z();
+
+             double b = y1 - y2;
+
+             double a1 = x2 + r - x1;
+             double l1 = sqrt(pow(a1, 2) + pow(b, 2));
+             double phi1 = atan2(r, l1);
+             double theta1 = atan2(a1, b) + phi1;
+             theta1 = -theta1;
+
+             double a2 = x2 - r - x1;
+             double l2 = sqrt(pow(a2, 2) + pow(b, 2));
+             double phi2 = atan2(r, l2);
+             double theta2 = atan2(a2, b) - phi2;
+             theta2 = -theta2;
+
+
+             return std::make_pair(theta1, theta2);
+           };
+
   std::stringstream ss_map;
   ss_map << "\n";
 
@@ -560,25 +585,9 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
           // calculate the bound angle
 
           double r = robot_model->getEdfRadius() * collision_padding_rate;
-
-          double x1 = 0;
-          double y1 = 0;
-          double x2 = rel_pos.x();
-          double y2 = rel_pos.z();
-
-          double b = y1 - y2;
-
-          double a1 = x2 + r - x1;
-          double l1 = sqrt(pow(a1, 2) + pow(b, 2));
-          double phi1 = atan2(r, l1);
-          double theta1 = atan2(a1, b) + phi1;
-          theta1 = -theta1;
-
-          double a2 = x2 - r - x1;
-          double l2 = sqrt(pow(a2, 2) + pow(b, 2));
-          double phi2 = atan2(r, l2);
-          double theta2 = atan2(a2, b) - phi2;
-          theta2 = -theta2;
+          auto res = tangent_calc(r, rel_pos);
+          double theta1 = res.first;
+          double theta2 = res.second;
 
           //ss_map << "(" << i + 1 << ", " << j + 1 << "): " << angle << ", " << rel_pos.transpose() << ", theta1: " << theta1 << ", theta2: " << theta2 << "\n";
 
