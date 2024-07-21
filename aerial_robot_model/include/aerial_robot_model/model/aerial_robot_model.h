@@ -128,7 +128,8 @@ namespace aerial_robot_model {
       cog_desire_orientation_  = cog_desire_orientation;
     }
 
-    bool addExtraModule(std::string module_name, std::string parent_link_name, KDL::Frame transform, KDL::RigidBodyInertia inertia);
+    bool addExtraModule(std::string module_name, std::string parent_link_name, KDL::Frame transform, \
+                        KDL::RigidBodyInertia inertia, KDL::Vector dim);
     bool removeExtraModule(std::string module_name);
 
     // statics (static thrust, joint torque)
@@ -184,7 +185,7 @@ namespace aerial_robot_model {
     std::vector<std::string> joint_parent_link_names_; // index in KDL::JntArray
     KDL::JntArray joint_positions_;
     KDL::RotationalInertia link_inertia_cog_;
-    std::map<std::string, KDL::Segment> extra_module_map_;
+    std::map<std::string, std::pair<KDL::Segment, KDL::Vector>> extra_module_map_;
     std::map<std::string, KDL::RigidBodyInertia> inertia_map_;
     std::map<std::string, uint32_t> joint_index_map_; // index in KDL::JntArray
     std::map<std::string, std::vector<std::string> > joint_segment_map_;

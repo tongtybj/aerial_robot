@@ -6,5 +6,6 @@ string module_name
 string parent_link_name
 geometry_msgs/Transform transform
 geometry_msgs/Inertia inertia
+geometry_msgs/Vector3 size # box: [x,y,z] > 0; cylinder: [x,y] > 0, z = 0; sphere: x > 0; y = z = 0
 ---
 bool status

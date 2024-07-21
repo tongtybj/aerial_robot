@@ -70,7 +70,8 @@ namespace aerial_robot_model {
                                                    KDL::RotationalInertia(req.inertia.ixx, req.inertia.iyy,
                                                                           req.inertia.izz, req.inertia.ixy,
                                                                           req.inertia.ixz, req.inertia.iyz));
-          res.status = robot_model_->addExtraModule(req.module_name, req.parent_link_name, f, rigid_body_inertia);
+          KDL::Vector dim(req.size.x, req.size.y, req.size.z);
+          res.status = robot_model_->addExtraModule(req.module_name, req.parent_link_name, f, rigid_body_inertia, dim);
           return res.status;
           break;
         }

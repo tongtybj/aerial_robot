@@ -251,7 +251,8 @@ namespace aerial_robot_model {
     return;
   }
 
-  bool RobotModel::addExtraModule(std::string module_name, std::string parent_link_name, KDL::Frame transform, KDL::RigidBodyInertia inertia)
+  bool RobotModel::addExtraModule(std::string module_name, std::string parent_link_name, KDL::Frame transform, \
+                                  KDL::RigidBodyInertia inertia, KDL::Vector dim)
   {
     if(extra_module_map_.find(module_name) == extra_module_map_.end())
       {
@@ -274,7 +275,7 @@ namespace aerial_robot_model {
           }
 
         KDL::Segment extra_module(parent_link_name, KDL::Joint(KDL::Joint::None), transform, inertia);
-        extra_module_map_.insert(std::make_pair(module_name, extra_module));
+        extra_module_map_.insert(std::make_pair(module_name, std::make_pair(extra_module, dim)));
         ROS_INFO("[extra module]: succeed to add new extra module %s", module_name.c_str());
 
         if (fixed_model_) {
@@ -346,9 +347,10 @@ namespace aerial_robot_model {
         /* process for the extra module */
         for(const auto& extra : extra_module_map_)
           {
-            if(extra.second.getName() == inertia.first)
+            const auto& segment = extra.second.first;
+            if(segment.getName() == inertia.first)
               {
-                link_inertia = link_inertia + f * (extra.second.getFrameToTip() * extra.second.getInertia());
+                link_inertia = link_inertia + f * (segment.getFrameToTip() * segment.getInertia());
               }
           }
       }
