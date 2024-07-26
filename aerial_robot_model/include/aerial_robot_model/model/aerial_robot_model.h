@@ -72,6 +72,7 @@ namespace aerial_robot_model {
     const bool initialized() const { return initialized_; }
     const bool isModelFixed() const {return fixed_model_; }
     const std::string getBaselinkName() const { return baselink_; }
+    const std::map<std::string, std::pair<KDL::Segment, KDL::Vector>>& getExtraModuleMap() const { return extra_module_map_; }
     const std::map<std::string, KDL::RigidBodyInertia>& getInertiaMap() const { return inertia_map_; }
     const double getMass() const { return mass_; }
     const int getRotorNum() const { return rotor_num_; }
