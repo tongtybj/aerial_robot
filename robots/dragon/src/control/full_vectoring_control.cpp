@@ -512,7 +512,7 @@ void DragonFullVectoringController::rotorInterfereCompensate(Eigen::VectorXd& ta
   target_wrench_acc += rotor_interfere_comp_acc;
 }
 
-void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr robot_model, RotorInterfereMap& interfere_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles)
+void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr robot_model, PrimeBoundMap& prime_bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles)
 {
   int rotor_num = robot_model->getRotorNum();
   std::string thrust_link = robot_model->getThrustLinkName();
@@ -520,13 +520,14 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
   const auto rotors_pos = robot_model->getRotorsOriginFromCog<KDL::Vector>();
 
   double angle_max_thresh = 1.2; // TODO: parameter
-  double angle_min_thresh = 0.4; // TODO: parameter
   double collision_padding_rate = 1.2; // TODO: parameter
-  double dist_thresh = robot_model->getEdfRadius() * 4 + 0.05; // > 2 x diameter
+  double roll_angle_thresh = 0.4;  // TODO: parameter
 
-  interfere_map = RotorInterfereMap{};
+  prime_bound_map = PrimeBoundMap{};
+  std::map<int, std::vector<std::pair<int, Eigen::Vector3d>>> interfere_raw_map{};
+  std::map<int, std::vector<std::pair<double, double>>> bounds_map{};
 
-  auto tangent_calc = [] (auto r, auto rel_pos)
+  auto tangent_calc = [] (auto r1, auto r2, auto rel_pos)
            {
              double x1 = 0;
              double y1 = 0;
@@ -535,18 +536,17 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
 
              double b = y1 - y2;
 
-             double a1 = x2 + r - x1;
+             double a1 = x2 + r2 - x1;
              double l1 = sqrt(pow(a1, 2) + pow(b, 2));
-             double phi1 = atan2(r, l1);
+             double phi1 = atan2(r1, l1);
              double theta1 = atan2(a1, b) + phi1;
              theta1 = -theta1;
 
-             double a2 = x2 - r - x1;
+             double a2 = x2 - r2 - x1;
              double l2 = sqrt(pow(a2, 2) + pow(b, 2));
-             double phi2 = atan2(r, l2);
+             double phi2 = atan2(r1, l2);
              double theta2 = atan2(a2, b) - phi2;
              theta2 = -theta2;
-
 
              return std::make_pair(theta1, theta2);
            };
@@ -576,57 +576,246 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
           auto rel_pos = aerial_robot_model::kdlToEigen(rel_pose.p);
 
           // skip if the j-th rotor is not align in the same plane;
-          if (fabs(rel_pos.y()) > dist_thresh) continue;
+          double roll_angle = atan2(fabs(rel_pos.y()), fabs(rel_pos.z()));
+          if (roll_angle > roll_angle_thresh) continue;
 
-          double angle = atan2(-rel_pos.x(), -rel_pos.z()); // only consider the pitch angle
+          double pitch_angle = atan2(-rel_pos.x(), -rel_pos.z());
           // skip if the j-th rotor is far from i-th
-          if (fabs(angle) > angle_max_thresh) continue;
+          if (fabs(pitch_angle) > angle_max_thresh) continue;
 
           // calculate the bound angle
-
           double r = robot_model->getEdfRadius() * collision_padding_rate;
-          auto res = tangent_calc(r, rel_pos);
+          auto res = tangent_calc(r, r, rel_pos);
           double theta1 = res.first;
           double theta2 = res.second;
 
-          //ss_map << "(" << i + 1 << ", " << j + 1 << "): " << angle << ", " << rel_pos.transpose() << ", theta1: " << theta1 << ", theta2: " << theta2 << "\n";
-
-          Eigen::Vector3d angle_v;
-          if (fabs(theta1) < fabs(theta2)) angle_v = Eigen::Vector3d(angle, theta1, theta2);
-          else angle_v = Eigen::Vector3d(angle, theta2, theta1);
-
+          Eigen::Vector3d angle_v(pitch_angle, theta1, theta2);
           bound_list.push_back(std::make_pair(j, angle_v));
         }
 
-      if (bound_list.size() == 0) continue;
-
-      // sort
-      std::sort(bound_list.begin(), bound_list.end(),  \
-                [](auto const& lhs, auto const& rhs) { \
-                  return fabs(lhs.second(0)) < fabs(rhs.second(0));
-                });
-      // only consider when the prime interference is critical
-      double prime_tilt_angle = bound_list.at(0).second(0);
-      if (fabs(prime_tilt_angle) > angle_min_thresh) continue;
-
-      interfere_map.insert(std::make_pair(i, bound_list));
-
-      roll_locked_gimbal.at(i) = 1;
-      gimbal_nominal_angles.at(2 * i) = 0;
-    }
-
-  if (interfere_map.size() > 0)
-    {
-      for (const auto& it: interfere_map)
+      // check the overlap with center link if it exists
+      std::string name("center_link");
+      auto it = seg_tf_map.find(name);
+      if (it != seg_tf_map.end())
         {
-          ss_map << "rotor" << it.first+1 << ": \n";
-          for(const auto& bound: it.second)
+          auto pose_c = it->second; // pose w.r.t. Baselink (Root)
+          auto rel_pose = pose_i.Inverse() * pose_c; // relativel position from the i-th rotor
+          auto rel_pos = aerial_robot_model::kdlToEigen(rel_pose.p);
+
+          double angle = atan2(-rel_pos.x(), -rel_pos.z()); // only consider the pitch angle
+
+          if (fabs(angle) < angle_max_thresh)
             {
-              ss_map << "\t rotor" << bound.first + 1 << ": " << bound.second.transpose() << " \n";
+              // calculate the bound angle
+              auto geo = robot_model->getUrdfModel().getLink(name)->collision->geometry;
+              auto type = geo->type;
+
+              double r_r = robot_model->getEdfRadius() * collision_padding_rate;
+              double r_c = 0;
+
+              if (type == urdf::Geometry::CYLINDER)
+                {
+                  r_c = std::dynamic_pointer_cast<urdf::Cylinder>(geo)->radius;
+                }
+              else if (type == urdf::Geometry::SPHERE)
+                {
+                  r_c = std::dynamic_pointer_cast<urdf::Sphere>(geo)->radius;
+                }
+              else if (type == urdf::Geometry::BOX)
+                {
+                  auto dim = std::dynamic_pointer_cast<urdf::Box>(geo)->dim;
+                  r_c = std::hypot(dim.x, dim.y);
+                }
+              else
+                {
+                  ROS_WARN_THROTTLE(1.0, "Currently, urdf geometry type %d is not supported for rotor interference avoidance", type);
+                }
+
+              if (r_c > 0)
+                {
+                  auto res = tangent_calc(r_r, r_c, rel_pos);
+                  double theta1 = res.first;
+                  double theta2 = res.second;
+                  Eigen::Vector3d angle_v(angle, theta1, theta2);
+                  bound_list.push_back(std::make_pair(-1, angle_v));
+                }
             }
         }
 
-      ROS_DEBUG_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
+      // check the overlap with extra module if it exists
+      int extra_cnt = 0;
+      for (const auto& it: robot_model->getExtraModuleMap())
+        {
+          auto pose_parent = seg_tf_map.find(it.second.first.getName())->second;
+          auto pose_e = pose_parent * it.second.first.getFrameToTip(); // pose w.r.t. Baselink (Root)
+          auto rel_pose = pose_i.Inverse() * pose_e; // relativel position from the i-th rotor
+          auto rel_pos = aerial_robot_model::kdlToEigen(rel_pose.p);
+
+          double angle = atan2(-rel_pos.x(), -rel_pos.z()); // only consider the pitch angle
+          if (fabs(angle) > angle_max_thresh) continue;
+
+          // calculate the bound angle
+          double r_e = 0;
+          auto dim = it.second.second;
+          if (dim(1) == 0 && dim(2) == 0) r_e = dim(0); // sphere
+          if (dim(1) > 0 && dim(2) == 0) r_e = dim(1); // clyinder
+          if (dim(1) > 0 && dim(2) > 0) r_e = std::hypot(dim(0), dim(1)); // box
+
+          double r_r = robot_model->getEdfRadius() * collision_padding_rate;
+
+          auto res = tangent_calc(r_r, r_e, rel_pos);
+          double theta1 = res.first;
+          double theta2 = res.second;
+
+          Eigen::Vector3d angle_v(angle, theta1, theta2);
+          // ROS_INFO_STREAM("rotor " << i+1 << ": " << it.first << ": rel_pose" << rel_pos.transpose() << ": angle_v: " << angle_v.transpose());
+          extra_cnt ++;
+          bound_list.push_back(std::make_pair(-1 - extra_cnt, angle_v));
+        }
+
+      if (bound_list.size() == 0) continue;
+      interfere_raw_map.insert(std::make_pair(i, bound_list));
+
+      // update bounds
+      std::vector<std::pair<double, double>> bounds {std::make_pair(-M_PI/2, M_PI/2)};
+      double area_thresh = 0.4; // TODO: rosparam
+      for (auto& new_bound : bound_list)
+        {
+          double theta1, theta2;
+          if (new_bound.second(1) < new_bound.second(2))
+            {
+              theta1 = new_bound.second(1);
+              theta2 = new_bound.second(2);
+            }
+          else
+            {
+              theta1 = new_bound.second(2);
+              theta2 = new_bound.second(1);
+            }
+
+          std::vector<std::pair<double, double>> bounds_temp {};
+          for (auto& curr_bound: bounds)
+            {
+              double curr_theta1 = curr_bound.first;
+              double curr_theta2 = curr_bound.second;
+
+              // 6 cases:
+              if (theta2 < curr_theta1)
+                {
+                  bounds_temp.push_back(curr_bound);
+                }
+
+              if (theta1 < curr_theta1 && theta2 > curr_theta1 && theta2 < curr_theta2)
+                {
+                  if (curr_theta2 - theta2 < area_thresh) continue;
+
+                  bounds_temp.push_back(std::make_pair(theta2, curr_theta2));
+                }
+
+              if (theta1 < curr_theta1 && theta2 > curr_theta2)
+                {
+                  // skip
+                  continue;
+                }
+
+              if (theta1 > curr_theta1 && theta2 < curr_theta2)
+                {
+                  if (theta1 - curr_theta1 > area_thresh)
+                    {
+                      bounds_temp.push_back(std::make_pair(curr_theta1, theta1));
+                    }
+                  if (curr_theta2 - theta2 > area_thresh)
+                    {
+                      bounds_temp.push_back(std::make_pair(theta2, curr_theta2));
+                    }
+                }
+
+              if (theta1 > curr_theta1 && theta1 < curr_theta2 && theta2 > curr_theta2)
+                {
+                  if (theta1 - curr_theta1 < area_thresh) continue;
+
+                  bounds_temp.push_back(std::make_pair(curr_theta1, theta1));
+                }
+
+              if (theta1 > curr_theta2)
+                {
+                  bounds_temp.push_back(curr_bound);
+                }
+            }
+
+          bounds = bounds_temp;
+        }
+      bounds_map.insert(std::make_pair(i, bounds));
+
+      double lower = 1e6;
+      double upper = 0;
+      for (const auto& bound: bounds)
+        {
+          double theta1 = bound.first;
+          double theta2 = bound.second;
+
+          if (fabs(theta1) < fabs(lower))
+            {
+              lower = theta1;
+              upper = theta2;
+            }
+
+          if (fabs(theta2) < fabs(lower))
+            {
+              lower = theta2;
+              upper = theta1;
+            }
+        }
+
+      // skip if the range is enough for normal tilting
+      if (lower * upper < 0 && fabs(lower) > area_thresh / 2) continue;
+
+      prime_bound_map.insert(std::make_pair(i, std::make_pair(lower, upper)));
+
+
+      if (roll_locked_gimbal.at(i) == 0)
+        {
+          roll_locked_gimbal.at(i) = 1;
+          gimbal_nominal_angles.at(2 * i) = 0;
+        }
+    }
+
+  if (interfere_raw_map.size() > 0)
+    {
+      for (const auto& it: interfere_raw_map)
+        {
+          int rotor_id = it.first;
+          ss_map << "rotor" << rotor_id+1 << ": \n";
+          for(const auto& bound: it.second)
+            {
+              int index = bound.first;
+              if (index >= 0)
+                {
+                  ss_map << "\t rotor" << bound.first + 1 << ": " << bound.second.transpose() << " \n";
+                }
+              else if (index == -1)
+                {
+                  ss_map << "\t center link: " << bound.second.transpose() << " \n";
+                }
+              else
+                {
+                  ss_map << "\t extra module: " << bound.second.transpose() << " \n";
+                }
+            }
+
+          for(const auto& bound: bounds_map.at(rotor_id))
+            {
+              ss_map << "\t candidate bound: (" << bound.first << ", " << bound.second << ") \n";
+            }
+
+          auto bound = prime_bound_map.find(rotor_id);
+          if (bound != prime_bound_map.end())
+            {
+              ss_map << "\t prime bound: (" << bound->second.first << ", " << bound->second.second << ") \n";
+            }
+        }
+
+      ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
     }
 }
 
@@ -692,8 +881,8 @@ void DragonFullVectoringController::controlCore()
 
 
   // workround: rotor interfere avoid
-  RotorInterfereMap interfere_map;
-  rotorInterfereAvoid(dragon_robot_model_, interfere_map, roll_locked_gimbal, gimbal_nominal_angles);
+  PrimeBoundMap rotor_bound_map;
+  rotorInterfereAvoid(dragon_robot_model_, rotor_bound_map, roll_locked_gimbal, gimbal_nominal_angles);
 
   /* WIP: force lock all gimbal roll angles to zero */
   if (force_lock_all_angle_)
@@ -785,7 +974,7 @@ void DragonFullVectoringController::controlCore()
       int f_ndof = 3 * motor_num_ - gimbal_lock_num;
       int cons_num = 6 + f_ndof;
       if (force_lock_all_angle_) cons_num += motor_num_/2;
-      cons_num += interfere_map.size(); // consider the interfere map
+      cons_num += rotor_bound_map.size() * 2; // consider the interfere map
 
       OsqpEigen::Solver qp_solver;
       qp_solver.settings()->setVerbosity(false);
@@ -833,31 +1022,33 @@ void DragonFullVectoringController::controlCore()
             }
         }
 
-      if (interfere_map.size() > 0)
+      if (rotor_bound_map.size() > 0)
         {
           int row = 6 + f_ndof;
           int col = 0;
 
           for (int i = 0; i < motor_num_; i ++)
             {
-              auto map_it = interfere_map.find(i);
-              if (map_it != interfere_map.end())
+              auto map_it = rotor_bound_map.find(i);
+              if (map_it != rotor_bound_map.end())
                 {
-                  double tilt_angle = map_it->second.at(0).second(1);
-                  double sub_tilt_angle = map_it->second.at(0).second(2);
+                  double prime_bound = map_it->second.first;
+                  double sub_bound = map_it->second.second;
+                  double direction = sub_bound - prime_bound;
 
-                  double pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + tilt_angle;
+                  double prime_pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + prime_bound;
+                  constraints(row, col) = cos(prime_pitch_angle); // x
+                  constraints(row, col + 1) = -sin(prime_pitch_angle); // z
+                  if (direction > 0) lower_bound(row) = 0;
+                  else upper_bound(row) = 0;
 
-                  constraints(row, col) = cos(pitch_angle); // x
-                  constraints(row, col + 1) = -sin(pitch_angle); // z
+                  double sub_pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + sub_bound;
+                  constraints(row + 1, col) = cos(sub_pitch_angle); // x
+                  constraints(row + 1, col + 1) = -sin(sub_pitch_angle); // z
+                  if (direction > 0) upper_bound(row+1) = 0;
+                  else lower_bound(row+1) = 0;
+                  row += 2;
 
-                  // TODO: consider the sub-prime interference!
-                  if (tilt_angle < 0 && sub_tilt_angle > 0) upper_bound(row) = 0;
-                  if (tilt_angle > 0 && sub_tilt_angle < 0) lower_bound(row) = 0;
-                  if (tilt_angle > 0 && sub_tilt_angle > 0) upper_bound(row) = 0;
-                  if (tilt_angle < 0 && sub_tilt_angle < 0) lower_bound(row) = 0;
-
-                  row ++;
                 }
 
               if (roll_locked_gimbal.at(i)) col +=2;
