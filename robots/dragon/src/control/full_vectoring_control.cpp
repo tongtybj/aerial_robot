@@ -815,7 +815,7 @@ void DragonFullVectoringController::rotorInterfereAvoid(const DragonModelPtr rob
             }
         }
 
-      ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
+      // ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
     }
 }
 
@@ -1082,9 +1082,9 @@ void DragonFullVectoringController::controlCore()
         static double ave_t_diff_qp = t_diff_qp;
         ave_t_diff_qp = 0.8 * ave_t_diff_qp + 0.2 * t_diff_qp;
 
-        ROS_INFO_STREAM_THROTTLE(1.0, "\n target_vectoring_f_: " << target_vectoring_f_.transpose() << "\n "
-                                 "target_vectoring_f_qp: " << target_vectoring_f_qp.transpose());
-        ROS_INFO_THROTTLE(1.0, "Inv solve time: %f, QP solve time: %f", ave_t_diff_inv, ave_t_diff_qp);
+        // ROS_INFO_STREAM_THROTTLE(1.0, "\n target_vectoring_f_: " << target_vectoring_f_.transpose() << "\n "
+        //                          "target_vectoring_f_qp: " << target_vectoring_f_qp.transpose());
+        // ROS_INFO_THROTTLE(1.0, "Inv solve time: %f, QP solve time: %f", ave_t_diff_inv, ave_t_diff_qp);
         target_vectoring_f_ = target_vectoring_f_qp;
       }
 
