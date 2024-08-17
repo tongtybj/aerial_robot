@@ -82,6 +82,8 @@ void FlightNavigator::landingProcess()
           landing_flag_ = true;
           setTeleopFlag(false);
           setTargetPosZ(estimator_->getState(State::Z_COG, estimate_mode_)[0]);
+          setTargetVelZ(0);
+          land_height_ = 0; // reset the land height, since it is updated in the first land_state which is forced to change to hover state to level the orientation. Thus, it is possible to have the same land height just after switching back to land state and thus stop in midair
           setNaviState(HOVER_STATE);
         }
     }
