@@ -19,10 +19,18 @@ class GraspTest:
         self.object_radius = rospy.get_param("~object_radius", 0.25)
         self.object_center = rospy.get_param("~object_center", [0, 0, -0.77])
 
+        self.pregrasp_joint_angles = rospy.get_param("~pregrasp_joint_angles", [0, 0.0, 0, 1.57])
+        if len(self.pregrasp_joint_angles) == 4:
+            self.pregrasp_joint_angles = self.pregrasp_joint_angles * 4
         self.grasp_joint_angles = rospy.get_param("~grasp_joint_angles", [0, 0.8, 0, 1.57])
         if len(self.grasp_joint_angles) == 4:
             self.grasp_joint_angles = self.grasp_joint_angles * 4
-        self.joint_motion_duration = rospy.get_param("~joint_motion_duration", 8.0)
+
+        self.pregrasp_duration = rospy.get_param("~pregrasp_duration", 8.0)
+        self.wait_duration = rospy.get_param("~wait_duration", 1.0)
+        self.grasp_duration = rospy.get_param("~grasp_duration", 8.0)
+
+        self.release_duration = rospy.get_param("~release_duration", 8.0)
 
 
         joint_ctrl_freq = rospy.get_param("~joint_ctrl_freq", 20.0)
@@ -38,12 +46,17 @@ class GraspTest:
 
     def graspJointMotion(self):
 
-        self.joint_node.start(self.grasp_joint_angles, self.joint_motion_duration)
+        self.joint_node.start(self.pregrasp_joint_angles, self.pregrasp_duration) # move the pre-grasp pose
+
+        # sleep to make sure the robot has reached the pre-grasp pose
+        rospy.sleep(self.wait_duration)
+
+        self.joint_node.start(self.grasp_joint_angles, self.grasp_duration) # move the grasp pose
 
     def releaseJointMotion(self):
 
-        self.realse_joint_angles = [0] * 16
-        self.joint_node.start(self.realse_joint_angles, self.joint_motion_duration)
+        release_joint_angles = [0] * 16
+        self.joint_node.start(release_joint_angles, self.release_duration)
 
     def graspObject(self):
         # rosserice call
