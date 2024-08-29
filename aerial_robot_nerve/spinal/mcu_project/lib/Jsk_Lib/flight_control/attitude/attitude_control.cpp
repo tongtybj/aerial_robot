@@ -369,12 +369,20 @@ void AttitudeController::update(void)
         }
       else
         {
-          if (target_angle_[X] == 0 && target_angle_[X] == 0 && extra_yaw_pi_term_[0] == 0)
+          if (target_angle_[X] == 0 && target_angle_[Y] == 0 && extra_yaw_pi_term_[0] == 0)
             {
               for(int i = 0; i < motor_number_; i++)
                 {
                   roll_pitch_term_[i] = 0;
                   yaw_term_[i] = 0;
+
+                  control_term_msg_.motors[i].pitch_p = 0;
+                  control_term_msg_.motors[i].pitch_i = 0;
+                  control_term_msg_.motors[i].pitch_d = 0;
+                  control_term_msg_.motors[i].roll_p = 0;
+                  control_term_msg_.motors[i].roll_i = 0;
+                  control_term_msg_.motors[i].roll_d = 0;
+                  control_term_msg_.motors[i].yaw_d = 0;
                 }
             }
         }
