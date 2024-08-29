@@ -52,7 +52,7 @@ namespace aerial_robot_navigation
                     boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
                     double loop_du) override;
 
-    void update() override;
+    virtual void update() override;
 
     inline const bool getLandingFlag() const { return landing_flag_; }
 

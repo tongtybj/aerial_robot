@@ -17,9 +17,43 @@ void FlightNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   /* initialize the flight control */
   DragonNavigator::initialize(nh, nhp, robot_model, estimator, loop_du);
 
+  joint_torque_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_torque_ctrl", 1);
+
+  ros::NodeHandle nav_nh(nh_, "navigation");
+  getParam<double>(nav_nh, "joint_servo_torque_limit", joint_servo_torque_limit_, 8.0);
+
   ros::NodeHandle land_nh(nh_, "navigation/land");
   getParam<double>(land_nh, "inside_land_pitch_angle", inside_land_pitch_angle_, -0.1);
   getParam<double>(land_nh, "outside_land_pitch_angle", outside_land_pitch_angle_, 0.2);
+
+}
+
+void FlightNavigator::update()
+{
+  DragonNavigator::update();
+
+  if (initialize_joint_servo_torque_)
+    {
+      if (getNaviState() == START_STATE)
+        {
+          int rotor_num_ = robot_model_->getRotorNum();
+
+          // send the limit of servo torque
+          sensor_msgs::JointState torque_msg;
+          torque_msg.header.stamp = ros::Time::now();
+          for (int i = 0; i < rotor_num_; i++)
+            {
+              std::string id = std::to_string(i+1);
+              torque_msg.name.push_back(std::string("joint") + id + std::string("_yaw"));
+              torque_msg.name.push_back(std::string("joint") + id + std::string("_pitch"));
+              torque_msg.effort.push_back(joint_servo_torque_limit_);
+              torque_msg.effort.push_back(joint_servo_torque_limit_);
+            }
+          joint_torque_pub_.publish(torque_msg);
+
+          initialize_joint_servo_torque_ = false;
+        }
+    }
 }
 
 void FlightNavigator::landingProcess()

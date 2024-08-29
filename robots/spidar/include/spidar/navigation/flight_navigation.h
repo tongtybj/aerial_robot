@@ -52,13 +52,19 @@ namespace aerial_robot_navigation
                       boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
                       double loop_du) override;
 
+      void update() override;
+
     private:
 
       void landingProcess() override;
 
+      ros::Publisher joint_torque_pub_;
+
       // parameter
       double inside_land_pitch_angle_;
       double outside_land_pitch_angle_;
+      double joint_servo_torque_limit_;
+      bool initialize_joint_servo_torque_ = true;
 
     };
   };
