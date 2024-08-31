@@ -12,8 +12,6 @@ class GraspTest:
 
     def __init__(self):
 
-        self.sub = rospy.Subscriber('/spidar/joy', Joy, self.joyCallback)
-
         ## object configuration
         self.object_mass = rospy.get_param("~object_mass", 1.0)
         self.object_radius = rospy.get_param("~object_radius", 0.25)
@@ -27,7 +25,7 @@ class GraspTest:
             self.grasp_joint_angles = self.grasp_joint_angles * 4
 
         self.pregrasp_duration = rospy.get_param("~pregrasp_duration", 8.0)
-        self.wait_duration = rospy.get_param("~wait_duration", 1.0)
+        self.wait_duration = rospy.get_param("~wait_duration", 2.0)
         self.grasp_duration = rospy.get_param("~grasp_duration", 8.0)
 
         self.release_duration = rospy.get_param("~release_duration", 8.0)
@@ -42,14 +40,17 @@ class GraspTest:
         self.joy_axes = None
         self.prev_joy_axes = None
 
+        self.sub = rospy.Subscriber('/spidar/joy', Joy, self.joyCallback)
         self.timer = rospy.Timer(rospy.Duration(0.05), self.eventCallback)
 
     def graspJointMotion(self):
 
+
         self.joint_node.start(self.pregrasp_joint_angles, self.pregrasp_duration) # move the pre-grasp pose
 
         # sleep to make sure the robot has reached the pre-grasp pose
-        rospy.sleep(self.wait_duration)
+        rospy.sleep(self.pregrasp_duration + self.wait_duration)
+        rospy.loginfo("conplete the pre-grasp pose");
 
         self.joint_node.start(self.grasp_joint_angles, self.grasp_duration) # move the grasp pose
 
@@ -96,6 +97,9 @@ class GraspTest:
 
 
     def eventCallback(self, event):
+
+        if self.joy_buttons is None or self.joy_axes is None:
+            return
 
         if self.joy_buttons[4] == 1: # L1
 
