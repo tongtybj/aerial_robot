@@ -8,13 +8,18 @@ import numpy as np
 class LinearJointMotion:
     def __init__(self, freq):
 
-        self.joint_seq = []
-        self.index = 0
+        self.joint_seq = None
+        self.index = None
+
+        self.start_flag = False
 
         self.pub = rospy.Publisher('/spidar/joints_ctrl', JointState, queue_size = 1)
         self.timer = rospy.Timer(rospy.Duration(1/freq), self.timerCallback)
 
     def start(self, final_joint_angles, duration):
+
+        self.joint_seq = []
+        self.index = 0
 
         start_joint_state = rospy.wait_for_message('/spidar/joint_states', JointState, timeout=5)
         self.joint_names = ['joint' + str(i//2+1) + ('_yaw' if i % 2 == 0 else '_pitch')  \
@@ -30,12 +35,11 @@ class LinearJointMotion:
         else:
             self.joint_seq = [final_joint_angles]
 
-        self.index = 0
-
+        self.start_flag = True
 
     def timerCallback(self, event):
 
-        if len(self.joint_seq) == 0:
+        if not self.start_flag:
             return
 
         joint_msg = JointState()
@@ -47,7 +51,8 @@ class LinearJointMotion:
         self.index += 1
 
         if self.index == len(self.joint_seq):
-            self.joint_seq = []
+            self.start_flag = False
+
 
 
 if __name__ == '__main__':
