@@ -39,6 +39,7 @@ servo_controller:
       angle_sgn: -1
       filter_flag: true
       angle_scale: 0.001534
+      torque_scale: -0.03
     controller05:
       id: 8
       name: joint3_yaw
@@ -59,6 +60,7 @@ servo_controller:
       angle_sgn: -1
       filter_flag: true
       angle_scale: 0.001534
+      torque_scale: -0.03
     controller09:
       id: 16
       name: joint5_yaw
@@ -79,6 +81,7 @@ servo_controller:
       angle_sgn: -1
       filter_flag: true
       angle_scale: 0.001534
+      torque_scale: -0.03
     controller13:
       id: 24
       name: joint7_yaw
@@ -99,6 +102,7 @@ servo_controller:
       angle_sgn: -1
       filter_flag: true
       angle_scale: 0.001534
+      torque_scale: -0.03
 
   gimbals:
 
