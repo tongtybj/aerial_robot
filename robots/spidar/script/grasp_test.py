@@ -30,6 +30,8 @@ class GraspTest:
 
         self.release_duration = rospy.get_param("~release_duration", 8.0)
 
+        self.separate_mode = rospy.get_param("~separate_mode", False)
+
 
         joint_ctrl_freq = rospy.get_param("~joint_ctrl_freq", 20.0)
         self.joint_node = LinearJointMotion(joint_ctrl_freq)
@@ -53,6 +55,14 @@ class GraspTest:
         rospy.loginfo("conplete the pre-grasp pose");
 
         self.joint_node.start(self.grasp_joint_angles, self.grasp_duration) # move the grasp pose
+
+        if not self.separate_mode:
+            grasp_wait_duration = 1.0
+            rospy.sleep(self.grasp_duration + grasp_wait_duration)
+
+            rospy.loginfo("add grasping object to the aerial robot");
+            self.graspObject()
+
 
     def releaseJointMotion(self):
 
