@@ -41,6 +41,7 @@
 #include <ros/console.h>
 #include <sstream>
 #include <tf_conversions/tf_kdl.h>
+#include <OsqpEigen/OsqpEigen.h>
 
 // alias
 using RobotModelPtr = boost::shared_ptr<aerial_robot_model::transformable::RobotModel>;
@@ -156,6 +157,8 @@ namespace Dragon
 
   protected:
     virtual void updateRobotModelImpl(const KDL::JntArray& joint_positions) override;
+
+    void graspControl(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque);
 
     double thrust_force_weight_, joint_torque_weight_;
   };

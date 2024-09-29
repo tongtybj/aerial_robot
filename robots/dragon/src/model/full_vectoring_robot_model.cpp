@@ -381,6 +381,13 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
                             joint_torque_weight_, hover_vectoring_f);
 
 
+      // find the joint torque:
+      Eigen::VectorXd extra_joint_torque = A1 * hover_vectoring_f + b1;
+      // ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());
+      ROS_INFO_STREAM_ONCE("extra joint torque: " << extra_joint_torque.transpose());
+      graspControl(A1, full_q_mat, extra_joint_torque);
+
+
       Eigen::VectorXd static_thrust = Eigen::VectorXd::Zero(getRotorNum());
       if(debug_verbose_) ROS_DEBUG_STREAM("vectoring force for hovering in iteration "<< j+1 << ": " << hover_vectoring_f.transpose());
       last_col = 0;
@@ -869,6 +876,128 @@ void FullVectoringRobotModel::compensateJointTorque(const Eigen::MatrixXd& A1, c
   // ROS_INFO_STREAM_THROTTLE(1.0, "total acc is : " << target_wrench_acc_cog.transpose() << "; diff is: " << (A2 * target_vectoring_f_ + b2).transpose());
   // ROS_INFO_STREAM_THROTTLE(1.0, "total joint torque is: " << (A1 * target_vectoring_f_ + b1).transpose());
   // ROS_INFO_STREAM_THROTTLE(1.0, "target thrust is: " << target_vectoring_f_.transpose());
+}
+
+void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque)
+{
+  // internal wrench
+  // determine the direction and point for grasping.
+
+  if (getSegmentsTf().size() == 0) return;
+
+  using orig = aerial_robot_model::transformable::RobotModel;
+  const KDL::JntArray gimbal_processed_joint = getGimbalProcessedJoint<KDL::JntArray>();
+  const int joint_num = getJointNum();
+  const int link_joint_num = getLinkJointIndices().size();
+  const int rotor_num = getRotorNum();
+  const int fr_ndof = 3 * rotor_num;
+
+  const int fc_num =  rotor_num / 2;
+  const int fc_ndof = 1; //3 * fe_num;
+
+  Eigen::MatrixXd A1_fe_all = Eigen::MatrixXd::Zero(joint_num, fc_ndof);
+  for (int i = 0; i < fc_num; i++) {
+
+    std::string name = std::string("link") + std::to_string((i + 1) *2) + std::string("_foot");
+
+    Eigen::MatrixXd jac
+      = (orig::getJacobian(gimbal_processed_joint, name)).topRows(3);
+
+    // Contact normal: radial direction from origin
+    auto pos = getSegmentTf(name).p;
+    pos.z(0); // make the postion vector lateral to get the direciton of this force
+    pos.Normalize(); // nomrlize the force direction
+    Eigen::Vector3d normal = aerial_robot_model::kdlToEigen(pos);
+
+    A1_fe_all -= jac.rightCols(joint_num).transpose() * normal;
+  }
+
+  // only consider link joint
+  Eigen::MatrixXd A1_fe = Eigen::MatrixXd::Zero(link_joint_num, fc_ndof);
+  int cnt = 0;
+  for(int i = 0; i < joint_num; i++) {
+    if(getJointNames().at(i) == getLinkJointNames().at(cnt))
+      {
+        A1_fe.row(cnt) = A1_fe_all.row(i);
+        cnt++;
+      }
+    if(cnt == link_joint_num) break;
+  }
+
+
+  Eigen::MatrixXd A1 = Eigen::MatrixXd::Zero(link_joint_num, fr_ndof + fc_ndof);
+  A1.leftCols(fr_ndof) = A1_fr;
+  A1.rightCols(fc_ndof) = A1_fe;
+
+  Eigen::VectorXd b1 = extra_joint_torque;
+
+  Eigen::MatrixXd A2 = Eigen::MatrixXd::Zero(6, fr_ndof + fc_ndof);
+  A2.leftCols(fr_ndof) = A2_fr;
+
+  Eigen::MatrixXd W1 = Eigen::MatrixXd::Zero(fr_ndof + fc_ndof, fr_ndof + fc_ndof);
+  W1.topLeftCorner(fr_ndof, fr_ndof) = thrust_force_weight_ * Eigen::MatrixXd::Identity(fr_ndof, fr_ndof);
+  Eigen::MatrixXd W2 = joint_torque_weight_ * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
+
+  // 4. use thrust force and joint torque, cost and constraint for joint torque
+  OsqpEigen::Solver qp_solver;
+  qp_solver.settings()->setVerbosity(false);
+  qp_solver.settings()->setWarmStart(true);
+  qp_solver.data()->setNumberOfVariables(fr_ndof + fc_ndof);
+  qp_solver.data()->setNumberOfConstraints(6 + fc_ndof);
+
+  /*
+    cost function:
+    f^T W1 f + (A1 f + b1)^T W2 (A1 f + b1)
+    = f^T (W1 + A1^T W2 A1) f + 2 b1^T A1 f + cons
+  */
+  Eigen::MatrixXd hessian = W1 + A1.transpose() * W2 * A1;
+  Eigen::SparseMatrix<double> hessian_sparse = hessian.sparseView();
+  Eigen::VectorXd gradient = b1.transpose() * W2 * A1;
+  qp_solver.data()->setHessianMatrix(hessian_sparse);
+  qp_solver.data()->setGradient(gradient);
+
+  /* equality constraint: zero total wnrech */
+  Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(6 + fc_ndof, fr_ndof + fc_ndof);
+  constraints.topRows(6) = A2;
+  constraints(6, fr_ndof) = 1;
+  Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
+  qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
+
+  Eigen::VectorXd b = Eigen::VectorXd::Zero(6 + fc_ndof);
+  Eigen::VectorXd lower_bound = Eigen::VectorXd::Zero(6 + fc_ndof);
+  lower_bound(6) = 0.1; // contact force TODO: parameter
+  Eigen::VectorXd upper_bound = Eigen::VectorXd::Zero(6 + fc_ndof);
+  upper_bound(6) = 1e6;
+  qp_solver.data()->setLowerBound(lower_bound);
+  qp_solver.data()->setUpperBound(upper_bound);
+
+  std::string prefix("[Grasp]");
+  if(!qp_solver.initSolver()) {
+    ROS_ERROR_STREAM(prefix << " can not initialize qp solver");
+    return;
+  }
+
+  double s_t = ros::Time::now().toSec();
+  bool res = qp_solver.solve();
+  ROS_INFO_STREAM_ONCE(prefix << " QP solve time: " << ros::Time::now().toSec() - s_t);
+
+  if(!res) {
+    ROS_ERROR_STREAM(prefix << "can not solve QP");
+    return;
+  }
+
+  Eigen::VectorXd f_all = qp_solver.getSolution();
+  Eigen::VectorXd fr = f_all.head(fr_ndof);
+  double fc = f_all(fr_ndof);
+  Eigen::VectorXd tau = A1 * f_all + b1;
+
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Thrust force for grasp: " << fr.transpose());
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Contact force for grasp: " << fc);
+  // ROS_INFO_STREAM_THROTTLE(1.0, prefix << " Joint Torque: " << tau.transpose());
+
+  ROS_INFO_STREAM_ONCE(prefix << " Thrust force for grasp: " << fr.transpose());
+  ROS_INFO_STREAM_ONCE(prefix << " Contact force for grasp: " << fc);
+  ROS_INFO_STREAM_ONCE(prefix << " Joint Torque: " << tau.transpose());
 }
 
 
