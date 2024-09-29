@@ -87,8 +87,8 @@ class GraspTest:
             req.size = Vector3(self.object_radius, 0, 0)
 
             add_object_client(req)
-        except rospy.ServiceException, e:
-            print "Service call failed: %s"%e
+        except rospy.ServiceException as e:
+            rospy.logerr("Service call failed: %s"%e)
 
 
     def releaseObject(self):
@@ -102,8 +102,8 @@ class GraspTest:
             req.module_name= "grasp_object"
 
             remove_object_client(req)
-        except rospy.ServiceException, e:
-            print "Service call failed: %s"%e
+        except rospy.ServiceException as e:
+            rospy.logerr("Service call failed: %s"%e)
 
 
     def eventCallback(self, event):
