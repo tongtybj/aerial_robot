@@ -8,7 +8,7 @@ gimbal_lock_threshold: 0.3 # rad
 link_att_threshold: 0.2 # rad
 lock_status_change_threshold: 10
 gimbal_delta_angle: 0.3
-robot_model_refine_max_iteration: 5
+robot_model_refine_max_iteration: 1
 robot_model_refine_threshold: 0.01
 gimbal_roll_change_threshold: 0.04
 
@@ -19,4 +19,4 @@ edf_max_tilt: 0.05
 edf_radius: 0.075
 
 thrust_force_weight: 1.0
-joint_torque_weight: 10.0 # 10.0 ~ 20.0
+joint_torque_weight: 0.0 # 10.0 ~ 20.0

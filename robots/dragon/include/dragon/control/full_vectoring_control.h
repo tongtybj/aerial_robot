@@ -51,7 +51,6 @@
 
 // alias
 using DragonModelPtr = boost::shared_ptr<Dragon::FullVectoringRobotModel>;
-using PrimeBoundMap = std::map<int, std::pair<double, double>>;
 
 namespace aerial_robot_control
 {
@@ -152,14 +151,11 @@ namespace aerial_robot_control
 
     void controlCore() override;
     void rotorInterfereEstimate();
-    void rotorInterfereAvoid(const DragonModelPtr robot_model, PrimeBoundMap& bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles);
     void rotorInterfereCompensate(Eigen::VectorXd& target_wrench_acc);
     void rosParamInit();
     void sendCmd();
 
     void sendTorqueAllocationMatrixInv();
     void setAttitudeGains();
-
-
   };
 };

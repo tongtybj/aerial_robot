@@ -330,6 +330,10 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
     }
   robot_model_for_plan_->updateRobotModel(gimbal_processed_joint);
 
+  // workround: rotor interfere avoid
+  PrimeBoundMap rotor_bound_map;
+  rotorInterfereAvoid(rotor_bound_map, roll_locked_gimbal, gimbal_nominal_angles);
+
   /* 5.2. convergence  */
   double t = ros::Time::now().toSec();
 
@@ -384,8 +388,101 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       // find the joint torque:
       Eigen::VectorXd extra_joint_torque = A1 * hover_vectoring_f + b1;
       // ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());
-      ROS_INFO_STREAM_ONCE("extra joint torque: " << extra_joint_torque.transpose());
-      graspControl(A1, full_q_mat, extra_joint_torque);
+      ROS_INFO_STREAM_ONCE("extra joint torque by general hovering process: " << extra_joint_torque.transpose());
+
+
+      // 2. solve by QP
+      int rotor_num = getRotorNum();
+      int f_ndof = 3 * rotor_num - gimbal_lock_num;
+      int cons_num = 6 + f_ndof;
+      cons_num += rotor_bound_map.size() * 2; // consider the interfere map
+
+      OsqpEigen::Solver qp_solver;
+      qp_solver.settings()->setVerbosity(false);
+      qp_solver.settings()->setWarmStart(true);
+
+      qp_solver.data()->setNumberOfVariables(f_ndof);
+      qp_solver.data()->setNumberOfConstraints(cons_num);
+
+      // 2.1 cost function
+      Eigen::MatrixXd hessian = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
+      Eigen::SparseMatrix<double> hessian_sparse = hessian.sparseView();
+      Eigen::VectorXd gradient = Eigen::VectorXd::Zero(f_ndof);
+      qp_solver.data()->setHessianMatrix(hessian_sparse);
+      qp_solver.data()->setGradient(gradient);
+
+      // 2.2 constraint (except of range)
+      Eigen::MatrixXd constraints = Eigen::MatrixXd::Zero(cons_num, f_ndof);
+      constraints.topRows(6) = full_q_mat;
+      constraints.middleRows(6, f_ndof) = Eigen::MatrixXd::Identity(f_ndof, f_ndof);
+      double thrust_range = 40; // parameter
+      Eigen::VectorXd lower_bound = Eigen::VectorXd::Ones(cons_num) * -thrust_range;
+      Eigen::VectorXd upper_bound = Eigen::VectorXd::Ones(cons_num) * thrust_range;
+      lower_bound.head(6) = gravity_force;
+      upper_bound.head(6) = gravity_force;
+
+      if (rotor_bound_map.size() > 0)
+        {
+          int row = 6 + f_ndof;
+          int col = 0;
+
+          for (int i = 0; i < rotor_num; i ++)
+            {
+              auto map_it = rotor_bound_map.find(i);
+              if (map_it != rotor_bound_map.end())
+                {
+                  double prime_bound = map_it->second.first;
+                  double sub_bound = map_it->second.second;
+                  double direction = sub_bound - prime_bound;
+
+                  double prime_pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + prime_bound;
+                  constraints(row, col) = cos(prime_pitch_angle); // x
+                  constraints(row, col + 1) = -sin(prime_pitch_angle); // z
+                  if (direction > 0) lower_bound(row) = 0;
+                  else upper_bound(row) = 0;
+
+                  double sub_pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + sub_bound;
+                  constraints(row + 1, col) = cos(sub_pitch_angle); // x
+                  constraints(row + 1, col + 1) = -sin(sub_pitch_angle); // z
+                  if (direction > 0) upper_bound(row+1) = 0;
+                  else lower_bound(row+1) = 0;
+                  row += 2;
+
+                }
+
+              if (roll_locked_gimbal.at(i)) col +=2;
+              else col +=3;
+            }
+        }
+
+
+      Eigen::SparseMatrix<double> constraint_sparse = constraints.sparseView();
+      qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
+      qp_solver.data()->setLowerBound(lower_bound);
+      qp_solver.data()->setUpperBound(upper_bound);
+
+      if(!qp_solver.initSolver()) {
+        ROS_ERROR_STREAM("can not initialize qp solver");
+        return;
+      }
+
+      double s_t = ros::WallTime::now().toSec();
+      bool res = qp_solver.solve(); // with large range: x 1.5
+
+      if(!res) {
+        ROS_ERROR_STREAM("can not solve QP");
+      } else {
+        hover_vectoring_f = qp_solver.getSolution();
+      }
+
+      // find the joint torque:
+      extra_joint_torque = A1 * hover_vectoring_f + b1;
+      ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());
+      //ROS_INFO_STREAM_ONCE("extra joint torque by qp process with the consideration of rotor interference avoidance: " << extra_joint_torque.transpose());
+
+
+      // grasp control
+      //graspControl(A1, full_q_mat, extra_joint_torque);
 
 
       Eigen::VectorXd static_thrust = Eigen::VectorXd::Zero(getRotorNum());
@@ -998,6 +1095,315 @@ void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const E
   ROS_INFO_STREAM_ONCE(prefix << " Thrust force for grasp: " << fr.transpose());
   ROS_INFO_STREAM_ONCE(prefix << " Contact force for grasp: " << fc);
   ROS_INFO_STREAM_ONCE(prefix << " Joint Torque: " << tau.transpose());
+}
+
+void FullVectoringRobotModel::rotorInterfereAvoid(PrimeBoundMap& prime_bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles)
+{
+  int rotor_num = getRotorNum();
+  std::string thrust_link = getThrustLinkName();
+  const auto& seg_tf_map = robot_model_for_plan_->getSegmentsTf();
+  const auto rotors_pos = robot_model_for_plan_->getRotorsOriginFromCog<KDL::Vector>();
+
+  if (seg_tf_map.size() == 0) return;
+
+  double angle_max_thresh = 1.2; // TODO: parameter
+  double collision_padding_rate = 1.2; // TODO: parameter
+  double roll_angle_thresh = 0.4;  // TODO: parameter
+
+  prime_bound_map = PrimeBoundMap{};
+  std::map<int, std::vector<std::pair<int, Eigen::Vector3d>>> interfere_raw_map{};
+  std::map<int, std::vector<std::pair<double, double>>> bounds_map{};
+
+  auto tangent_calc = [] (auto r1, auto r2, auto rel_pos)
+           {
+             double x1 = 0;
+             double y1 = 0;
+             double x2 = rel_pos.x();
+             double y2 = rel_pos.z();
+
+             double b = y1 - y2;
+
+             double a1 = x2 + r2 - x1;
+             double l1 = sqrt(pow(a1, 2) + pow(b, 2));
+             double phi1 = atan2(r1, l1);
+             double theta1 = atan2(a1, b) + phi1;
+             theta1 = -theta1;
+
+             double a2 = x2 - r2 - x1;
+             double l2 = sqrt(pow(a2, 2) + pow(b, 2));
+             double phi2 = atan2(r1, l2);
+             double theta2 = atan2(a2, b) - phi2;
+             theta2 = -theta2;
+
+             return std::make_pair(theta1, theta2);
+           };
+
+  std::stringstream ss_map;
+  ss_map << "\n";
+
+  for(int i = 0; i < rotor_num; i++)
+    {
+      auto pos_i = rotors_pos.at(i); // position w.r.t. CoG
+
+      std::string rotor_i = thrust_link + std::to_string(i + 1);
+      auto pose_i = seg_tf_map.at(rotor_i); // pose w.r.t. Baselink (Root)
+
+      std::vector<std::pair<int, Eigen::Vector3d>> bound_list;
+
+      for (int j = 0; j < rotor_num; j++)
+        {
+          if (i == j) continue;
+
+
+          std::string rotor_j = thrust_link + std::to_string(j + 1);
+          auto pose_j = seg_tf_map.at(rotor_j); // pose w.r.t. Baselink (Root)
+
+          // relativel position from the i-th rotor
+          auto rel_pose = pose_i.Inverse() * pose_j;
+          auto rel_pos = aerial_robot_model::kdlToEigen(rel_pose.p);
+
+          // skip if the j-th rotor is not align in the same plane;
+          double roll_angle = atan2(fabs(rel_pos.y()), fabs(rel_pos.z()));
+          if (roll_angle > roll_angle_thresh) continue;
+
+          double pitch_angle = atan2(-rel_pos.x(), -rel_pos.z());
+          // skip if the j-th rotor is far from i-th
+          if (fabs(pitch_angle) > angle_max_thresh) continue;
+
+          // calculate the bound angle
+          double r = getEdfRadius() * collision_padding_rate;
+          auto res = tangent_calc(r, r, rel_pos);
+          double theta1 = res.first;
+          double theta2 = res.second;
+
+          Eigen::Vector3d angle_v(pitch_angle, theta1, theta2);
+          bound_list.push_back(std::make_pair(j, angle_v));
+        }
+
+      // check the overlap with center link if it exists
+      std::string name("center_link");
+      auto it = seg_tf_map.find(name);
+      if (it != seg_tf_map.end())
+        {
+          auto pose_c = it->second; // pose w.r.t. Baselink (Root)
+          auto rel_pose = pose_i.Inverse() * pose_c; // relativel position from the i-th rotor
+          auto rel_pos = aerial_robot_model::kdlToEigen(rel_pose.p);
+
+          double angle = atan2(-rel_pos.x(), -rel_pos.z()); // only consider the pitch angle
+
+          if (fabs(angle) < angle_max_thresh)
+            {
+              // calculate the bound angle
+              auto geo = getUrdfModel().getLink(name)->collision->geometry;
+              auto type = geo->type;
+
+              double r_r = getEdfRadius() * collision_padding_rate;
+              double r_c = 0;
+
+              if (type == urdf::Geometry::CYLINDER)
+                {
+                  r_c = std::dynamic_pointer_cast<urdf::Cylinder>(geo)->radius;
+                }
+              else if (type == urdf::Geometry::SPHERE)
+                {
+                  r_c = std::dynamic_pointer_cast<urdf::Sphere>(geo)->radius;
+                }
+              else if (type == urdf::Geometry::BOX)
+                {
+                  auto dim = std::dynamic_pointer_cast<urdf::Box>(geo)->dim;
+                  r_c = std::hypot(dim.x, dim.y);
+                }
+              else
+                {
+                  ROS_WARN_THROTTLE(1.0, "Currently, urdf geometry type %d is not supported for rotor interference avoidance", type);
+                }
+
+              if (r_c > 0)
+                {
+                  auto res = tangent_calc(r_r, r_c, rel_pos);
+                  double theta1 = res.first;
+                  double theta2 = res.second;
+                  Eigen::Vector3d angle_v(angle, theta1, theta2);
+                  bound_list.push_back(std::make_pair(-1, angle_v));
+                }
+            }
+        }
+
+      // check the overlap with extra module if it exists
+      int extra_cnt = 0;
+      for (const auto& it: getExtraModuleMap())
+        {
+          auto pose_parent = seg_tf_map.find(it.second.first.getName())->second;
+          auto pose_e = pose_parent * it.second.first.getFrameToTip(); // pose w.r.t. Baselink (Root)
+          auto rel_pose = pose_i.Inverse() * pose_e; // relativel position from the i-th rotor
+          auto rel_pos = aerial_robot_model::kdlToEigen(rel_pose.p);
+
+          double angle = atan2(-rel_pos.x(), -rel_pos.z()); // only consider the pitch angle
+          if (fabs(angle) > angle_max_thresh) continue;
+
+          // calculate the bound angle
+          double r_e = 0;
+          auto dim = it.second.second;
+          if (dim(1) == 0 && dim(2) == 0) r_e = dim(0); // sphere
+          if (dim(1) > 0 && dim(2) == 0) r_e = dim(1); // clyinder
+          if (dim(1) > 0 && dim(2) > 0) r_e = std::hypot(dim(0), dim(1)); // box
+
+          double r_r = getEdfRadius() * collision_padding_rate;
+
+          auto res = tangent_calc(r_r, r_e, rel_pos);
+          double theta1 = res.first;
+          double theta2 = res.second;
+
+          Eigen::Vector3d angle_v(angle, theta1, theta2);
+          // ROS_INFO_STREAM("rotor " << i+1 << ": " << it.first << ": rel_pose" << rel_pos.transpose() << ": angle_v: " << angle_v.transpose());
+          extra_cnt ++;
+          bound_list.push_back(std::make_pair(-1 - extra_cnt, angle_v));
+        }
+
+      if (bound_list.size() == 0) continue;
+      interfere_raw_map.insert(std::make_pair(i, bound_list));
+
+      // update bounds
+      std::vector<std::pair<double, double>> bounds {std::make_pair(-M_PI/2, M_PI/2)};
+      double area_thresh = 0.4; // TODO: rosparam
+      for (auto& new_bound : bound_list)
+        {
+          double theta1, theta2;
+          if (new_bound.second(1) < new_bound.second(2))
+            {
+              theta1 = new_bound.second(1);
+              theta2 = new_bound.second(2);
+            }
+          else
+            {
+              theta1 = new_bound.second(2);
+              theta2 = new_bound.second(1);
+            }
+
+          std::vector<std::pair<double, double>> bounds_temp {};
+          for (auto& curr_bound: bounds)
+            {
+              double curr_theta1 = curr_bound.first;
+              double curr_theta2 = curr_bound.second;
+
+              // 6 cases:
+              if (theta2 < curr_theta1)
+                {
+                  bounds_temp.push_back(curr_bound);
+                }
+
+              if (theta1 < curr_theta1 && theta2 > curr_theta1 && theta2 < curr_theta2)
+                {
+                  if (curr_theta2 - theta2 < area_thresh) continue;
+
+                  bounds_temp.push_back(std::make_pair(theta2, curr_theta2));
+                }
+
+              if (theta1 < curr_theta1 && theta2 > curr_theta2)
+                {
+                  // skip
+                  continue;
+                }
+
+              if (theta1 > curr_theta1 && theta2 < curr_theta2)
+                {
+                  if (theta1 - curr_theta1 > area_thresh)
+                    {
+                      bounds_temp.push_back(std::make_pair(curr_theta1, theta1));
+                    }
+                  if (curr_theta2 - theta2 > area_thresh)
+                    {
+                      bounds_temp.push_back(std::make_pair(theta2, curr_theta2));
+                    }
+                }
+
+              if (theta1 > curr_theta1 && theta1 < curr_theta2 && theta2 > curr_theta2)
+                {
+                  if (theta1 - curr_theta1 < area_thresh) continue;
+
+                  bounds_temp.push_back(std::make_pair(curr_theta1, theta1));
+                }
+
+              if (theta1 > curr_theta2)
+                {
+                  bounds_temp.push_back(curr_bound);
+                }
+            }
+
+          bounds = bounds_temp;
+        }
+      bounds_map.insert(std::make_pair(i, bounds));
+
+      double lower = 1e6;
+      double upper = 0;
+      for (const auto& bound: bounds)
+        {
+          double theta1 = bound.first;
+          double theta2 = bound.second;
+
+          if (fabs(theta1) < fabs(lower))
+            {
+              lower = theta1;
+              upper = theta2;
+            }
+
+          if (fabs(theta2) < fabs(lower))
+            {
+              lower = theta2;
+              upper = theta1;
+            }
+        }
+
+      // skip if the range is enough for normal tilting
+      if (lower * upper < 0 && fabs(lower) > area_thresh / 2) continue;
+
+      prime_bound_map.insert(std::make_pair(i, std::make_pair(lower, upper)));
+
+
+      if (roll_locked_gimbal.at(i) == 0)
+        {
+          roll_locked_gimbal.at(i) = 1;
+          gimbal_nominal_angles.at(2 * i) = 0;
+        }
+    }
+
+  if (interfere_raw_map.size() > 0)
+    {
+      for (const auto& it: interfere_raw_map)
+        {
+          int rotor_id = it.first;
+          ss_map << "rotor" << rotor_id+1 << ": \n";
+          for(const auto& bound: it.second)
+            {
+              int index = bound.first;
+              if (index >= 0)
+                {
+                  ss_map << "\t rotor" << bound.first + 1 << ": " << bound.second.transpose() << " \n";
+                }
+              else if (index == -1)
+                {
+                  ss_map << "\t center link: " << bound.second.transpose() << " \n";
+                }
+              else
+                {
+                  ss_map << "\t extra module: " << bound.second.transpose() << " \n";
+                }
+            }
+
+          for(const auto& bound: bounds_map.at(rotor_id))
+            {
+              ss_map << "\t candidate bound: (" << bound.first << ", " << bound.second << ") \n";
+            }
+
+          auto bound = prime_bound_map.find(rotor_id);
+          if (bound != prime_bound_map.end())
+            {
+              ss_map << "\t prime bound: (" << bound->second.first << ", " << bound->second.second << ") \n";
+            }
+        }
+
+      // ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
+    }
 }
 
 

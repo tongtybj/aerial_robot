@@ -45,6 +45,7 @@
 
 // alias
 using RobotModelPtr = boost::shared_ptr<aerial_robot_model::transformable::RobotModel>;
+using PrimeBoundMap = std::map<int, std::pair<double, double>>;
 
 namespace Dragon
 {
@@ -159,6 +160,7 @@ namespace Dragon
     virtual void updateRobotModelImpl(const KDL::JntArray& joint_positions) override;
 
     void graspControl(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque);
+    void rotorInterfereAvoid(PrimeBoundMap& bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles);
 
     double thrust_force_weight_, joint_torque_weight_;
   };
