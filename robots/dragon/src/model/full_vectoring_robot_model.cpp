@@ -317,6 +317,12 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
         }
       gimbal_nominal_angles.at(i * 2 + 1) = gimbal_prime_angles.at(i * 2 + 1);
     }
+
+
+  // workround: rotor interfere avoid
+  PrimeBoundMap rotor_bound_map;
+  rotorInterfereAvoid(rotor_bound_map, roll_locked_gimbal, gimbal_nominal_angles, gimbal_lock_num);
+
   gimbal_lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0); // update
   const int f_ndof = 3 * getRotorNum() - gimbal_lock_num;
 
@@ -329,10 +335,6 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       gimbal_processed_joint(joint_index_map.find(std::string("gimbal") + s + std::string("_pitch"))->second) = gimbal_nominal_angles.at(i * 2 + 1);
     }
   robot_model_for_plan_->updateRobotModel(gimbal_processed_joint);
-
-  // workround: rotor interfere avoid
-  PrimeBoundMap rotor_bound_map;
-  rotorInterfereAvoid(rotor_bound_map, roll_locked_gimbal, gimbal_nominal_angles);
 
   /* 5.2. convergence  */
   double t = ros::Time::now().toSec();
@@ -384,6 +386,8 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       compensateJointTorque(A1, Psi, b1, -gravity_force, full_q_mat_inv, full_q_mat, \
                             joint_torque_weight_, hover_vectoring_f);
 
+
+      // ROS_ERROR("A1 : [%d %d], full q mat : [%d %d]", A1.rows(), A1.cols(), full_q_mat.rows(), full_q_mat.cols());
 
       // find the joint torque:
       Eigen::VectorXd extra_joint_torque = A1 * hover_vectoring_f + b1;
@@ -477,13 +481,18 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
 
       // find the joint torque:
       extra_joint_torque = A1 * hover_vectoring_f + b1;
-      ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());
+      // ROS_INFO_STREAM_THROTTLE(1.0, "hover_vectoring_f: " << hover_vectoring_f.transpose());
+      // ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());
+      ROS_INFO_STREAM("hover_vectoring_f: " << hover_vectoring_f.transpose());
+      ROS_INFO_STREAM("extra joint torque: " << extra_joint_torque.transpose());
+
       //ROS_INFO_STREAM_ONCE("extra joint torque by qp process with the consideration of rotor interference avoidance: " << extra_joint_torque.transpose());
 
 
       // grasp control
-      //graspControl(A1, full_q_mat, extra_joint_torque);
-
+      ROS_INFO_STREAM("A1: \n" << A1);
+      ROS_INFO_STREAM("b1: \n" << b1.transpose());
+      graspControl(gimbal_processed_joint, A1, full_q_mat, extra_joint_torque);
 
       Eigen::VectorXd static_thrust = Eigen::VectorXd::Zero(getRotorNum());
       if(debug_verbose_) ROS_DEBUG_STREAM("vectoring force for hovering in iteration "<< j+1 << ": " << hover_vectoring_f.transpose());
@@ -975,19 +984,23 @@ void FullVectoringRobotModel::compensateJointTorque(const Eigen::MatrixXd& A1, c
   // ROS_INFO_STREAM_THROTTLE(1.0, "target thrust is: " << target_vectoring_f_.transpose());
 }
 
-void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque)
+void FullVectoringRobotModel::graspControl(const KDL::JntArray& gimbal_processed_joint, const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque)
 {
   // internal wrench
   // determine the direction and point for grasping.
 
-  if (getSegmentsTf().size() == 0) return;
+  const auto& seg_tf_map = robot_model_for_plan_->getSegmentsTf();
+  if (seg_tf_map.size() == 0) return;
 
-  using orig = aerial_robot_model::transformable::RobotModel;
-  const KDL::JntArray gimbal_processed_joint = getGimbalProcessedJoint<KDL::JntArray>();
+
+  ROS_INFO_STREAM_ONCE("extra_joint_torque: \n" << extra_joint_torque.transpose());
+
+  //ROS_ERROR("A1_fr : [%d %d], A2_fr : [%d %d]", A1_fr.rows(), A1_fr.cols(), A2_fr.rows(), A2_fr.cols());
+
   const int joint_num = getJointNum();
   const int link_joint_num = getLinkJointIndices().size();
   const int rotor_num = getRotorNum();
-  const int fr_ndof = 3 * rotor_num;
+  const int fr_ndof = A1_fr.cols();
 
   const int fc_num =  rotor_num / 2;
   const int fc_ndof = 1; //3 * fe_num;
@@ -998,15 +1011,21 @@ void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const E
     std::string name = std::string("link") + std::to_string((i + 1) *2) + std::string("_foot");
 
     Eigen::MatrixXd jac
-      = (orig::getJacobian(gimbal_processed_joint, name)).topRows(3);
+      = (robot_model_for_plan_->getJacobian(gimbal_processed_joint, name)).topRows(3);
 
     // Contact normal: radial direction from origin
-    auto pos = getSegmentTf(name).p;
+    auto pos = seg_tf_map.at(name).p;
     pos.z(0); // make the postion vector lateral to get the direciton of this force
     pos.Normalize(); // nomrlize the force direction
     Eigen::Vector3d normal = aerial_robot_model::kdlToEigen(pos);
 
-    A1_fe_all -= jac.rightCols(joint_num).transpose() * normal;
+    Eigen::MatrixXd jac_dash = jac.rightCols(joint_num).transpose() * normal;
+
+    ROS_INFO_STREAM("external force" << i+1 << "\n"
+                    << "normal: " << normal.transpose()  << "\n"
+                    << "jac_dash: " << jac_dash.transpose());
+
+    A1_fe_all -= jac_dash;
   }
 
   // only consider link joint
@@ -1020,6 +1039,7 @@ void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const E
       }
     if(cnt == link_joint_num) break;
   }
+  ROS_INFO_STREAM_ONCE("A1_fe: \n" << A1_fe);
 
 
   Eigen::MatrixXd A1 = Eigen::MatrixXd::Zero(link_joint_num, fr_ndof + fc_ndof);
@@ -1034,6 +1054,12 @@ void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const E
   Eigen::MatrixXd W1 = Eigen::MatrixXd::Zero(fr_ndof + fc_ndof, fr_ndof + fc_ndof);
   W1.topLeftCorner(fr_ndof, fr_ndof) = thrust_force_weight_ * Eigen::MatrixXd::Identity(fr_ndof, fr_ndof);
   Eigen::MatrixXd W2 = joint_torque_weight_ * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
+
+  ROS_INFO_STREAM_ONCE("W1: \n" << W1);
+  ROS_INFO_STREAM_ONCE("W2: \n" << W2);
+
+  ROS_INFO_STREAM_ONCE("A1: \n" << A1);
+  ROS_INFO_STREAM_ONCE("b1: \n" << b1.transpose());
 
   // 4. use thrust force and joint torque, cost and constraint for joint torque
   OsqpEigen::Solver qp_solver;
@@ -1062,7 +1088,7 @@ void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const E
 
   Eigen::VectorXd b = Eigen::VectorXd::Zero(6 + fc_ndof);
   Eigen::VectorXd lower_bound = Eigen::VectorXd::Zero(6 + fc_ndof);
-  lower_bound(6) = 0.1; // contact force TODO: parameter
+  lower_bound(6) = 1; // contact force TODO: parameter
   Eigen::VectorXd upper_bound = Eigen::VectorXd::Zero(6 + fc_ndof);
   upper_bound(6) = 1e6;
   qp_solver.data()->setLowerBound(lower_bound);
@@ -1094,10 +1120,15 @@ void FullVectoringRobotModel::graspControl(const Eigen::MatrixXd& A1_fr, const E
 
   ROS_INFO_STREAM_ONCE(prefix << " Thrust force for grasp: " << fr.transpose());
   ROS_INFO_STREAM_ONCE(prefix << " Contact force for grasp: " << fc);
+  ROS_INFO_STREAM_ONCE(prefix << " A1_fr * fr: " << (A1_fr * fr).transpose());
+  ROS_INFO_STREAM_ONCE(prefix << " A1 * f: " << (A1 * f_all).transpose());
   ROS_INFO_STREAM_ONCE(prefix << " Joint Torque: " << tau.transpose());
+  ROS_INFO_STREAM_ONCE(prefix << " Wrench: " << (A2_fr * fr).transpose());
+
+  throw;
 }
 
-void FullVectoringRobotModel::rotorInterfereAvoid(PrimeBoundMap& prime_bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles)
+void FullVectoringRobotModel::rotorInterfereAvoid(PrimeBoundMap& prime_bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles, int& gimbal_lock_num)
 {
   int rotor_num = getRotorNum();
   std::string thrust_link = getThrustLinkName();
@@ -1404,6 +1435,8 @@ void FullVectoringRobotModel::rotorInterfereAvoid(PrimeBoundMap& prime_bound_map
 
       // ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
     }
+
+  gimbal_lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0); // update
 }
 
 

@@ -159,8 +159,8 @@ namespace Dragon
   protected:
     virtual void updateRobotModelImpl(const KDL::JntArray& joint_positions) override;
 
-    void graspControl(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque);
-    void rotorInterfereAvoid(PrimeBoundMap& bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles);
+    void graspControl(const KDL::JntArray& gimbal_processed_joint, const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque);
+    void rotorInterfereAvoid(PrimeBoundMap& bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles, int& gimbal_lock_num);
 
     double thrust_force_weight_, joint_torque_weight_;
   };
