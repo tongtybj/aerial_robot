@@ -490,15 +490,10 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       extra_joint_torque = A1 * hover_vectoring_f + b1;
       // ROS_INFO_STREAM_THROTTLE(1.0, "hover_vectoring_f: " << hover_vectoring_f.transpose());
       // ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());
-      ROS_INFO_STREAM("hover_vectoring_f: " << hover_vectoring_f.transpose());
-      ROS_INFO_STREAM("extra joint torque: " << extra_joint_torque.transpose());
-
-      //ROS_INFO_STREAM_ONCE("extra joint torque by qp process with the consideration of rotor interference avoidance: " << extra_joint_torque.transpose());
-
 
       // grasp control
-      ROS_INFO_STREAM("A1: \n" << A1);
-      ROS_INFO_STREAM("b1: \n" << b1.transpose());
+      // ROS_DEBUG_STREAM("A1: \n" << A1);
+      // ROS_DEBUG_STREAM("b1: \n" << b1.transpose());
       graspControl(gimbal_processed_joint, A1, full_q_mat, extra_joint_torque);
 
       Eigen::VectorXd static_thrust = Eigen::VectorXd::Zero(getRotorNum());
@@ -999,10 +994,7 @@ void FullVectoringRobotModel::graspControl(const KDL::JntArray& gimbal_processed
   const auto& seg_tf_map = robot_model_for_plan_->getSegmentsTf();
   if (seg_tf_map.size() == 0) return;
 
-
   ROS_INFO_STREAM_ONCE("extra_joint_torque: \n" << extra_joint_torque.transpose());
-
-  //ROS_ERROR("A1_fr : [%d %d], A2_fr : [%d %d]", A1_fr.rows(), A1_fr.cols(), A2_fr.rows(), A2_fr.cols());
 
   const int joint_num = getJointNum();
   const int link_joint_num = getLinkJointIndices().size();
@@ -1028,9 +1020,9 @@ void FullVectoringRobotModel::graspControl(const KDL::JntArray& gimbal_processed
 
     Eigen::MatrixXd jac_dash = jac.rightCols(joint_num).transpose() * normal;
 
-    ROS_INFO_STREAM("external force" << i+1 << "\n"
-                    << "normal: " << normal.transpose()  << "\n"
-                    << "jac_dash: " << jac_dash.transpose());
+    // ROS_INFO_STREAM("external force" << i+1 << "\n"
+    //                 << "normal: " << normal.transpose()  << "\n"
+    //                 << "jac_dash: " << jac_dash.transpose());
 
     A1_fe_all -= jac_dash;
   }
@@ -1046,7 +1038,7 @@ void FullVectoringRobotModel::graspControl(const KDL::JntArray& gimbal_processed
       }
     if(cnt == link_joint_num) break;
   }
-  ROS_INFO_STREAM_ONCE("A1_fe: \n" << A1_fe);
+  // ROS_DEBUG_STREAM_ONCE("A1_fe: \n" << A1_fe);
 
 
   Eigen::MatrixXd A1 = Eigen::MatrixXd::Zero(link_joint_num, fr_ndof + fc_ndof);
@@ -1062,11 +1054,11 @@ void FullVectoringRobotModel::graspControl(const KDL::JntArray& gimbal_processed
   W1.topLeftCorner(fr_ndof, fr_ndof) = thrust_force_weight_ * Eigen::MatrixXd::Identity(fr_ndof, fr_ndof);
   Eigen::MatrixXd W2 = joint_torque_weight_ * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
 
-  ROS_INFO_STREAM_ONCE("W1: \n" << W1);
-  ROS_INFO_STREAM_ONCE("W2: \n" << W2);
+  // ROS_DEBUG_STREAM_ONCE("W1: \n" << W1);
+  // ROS_DEBUG_STREAM_ONCE("W2: \n" << W2);
 
-  ROS_INFO_STREAM_ONCE("A1: \n" << A1);
-  ROS_INFO_STREAM_ONCE("b1: \n" << b1.transpose());
+  // ROS_DEBUG_STREAM_ONCE("A1: \n" << A1);
+  // ROS_DEBUG_STREAM_ONCE("b1: \n" << b1.transpose());
 
   // 4. use thrust force and joint torque, cost and constraint for joint torque
   OsqpEigen::Solver qp_solver;
@@ -1131,8 +1123,6 @@ void FullVectoringRobotModel::graspControl(const KDL::JntArray& gimbal_processed
   ROS_INFO_STREAM_ONCE(prefix << " A1 * f: " << (A1 * f_all).transpose());
   ROS_INFO_STREAM_ONCE(prefix << " Joint Torque: " << tau.transpose());
   ROS_INFO_STREAM_ONCE(prefix << " Wrench: " << (A2_fr * fr).transpose());
-
-  throw;
 }
 
 void FullVectoringRobotModel::rotorInterfereAvoid(PrimeBoundMap& prime_bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles, int& gimbal_lock_num)
