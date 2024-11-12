@@ -322,6 +322,13 @@ void DynamixelSerial::update()
           }
         }
 
+
+        // ingnore pulley skip error
+        if (servo_[i].hardware_error_status_ & (1 << PULLEY_SKIP_ERROR)) {
+          servo_[i].force_servo_off_ = false;
+          continue;
+        }
+
         setTorque(i, false); // servo off
         servo_[i].force_servo_off_ = true;
       }
@@ -693,8 +700,22 @@ int8_t DynamixelSerial::readStatusPacket(uint8_t status_packet_instruction)
                         // check pulley skip
                         int32_t diff = internal_offset - s->internal_offset_; // this should be proportional to joint load.
                         // TODO: use diff to estimate the joint torque
+
+
                         if (abs(diff) > pulley_skip_thresh_) {
+                          if (!(s->hardware_error_status_ & (1 << PULLEY_SKIP_ERROR))) {
+                            s->pulley_skip_time_ = HAL_GetTick();
+                          }
+
                           s->hardware_error_status_ |= 1 << PULLEY_SKIP_ERROR;
+                        }
+
+                        if (s->hardware_error_status_ & (1 << PULLEY_SKIP_ERROR)) {
+                          if (HAL_GetTick() - s->pulley_skip_time_ > s->pulley_skip_reset_du_) {
+                            // reset the internal_offset and error flag
+                            s->internal_offset_ = internal_offset;
+                            s->hardware_error_status_ &= ~(1 << PULLEY_SKIP_ERROR);
+                          }
                         }
 
                         s->internal_offset_ = (1 - internal_offset_lpf_rate_) * internal_offset + internal_offset_lpf_rate_ * s->internal_offset_;
