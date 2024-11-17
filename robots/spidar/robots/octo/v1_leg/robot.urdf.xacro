@@ -20,14 +20,15 @@
     </inertial>
   </xacro:extra_module>
 
-  <xacro:extra_module name = "pc" parent = "center_link" visible = "0">
-    <origin xyz="0 0.089888 0.002" rpy="${pi/2} 0 0"/>
+  <xacro:extra_module name = "pc" parent = "center_link" visible = "1"
+                      model_url = "package://spidar/urdf/v1/mesh/board/vim4_module.dae">
+    <origin xyz="0 0 -0.047" rpy="0 0 0"/>
     <inertial>
-      <mass value="0.1411331"/>
-      <origin xyz="0.0008915 0.0304136 0.0271590" rpy="0 0 0"/>
+      <mass value="0.096"/>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
       <inertia
-          ixx="0.0000768" iyy="0.0001380" izz="0.0001493"
-          ixy="0.0000018" iyz="0.0000071" ixz="-0.0000024" />
+          ixx="0.000028" iyy="0.000061" izz="0.000084"
+          ixy="0.000000" iyz="0.000000" ixz="0.000000" />
     </inertial>
   </xacro:extra_module>
 
