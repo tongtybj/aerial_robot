@@ -63,7 +63,6 @@ void DynamixelSerial::init(UART_HandleTypeDef* huart, I2C_HandleTypeDef* hi2c, o
 	}
 	Flashmemory::addValue(&(ttl_rs485_mixed_), 2);
         Flashmemory::addValue(&(pulley_skip_thresh_), 2);
-        Flashmemory::addValue(&(internal_offset_lpf_rate_), 4);
 
 	Flashmemory::read();
 
@@ -105,12 +104,6 @@ void DynamixelSerial::init(UART_HandleTypeDef* huart, I2C_HandleTypeDef* hi2c, o
             cmdWriteGoalCurrent(i);
           }
 	}
-
-        if (std::isnan(internal_offset_lpf_rate_)) {
-          internal_offset_lpf_rate_ = 1.0f;
-          Flashmemory::erase();
-          Flashmemory::write();
-        }
 }
 
 void DynamixelSerial::ping()
@@ -714,8 +707,6 @@ int8_t DynamixelSerial::readStatusPacket(uint8_t status_packet_instruction)
                             s->hardware_error_status_ &= ~(1 << PULLEY_SKIP_ERROR);
                           }
                         }
-
-                        s->internal_offset_ = (1 - internal_offset_lpf_rate_) * internal_offset + internal_offset_lpf_rate_ * s->internal_offset_;
                       }
                     }
                     else {
@@ -1320,16 +1311,4 @@ HAL_StatusTypeDef DynamixelSerial::read(uint8_t* data,  uint32_t timeout)
           return HAL_TIMEOUT;
         }
     }
-}
-
-void DynamixelSerial::setInternalOffsetLPFRate(float value)
-{
-  if (value < 0) {
-    value = 0;
-  }
-  if (value > 1) {
-    value = 1;
-  }
-
-  internal_offset_lpf_rate_ = value;
 }
