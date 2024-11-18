@@ -9,6 +9,14 @@ namespace
   uint8_t rx_buf_[RX_BUFFER_SIZE];
 #endif
 }
+
+void ServoData::setGoalValue(int32_t goal_value)
+{
+  if (operating_mode_ == VELOCITY_CONTROL_MODE) goal_velocity_ = goal_value;
+  else goal_position_ = goal_value;
+}
+
+
 void DynamixelSerial::init(UART_HandleTypeDef* huart, osMutexId* mutex)
 {
 	huart_ = huart;
@@ -100,6 +108,15 @@ void DynamixelSerial::init(UART_HandleTypeDef* huart, osMutexId* mutex)
           servo_[i].zero_point_offset_ = 2047;
           servo_[i].angle_scale_ = 3.1416 / 2047;
         }
+
+        for (int i = 0; i < MAX_SERVO_NUM; i++){
+          // chage to ttl_rs485_mixed_ mode if there is a veloicty mode servo
+          uint8_t operating_mode = servo_[i].operating_mode_;
+          if (operating_mode == VELOCITY_CONTROL_MODE) {
+            ttl_rs485_mixed_ = 1;
+          }
+        }
+
 }
 
 void DynamixelSerial::ping()
@@ -229,7 +246,12 @@ void DynamixelSerial::update()
 
     if (ttl_rs485_mixed_ != 0) {
       for (unsigned int i = 0; i < servo_num_; ++i) {
-        instruction_buffer_.push(std::make_pair(INST_SET_GOAL_POS, i));
+        uint8_t operating_mode = servo_[i].operating_mode_;
+        if (operating_mode == VELOCITY_CONTROL_MODE) {
+          instruction_buffer_.push(std::make_pair(INST_SET_GOAL_VEL, i));
+        } else {
+          instruction_buffer_.push(std::make_pair(INST_SET_GOAL_POS, i));
+        }
       }
     } else {
       instruction_buffer_.push(std::make_pair(INST_SET_GOAL_POS, 0));
@@ -320,9 +342,6 @@ void DynamixelSerial::update()
 
       /* set command */
       switch (instruction.first) {
-      case INST_SET_GOAL_POS: /* send angle command to servo */
-        cmdSyncWriteGoalPosition();
-        break;
       case INST_SET_TORQUE: /* send torque enable flag */
         cmdWriteTorqueEnable(servo_index);
         break;
@@ -345,6 +364,12 @@ void DynamixelSerial::update()
       /* get command */
       if (ttl_rs485_mixed_ != 0) {
         switch (instruction.first) {
+        case INST_SET_GOAL_POS: /* send angle command to servo */
+          cmdWriteGoalPosition(servo_index);
+        break;
+        case INST_SET_GOAL_VEL: /* send velocity command to servo */
+          cmdWriteGoalVelocity(servo_index);
+        break;
         case INST_GET_PRESENT_POS: /* read servo position(angle) */
           if(!servo_[servo_index].send_data_flag_ && !servo_[servo_index].first_get_pos_flag_) break;
           cmdReadPresentPosition(servo_index);
@@ -399,6 +424,9 @@ void DynamixelSerial::update()
         }
       } else {
         switch (instruction.first) {
+        case INST_SET_GOAL_POS: /* send angle command to servo */
+          cmdSyncWriteGoalPosition();
+        break;
         case INST_GET_PRESENT_POS: /* read servo position(angle) */
           cmdSyncReadPresentPosition(false);
           read_status_packet_flag = true;
@@ -847,6 +875,28 @@ void DynamixelSerial::cmdReadProfileVelocity(uint8_t servo_index)
 void DynamixelSerial::cmdReadOperatingMode(uint8_t servo_index)
 {
 	cmdRead(servo_[servo_index].id_, CTRL_OPERATING_MODE, OPERATING_MODE_BYTE_LEN);
+}
+
+void DynamixelSerial::cmdWriteGoalPosition(uint8_t servo_index)
+{
+	int32_t goal_position  = servo_[servo_index].goal_position_;
+	uint8_t parameters[GOAL_POSITION_BYTE_LEN];
+	parameters[0] = (uint8_t)((int32_t)(goal_position) & 0xFF);
+	parameters[1] = (uint8_t)(((int32_t)(goal_position) >> 8) & 0xFF);
+	parameters[2] = (uint8_t)(((int32_t)(goal_position) >> 16) & 0xFF);
+	parameters[3] = (uint8_t)(((int32_t)(goal_position) >> 24) & 0xFF);
+	cmdWrite(servo_[servo_index].id_, CTRL_GOAL_POSITION, parameters, GOAL_POSITION_BYTE_LEN);
+}
+
+void DynamixelSerial::cmdWriteGoalVelocity(uint8_t servo_index)
+{
+	int32_t goal_velocity  = servo_[servo_index].goal_velocity_;
+	uint8_t parameters[GOAL_VELOCITY_BYTE_LEN];
+	parameters[0] = (uint8_t)((int32_t)(goal_velocity) & 0xFF);
+	parameters[1] = (uint8_t)(((int32_t)(goal_velocity) >> 8) & 0xFF);
+	parameters[2] = (uint8_t)(((int32_t)(goal_velocity) >> 16) & 0xFF);
+	parameters[3] = (uint8_t)(((int32_t)(goal_velocity) >> 24) & 0xFF);
+	cmdWrite(servo_[servo_index].id_, CTRL_GOAL_VELOCITY, parameters, GOAL_VELOCITY_BYTE_LEN);
 }
 
 void DynamixelSerial::cmdWriteCurrentLimit(uint8_t servo_index)
