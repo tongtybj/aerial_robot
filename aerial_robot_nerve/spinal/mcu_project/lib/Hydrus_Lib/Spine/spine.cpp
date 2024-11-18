@@ -88,9 +88,9 @@ namespace Spine
   void servoControlCallback(const spinal::ServoControlCmd& control_msg)
   {
     if (!servo_control_flag_) return;
-    if (control_msg.index_length != control_msg.angles_length) return;
+    if (control_msg.index_length != control_msg.cmd_length) return;
     for (unsigned int i = 0; i < control_msg.index_length; i++) {
-      servo_.at(control_msg.index[i]).get().setGoalPosition(control_msg.angles[i]);
+      servo_.at(control_msg.index[i]).get().setGoalPosition(control_msg.cmd[i]);
     }
   }
 
