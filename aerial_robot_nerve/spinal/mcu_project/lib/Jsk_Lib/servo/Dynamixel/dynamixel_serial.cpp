@@ -76,6 +76,7 @@ void DynamixelSerial::init(UART_HandleTypeDef* huart, osMutexId* mutex)
 	getCurrentLimit();
 	getPositionGains();
 	getProfileVelocity();
+	getOperatingMode();
 
 
         //initialize encoder: only can support one encoder
@@ -724,6 +725,11 @@ int8_t DynamixelSerial::readStatusPacket(uint8_t status_packet_instruction)
 			s->profile_velocity_ = ((parameters[3] << 24) & 0xFF000000) | ((parameters[2] << 16) & 0xFF0000) | ((parameters[1] << 8) & 0xFF00) | (parameters[0] & 0xFF);
 		}
 		return 0;
+	case INST_GET_OPERATING_MODE:
+		if (s != servo_.end()) {
+			s->operating_mode_ = parameters[0];
+		}
+		return 0;
 	default:
 		return -1;
 	}
@@ -838,6 +844,11 @@ void DynamixelSerial::cmdReadProfileVelocity(uint8_t servo_index)
 	cmdRead(servo_[servo_index].id_, CTRL_PROFILE_VELOCITY, PROFILE_VELOCITY_BYTE_LEN);
 }
 
+void DynamixelSerial::cmdReadOperatingMode(uint8_t servo_index)
+{
+	cmdRead(servo_[servo_index].id_, CTRL_OPERATING_MODE, OPERATING_MODE_BYTE_LEN);
+}
+
 void DynamixelSerial::cmdWriteCurrentLimit(uint8_t servo_index)
 {
 	uint16_t current_limit = servo_[servo_index].current_limit_;
@@ -940,6 +951,11 @@ void DynamixelSerial::cmdSyncReadPresentTemperature(bool send_all)
 void DynamixelSerial::cmdSyncReadProfileVelocity(bool send_all)
 {
 	cmdSyncRead(CTRL_PROFILE_VELOCITY, PROFILE_VELOCITY_BYTE_LEN, send_all);
+}
+
+void DynamixelSerial::cmdSyncReadOperatingMode(bool send_all)
+{
+	cmdSyncRead(CTRL_OPERATING_MODE, OPERATING_MODE_BYTE_LEN, send_all);
 }
 
 void DynamixelSerial::cmdSyncWriteGoalPosition()
@@ -1069,6 +1085,21 @@ void DynamixelSerial::getProfileVelocity()
 		cmdSyncReadProfileVelocity();
 		for (unsigned int i = 0; i < servo_num_; i++) {
 			readStatusPacket(INST_GET_PROFILE_VELOCITY);
+		}
+	}
+}
+
+void DynamixelSerial::getOperatingMode()
+{
+	if (ttl_rs485_mixed_ != 0) {
+		for (unsigned int i = 0; i < servo_num_; ++i) {
+			cmdReadOperatingMode(i);
+			readStatusPacket(INST_GET_OPERATING_MODE);
+		}
+	} else {
+		cmdSyncReadOperatingMode();
+		for (unsigned int i = 0; i < servo_num_; i++) {
+			readStatusPacket(INST_GET_OPERATING_MODE);
 		}
 	}
 }
