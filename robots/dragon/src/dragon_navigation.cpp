@@ -26,6 +26,8 @@ void DragonNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   final_target_baselink_rot_sub_ = nh_.subscribe("final_target_baselink_rot", 1, &DragonNavigator::setFinalTargetBaselinkRotCallback, this);
 
   prev_rotation_stamp_ = ros::Time::now().toSec();
+
+  baseline_control_mode_ = false;
 }
 
 void DragonNavigator::update()
@@ -222,6 +224,33 @@ void DragonNavigator::rosParamInit()
   getParam<double>(navi_nh, "baselink_rot_change_thresh", baselink_rot_change_thresh_, 0.02);  // the threshold to change the baselink rotation
   getParam<double>(navi_nh, "baselink_rot_pub_interval", baselink_rot_pub_interval_, 0.1); // the rate to pub baselink rotation command
 }
+
+void DragonNavigator::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
+{
+  BaseNavigator::joyStickControl(joy_msg);
+
+  sensor_msgs::Joy joy_cmd;
+  if(joy_msg->axes.size() == PS3_AXES && joy_msg->buttons.size() == PS3_BUTTONS) {
+    joy_cmd = (*joy_msg);
+  }
+  else if(joy_msg->axes.size() == PS4_AXES && joy_msg->buttons.size() == PS4_BUTTONS) {
+    joy_cmd = ps4joyToPs3joyConvert(*joy_msg);
+  }
+  else {
+    ROS_WARN("the joystick type is not supported (buttons: %d, axes: %d)", (int)joy_msg->buttons.size(), (int)joy_msg->axes.size());
+    return;
+  }
+
+  if(joy_cmd.buttons[PS3_BUTTON_REAR_LEFT_1] == 1 &&
+     joy_cmd.buttons[PS3_BUTTON_REAR_LEFT_2] == 1) {
+    baseline_control_mode_ = true;
+    return;
+  }
+
+  baseline_control_mode_ = false;
+
+}
+
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>

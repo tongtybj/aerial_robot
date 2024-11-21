@@ -1,4 +1,5 @@
 #include <dragon/control/full_vectoring_control.h>
+#include <dragon/dragon_navigation.h>
 
 using namespace aerial_robot_model;
 using namespace aerial_robot_control;
@@ -1085,7 +1086,10 @@ void DragonFullVectoringController::controlCore()
         // ROS_INFO_STREAM_THROTTLE(1.0, "\n target_vectoring_f_: " << target_vectoring_f_.transpose() << "\n "
         //                          "target_vectoring_f_qp: " << target_vectoring_f_qp.transpose());
         // ROS_INFO_THROTTLE(1.0, "Inv solve time: %f, QP solve time: %f", ave_t_diff_inv, ave_t_diff_qp);
-        target_vectoring_f_ = target_vectoring_f_qp;
+
+        auto dragon_navigator = boost::dynamic_pointer_cast<aerial_robot_navigation::DragonNavigator>(navigator_);
+
+        if (!dragon_navigator->getBaselinkmode()) target_vectoring_f_ = target_vectoring_f_qp;
       }
 
 

@@ -56,6 +56,8 @@ namespace aerial_robot_navigation
 
     inline const bool getLandingFlag() const { return landing_flag_; }
 
+    bool getBaselinkmode() {return baseline_control_mode_;}
+
   protected:
     ros::Publisher curr_target_baselink_rot_pub_;
     ros::Publisher joint_control_pub_;
@@ -89,5 +91,8 @@ namespace aerial_robot_navigation
     string joints_torque_control_srv_name_, gimbals_torque_control_srv_name_;
     double baselink_rot_change_thresh_;
     double baselink_rot_pub_interval_;
+
+    void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg) override;
+    bool baseline_control_mode_; // workarond to enable/disable qp-based control allocation
   };
 };
