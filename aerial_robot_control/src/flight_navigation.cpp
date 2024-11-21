@@ -60,12 +60,7 @@ void BaseNavigator::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   start_sub_ = teleop_nh.subscribe("start", 1,&BaseNavigator::startCallback, this);
   ctrl_mode_sub_ = teleop_nh.subscribe("ctrl_mode", 1, &BaseNavigator::xyControlModeCallback, this);
 
-  ros::TransportHints joy_transport_hints;
-#ifdef ARM_MELODIC // https://github.com/ros/ros_comm/issues/1404
-  joy_udp_ = false;
-#endif
-  if(joy_udp_) joy_transport_hints = ros::TransportHints().udp();
-  joy_stick_sub_ = nh_.subscribe("joy", 1, &BaseNavigator::joyStickControl, this, joy_transport_hints);
+  joy_stick_sub_ = nh_.subscribe("joy", 1, &BaseNavigator::joyStickControl, this);
 
   stop_teleop_sub_ = nh_.subscribe("stop_teleop", 1, &BaseNavigator::stopTeleopCallback, this);
 
