@@ -42,6 +42,7 @@ void BellyCrawl::rosParamInit()
   nh_belly_crawl.param("reset_baselink", cycle_reset_baselink_, true);
   nh_belly_crawl.param("belly_debug", belly_debug_, false);
   nh_belly_crawl.param("limb_debug", limb_debug_, false);
+  nh_belly_crawl.param("horizontal_vel", horizontal_vel_, 0.15);
 
   ros::NodeHandle nh_belly_crawl_limb(nh_belly_crawl, "limb");
   nh_belly_crawl_limb.param("joint_err_thresh", limb_.joint_err_thresh_, 0.05);
@@ -381,10 +382,6 @@ void BellyCrawl::bellySubStateMachine()
       if (diff > belly_.raise_thresh_) {
         ROS_INFO_STREAM(prefix << " baselink has raised to a enough height, move horizontally");
 
-        target_pos.setX(target_pos_.x());
-        target_pos.setY(target_pos_.y());
-        setTargetBaselinkPos(target_pos);
-
         // shift to belly_.PHASE2
         belly_.phase_ ++;
         ROS_INFO_STREAM(prefix << " shift to PHASE2 for horizontal move");
@@ -398,6 +395,7 @@ void BellyCrawl::bellySubStateMachine()
   case belly_.PHASE2:
     {
       std::string prefix("[Spidar][Belly Crawl][Baselink][Phase2]");
+
 
       // check raise duration
       if (ros::Time::now().toSec() - belly_.raise_start_t_ > belly_.raise_time_thresh_) {
@@ -426,7 +424,8 @@ void BellyCrawl::bellySubStateMachine()
       double diff = diff_vec.length();
 
       ROS_INFO_STREAM_THROTTLE(0.1, prefix << " curr x: " << curr_pos.x() << ", y: " << curr_pos.y() \
-                               << "; target x: " << target_pos.x() << ", y: " << target_pos.y());
+                               << "; curr target x: " << target_pos.x() << ", y: " << target_pos.y() \
+                               << "; final target x: " << target_pos_.x() << ", y: " << target_pos_.y());
 
       if (fabs(diff) < belly_.move_thresh_) {
         ROS_INFO_STREAM(prefix << " baselink has moved to the right place");

@@ -93,6 +93,7 @@ namespace aerial_robot_navigation
         bool cycle_reset_baselink_;
         bool belly_debug_;
         bool limb_debug_;
+        double horizontal_vel_;
 
         // limb move
         struct Limb {
