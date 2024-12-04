@@ -580,21 +580,28 @@ void Base::setJointIndexMap()
 void Base::setTargetBaselinkPos(tf::Vector3 pos, bool update_joint_angle)
 {
   target_baselink_pos_ = pos;
+  setTargetBaselinkPosForThrustControl(pos);
 
   if (update_joint_angle) {
     updateJoinAngleFrominverseKinematics();
   }
 }
 
+void Base::setTargetBaselinkPosForThrustControl(tf::Vector3 pos)
+{
+  target_baselink_pos_for_thrust_control_ = pos;
+}
+
 void Base::addTargetBaselinkPos(tf::Vector3 delta_pos, bool update_joint_angle)
 {
-  target_baselink_pos_ += delta_pos;
-  setTargetBaselinkPos(target_baselink_pos_, update_joint_angle);
+  tf::Vector3 target_baselink_pos = getTargetBaselinkPos();
+  target_baselink_pos += delta_pos;
+  setTargetBaselinkPos(target_baselink_pos, update_joint_angle);
 }
 
 void Base::setTargetBaselinkPose(tf::Vector3 pos, tf::Vector3 rpy, bool update_joint_angle)
 {
-  target_baselink_pos_ = pos;
+  setTargetBaselinkPos(pos, false);
   target_baselink_rpy_ = rpy;
 
   if (update_joint_angle) {
@@ -778,14 +785,16 @@ void Base::rosParamInit()
 
 void Base::targetBaselinkPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
 {
-  tf::vector3MsgToTF(msg->vector, target_baselink_pos_);
+  tf::Vector3 target_baselink_pos;
+  tf::vector3MsgToTF(msg->vector, target_baselink_pos);
+  setTargetBaselinkPos(target_baselink_pos, false);
 }
 
 void Base::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
 {
   tf::Vector3 delta_pos;
   tf::vector3MsgToTF(msg->vector, delta_pos);
-  target_baselink_pos_ += delta_pos;
+  addTargetBaselinkPos(delta_pos, false);
 
   ROS_ERROR("get new target baselink");
 }

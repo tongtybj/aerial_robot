@@ -77,6 +77,7 @@ namespace aerial_robot_navigation
         tf::Vector3 getCurrentBaselinkPos();
 
         inline tf::Vector3 getTargetBaselinkPos() {return target_baselink_pos_;}
+        inline tf::Vector3 getTargetBaselinkPosForThrustControl() {return target_baselink_pos_for_thrust_control_;}
         inline tf::Vector3 getTargetBaselinkRpy() {return target_baselink_rpy_;}
         inline tf::Vector3 getTargetBaselinkVel() {return target_baselink_vel_;}
         inline sensor_msgs::JointState getTargetJointState() {return target_joint_state_;}
@@ -87,6 +88,7 @@ namespace aerial_robot_navigation
         inline bool isRaiseLegConverge() const { return raise_converge_; }
         inline int getFreeleg() const { return free_leg_id_; }
         void setTargetBaselinkPos(tf::Vector3 pos, bool update_joint_angle = true);
+        void setTargetBaselinkPosForThrustControl(tf::Vector3 pos);
         void addTargetBaselinkPos(tf::Vector3 delta_pos, bool update_joint_angle = true);
         void setTargetBaselinkPose(tf::Vector3 pos, tf::Vector3 rpy, bool update_joint_angle = true);
         void setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_angle = true);
@@ -100,6 +102,7 @@ namespace aerial_robot_navigation
       protected:
 
         tf::Vector3 target_baselink_pos_;
+        tf::Vector3 target_baselink_pos_for_thrust_control_;
         tf::Vector3 target_baselink_vel_;
         tf::Vector3 target_baselink_rpy_;
 

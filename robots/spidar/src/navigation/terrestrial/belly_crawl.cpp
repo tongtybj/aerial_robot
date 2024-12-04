@@ -412,7 +412,10 @@ void BellyCrawl::bellySubStateMachine()
         target_pos += unit_vec * iteraive_dist;
       }
       setTargetBaselinkPos(target_pos);
-      setTargetBaselinkPosForThrustControl(target_pos_); // workaround to directly assign the target value for thrust control
+      tf::Vector3 target_pos_for_thrust_control = target_pos_;
+      target_pos_for_thrust_control.setZ(target_pos.z());
+      // workaround to directly assign the target value for thrust control
+      setTargetBaselinkPosForThrustControl(target_pos_for_thrust_control);
 
       tf::Vector3 diff_vec = curr_pos - target_pos_;
       diff_vec.setZ(0);
