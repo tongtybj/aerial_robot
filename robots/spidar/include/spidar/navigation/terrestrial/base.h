@@ -90,7 +90,7 @@ namespace aerial_robot_navigation
         void addTargetBaselinkPos(tf::Vector3 delta_pos, bool update_joint_angle = true);
         void setTargetBaselinkPose(tf::Vector3 pos, tf::Vector3 rpy, bool update_joint_angle = true);
         void setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_angle = true);
-        void resetTargetLegEnds();
+        void resetTargetLegEnds(bool update_joint_angle = true);
 
         void setController(aerial_robot_control::Spider::WalkController* controller){
           walk_controller_ = controller;

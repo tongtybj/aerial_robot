@@ -597,14 +597,14 @@ void Base::setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_an
   }
 }
 
-void Base::resetTargetLegEnds()
+void Base::resetTargetLegEnds(bool update_joint_angle)
 {
   std::vector<KDL::Frame> curr_leg_ends;
   if(!getCurrentLegEndsPos(curr_leg_ends)) {
     return ;
   }
 
-  setTargetLegEnds(curr_leg_ends);
+  setTargetLegEnds(curr_leg_ends, update_joint_angle);
 }
 
 tf::Vector3 Base::getCurrentBaselinkPos()

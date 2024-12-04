@@ -82,6 +82,7 @@ namespace aerial_robot_navigation
         double target_yaw_;
         std::vector<double> prev_target_joint_angles_;
         std::vector<double> final_target_joint_angles_;
+        std::vector<KDL::Frame> prev_target_leg_ends_;
 
 
         int phase_;
@@ -89,8 +90,6 @@ namespace aerial_robot_navigation
 
         // param
         double stride_;
-        bool cycle_reset_leg_end_;
-        bool cycle_reset_baselink_;
         bool belly_debug_;
         bool limb_debug_;
         double horizontal_vel_;

@@ -14,6 +14,8 @@ BellyCrawl::BellyCrawl()
 
   limb_.prev_t_ = 0;
   belly_.prev_t_ = 0;
+
+  prev_target_leg_ends_.resize(0);
 }
 
 
@@ -38,8 +40,6 @@ void BellyCrawl::rosParamInit()
   ros::NodeHandle nh_walk(nh_, "navigation/walk");
   ros::NodeHandle nh_belly_crawl(nh_walk, "belly_crawl");
   nh_belly_crawl.param("stride", stride_, 0.2);
-  nh_belly_crawl.param("reset_leg_end", cycle_reset_leg_end_, true);
-  nh_belly_crawl.param("reset_baselink", cycle_reset_baselink_, true);
   nh_belly_crawl.param("belly_debug", belly_debug_, false);
   nh_belly_crawl.param("limb_debug", limb_debug_, false);
   nh_belly_crawl.param("horizontal_vel", horizontal_vel_, 0.15);
@@ -311,15 +311,10 @@ void BellyCrawl::limbSubStateMachine()
 
       limb_.phase_ = limb_.PHASE0;
 
-      // reset the target leg ends to further update the target joint angles
-      if (cycle_reset_leg_end_) {
-        reset_leg_ends_flag_ = true;
-      }
-
-      // reset the target baselink to further update the target joint angles
-      if (cycle_reset_baselink_) {
-        reset_baselink_flag_ = true;
-      }
+      // update strategy:
+      // baselink pose: no need to update
+      // leg ends: temporary update for lifting baselink
+      resetTargetLegEnds(false); // do not need to update joint angle, so use false
 
       // workaround: condition for whole state machine
       phase_ = PHASE2; // move to belly move
@@ -499,22 +494,13 @@ void BellyCrawl::bellySubStateMachine()
       // set the static floating belly mode
       walk_controller_->setFloatingBellyMode(false);
 
-
-      // reset the target leg ends to further update the target joint angles
-      if (cycle_reset_leg_end_) {
-        reset_leg_ends_flag_ = true;
-      }
-
-      // reset the target baselink to further update the target joint angles
-      if (cycle_reset_baselink_) {
-        reset_baselink_flag_ = true;
-      }
-
       // workaround: condition for whole state machine
       phase_ = PHASE0; // move to initialize phase
       if (target_pos_ == final_target_pos_) {
         ROS_INFO_STREAM(prefix << " complete the iterative move");
+
         reset();
+        resetTargetLegEnds();
       }
 
       break;
@@ -547,8 +533,10 @@ void BellyCrawl::raiseAllLimbs()
   // save the previous target joint angles
   prev_target_joint_angles_ = target_joint_state_.position;
 
-  // update the foot postion, and thus the joint angles
   auto target_leg_ends = getTargetLegEnds();
+  // save the previous target joint angles
+  prev_target_leg_ends_ = target_leg_ends;
+  // update the foot postion, and thus the joint angles
   for (auto& leg_end:  target_leg_ends) {
     tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
     leg_end.p += KDL::Vector(delta.x(), delta.y(), delta.z());
