@@ -72,6 +72,9 @@ void Base::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 void Base::update()
 {
   if (getNaviState() == aerial_robot_navigation::START_STATE) {
+
+    allServoTorque(true); // force to torque-on all servo
+
     if(estimator_->getUnhealthLevel() == Sensor::UNHEALTH_LEVEL3){
       ROS_WARN("Sensor Unhealth, cannot arming");
       setNaviState(ARM_OFF_STATE);
@@ -822,22 +825,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo on */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joints/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = true;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] enable alll joint torque");
-      else
-        ROS_ERROR("Failed to call service joints/torque_enable");
-
-      client = nh_.serviceClient<std_srvs::SetBool>("gimbals/torque_enable");
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] enable alll gimbal torque");
-      else
-        ROS_ERROR("Failed to call service gimbals/torque_enable");
+      allServoTorque(true);
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -850,22 +838,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo off */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joints/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = false;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] disable the all joint torque");
-      else
-        ROS_ERROR("Failed to call service joints/torque_enable");
-
-      client = nh_.serviceClient<std_srvs::SetBool>("gimbals/torque_enable");
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] disable the all gimbal torque");
-      else
-        ROS_ERROR("Failed to call service gimbals/torque_enable");
+      allServoTorque(false);
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -878,15 +851,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo on */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joint_pitch/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = true;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] enable the pitch joint torque");
-      else
-        ROS_ERROR("Failed to call service joint_pitch/torque_enable");
+      jointPitchTorque(true); /* torque on */
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -899,15 +864,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo off */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joint_pitch/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = false;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] disable the pitch joint torque");
-      else
-        ROS_ERROR("Failed to call service joint_pitch/torque_enable");
+      jointPitchTorque(false); /* torque off */
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -1019,6 +976,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 
     if(getNaviState() == ARM_ON_STATE)
       {
+        allServoTorque(false); // force to torque-off all servo
         setNaviState(STOP_STATE);
         ROS_ERROR("Joy Conrol: not land, but disarm motors directly");
       }
@@ -1029,6 +987,39 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 
   prev_joy_cmd = joy_cmd;
 }
+
+void Base::jointPitchTorque(bool flag)
+{
+  ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joint_pitch/torque_enable");
+  std_srvs::SetBool srv;
+  srv.request.data = flag;
+
+  if (client.call(srv))
+    ROS_INFO("[Spider][Joy] enable the pitch joint torque");
+  else
+    ROS_ERROR("Failed to call service joint_pitch/torque_enable");
+}
+
+void Base::allServoTorque(bool flag)
+{
+  ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joints/torque_enable");
+  std_srvs::SetBool srv;
+  srv.request.data = flag;
+
+  if (client.call(srv))
+    ROS_INFO("[Spider][Joy] disable the all joint torque");
+  else
+    ROS_ERROR("Failed to call service joints/torque_enable");
+
+  client = nh_.serviceClient<std_srvs::SetBool>("gimbals/torque_enable");
+
+  if (client.call(srv))
+    ROS_INFO("[Spider][Joy] disable the all gimbal torque");
+  else
+    ROS_ERROR("Failed to call service gimbals/torque_enable");
+
+}
+
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>

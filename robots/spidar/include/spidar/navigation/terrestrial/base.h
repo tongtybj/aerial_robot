@@ -90,7 +90,6 @@ namespace aerial_robot_navigation
         void setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_angle = true);
         void resetTargetLegEnds();
 
-
         void setController(aerial_robot_control::Spider::WalkController* controller){
           walk_controller_ = controller;
         }
@@ -181,6 +180,8 @@ namespace aerial_robot_navigation
         void setJointIndexMap();
         std::vector<double> getCurrentJointAngles();
         bool getCurrentLegEndsPos(std::vector<KDL::Frame>& leg_ends_pos);
+        void jointPitchTorque(bool flag);
+        void allServoTorque(bool flag);
       };
     };
   };
