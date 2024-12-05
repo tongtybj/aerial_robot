@@ -44,6 +44,8 @@
 #include <std_msgs/Empty.h>
 #include <std_msgs/Bool.h>
 #include <spinal/FlightConfigCmd.h>
+#include <spinal/ServoState.h>
+#include <spinal/ServoStates.h>
 
 namespace aerial_robot_control
 {
@@ -133,11 +135,16 @@ namespace aerial_robot_navigation
 
         double converge_timestamp_;
 
+        std::vector<spinal::ServoState> raw_servo_states_;
+        bool servo_error_flag_;
+
         ros::Subscriber target_baselink_pos_sub_;
         ros::Subscriber target_baselink_delta_pos_sub_;
 
         ros::Subscriber raise_leg_sub_;
         ros::Subscriber lower_leg_sub_;
+
+        ros::Subscriber raw_servo_state_sub_;
 
         ros::Publisher target_leg_ends_pub_;
         ros::Publisher sim_baselink_pose_pub_;
@@ -161,6 +168,7 @@ namespace aerial_robot_navigation
         void lowerLegCallback(const std_msgs::EmptyConstPtr& msg);
         void walkCallback(const std_msgs::BoolConstPtr& msg);
         void simulateFlightConfigCallback(const spinal::FlightConfigCmdConstPtr& msg);
+        void rawServoStateCallback(const spinal::ServoStatesConstPtr& state_msg);
 
         bool checkKinematics();
 
@@ -172,7 +180,7 @@ namespace aerial_robot_navigation
         void updateRobotModelForNav();
         bool updateJoinAngleFrominverseKinematics(bool allow_fail = false);
         void freeLegAction();
-        void failSafeAction();
+        virtual void failSafeAction();
 
         void kinematicSimulate();
 

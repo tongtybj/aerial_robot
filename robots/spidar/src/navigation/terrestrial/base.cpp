@@ -17,7 +17,9 @@ Base::Base():
   free_leg_id_(-1),
   raise_leg_flag_(false),
   lower_leg_flag_(false),
-  raise_converge_(false)
+  raise_converge_(false),
+  raw_servo_states_(0),
+  servo_error_flag_(false)
 {
 }
 
@@ -38,6 +40,8 @@ void Base::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 
   raise_leg_sub_ = nh_.subscribe("walk/raise_leg", 1, &Base::raiseLegCallback, this);
   lower_leg_sub_ = nh_.subscribe("walk/lower_leg", 1, &Base::lowerLegCallback, this);
+
+  raw_servo_state_sub_ = nh_.subscribe("servo/states", 1, &Base::rawServoStateCallback, this);
 
   target_leg_ends_pub_ = nh_.advertise<geometry_msgs::PoseArray>("debug/nav/target_leg_ends", 1); // for debug
 
@@ -435,10 +439,30 @@ void Base::freeLegAction()
 
 void Base::failSafeAction()
 {
+  // servo error
+  if (!servo_error_flag_) {
+    for(const auto& state: raw_servo_states_) {
+      if (state.error > 0) {
+        ROS_ERROR("servo %d has error, Err Code: %d", state.index, state.error);
+        servo_error_flag_ = true;
+
+        lower_leg_flag_ = false;
+        raise_leg_flag_ = false;
+        raise_converge_ = false;
+
+
+        ROS_ERROR("force servo off all joint pitch becuase of servo error");
+        jointPitchTorque(false);
+      }
+    }
+  }
+
   // baselink rotation
+  tf::Matrix3x3 target_rot; target_rot.setRPY(target_baselink_rpy_.x(), target_baselink_rpy_.y(), target_baselink_rpy_.z());
   tf::Matrix3x3 rot = estimator_->getOrientation(Frame::BASELINK, estimate_mode_);
-  tf::Vector3 zb = rot * tf::Vector3(0,0,1);
-  double theta = atan2(sqrt(zb.x() * zb.x() + zb.y() * zb.y()), zb.z());
+  tf::Matrix3x3 diff_rot = target_rot.transpose() * rot;
+  tf::Vector3 zb = diff_rot * tf::Vector3(0,0,1);
+  double theta = atan2(sqrt(zb.x() * zb.x() + zb.y() * zb.y()), fabs(zb.z()));
 
   if (theta > baselink_rot_thresh_){
     ROS_WARN_STREAM("[Spider][Walk][Navigation] baselink rotation is abnormal, tool tiled: " << theta);
@@ -446,23 +470,6 @@ void Base::failSafeAction()
     if (raise_leg_flag_) {
       lowerLeg();
       ROS_WARN_STREAM("[Spider][Walk][Navigation] instantly lower the raised leg" << free_leg_id_ + 1);
-    }
-  }
-
-  // pitch joint of opposite of raise leg
-  if (raise_leg_flag_) {
-    int leg_num = spidar_robot_model_->getRotorNum() / 2;
-    int leg_id = (free_leg_id_ + leg_num / 2) % leg_num;
-    int j = 4 * leg_id + 1;
-    double target_angle = target_joint_state_.position.at(j);
-    double current_angle = getCurrentJointAngles().at(j);
-    std::string name = target_joint_state_.name.at(j);
-
-    //ROS_INFO_STREAM("[Spider][Walk][Navigation] " << name << ", target angle  " << target_angle << ", current angle: " << current_angle);
-    if (target_angle - current_angle > opposite_raise_leg_thresh_) {
-      ROS_WARN_STREAM("[Spider][Walk][Navigation] " << name << " is overload because of raising leg, target angle  " << target_angle << ", current angle: " << current_angle);
-      ROS_WARN_STREAM("[Spider][Walk][Navigation] instantly lower the raising leg" << free_leg_id_ + 1);
-      lowerLeg();
     }
   }
 }
@@ -767,6 +774,11 @@ void Base::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3StampedCon
   target_baselink_pos_ += delta_pos;
 
   ROS_ERROR("get new target baselink");
+}
+
+void Base::rawServoStateCallback(const spinal::ServoStatesConstPtr& state_msg)
+{
+  raw_servo_states_ = state_msg->servos;
 }
 
 void Base::raiseLegCallback(const std_msgs::UInt8ConstPtr& msg)
