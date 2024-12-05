@@ -311,11 +311,6 @@ void BellyCrawl::limbSubStateMachine()
 
       limb_.phase_ = limb_.PHASE0;
 
-      // update strategy:
-      // baselink pose: no need to update
-      // leg ends: temporary update for lifting baselink
-      resetTargetLegEnds(false); // do not need to update joint angle, so use false
-
       // workaround: condition for whole state machine
       phase_ = PHASE2; // move to belly move
       break;
@@ -345,7 +340,12 @@ void BellyCrawl::bellySubStateMachine()
     {
       std::string prefix("[Spidar][Belly Crawl][Baselink][Phase0]");
       walk_controller_->setFloatingBellyMode(true);
-      addTargetBaselinkPos(tf::Vector3(0, 0, belly_.raise_height_)); // TODO: only horizontal ground
+
+      // update strategy:
+      // leg ends: temporary update for lifting baselink
+      resetTargetLegEnds(false); // do not need to update joint angle, so use false
+
+      addTargetBaselinkPos(tf::Vector3(0, 0, belly_.raise_height_), true); // update joitn angle
 
       init_pos_ = curr_pos;
 
@@ -533,15 +533,20 @@ void BellyCrawl::raiseAllLimbs()
   // save the previous target joint angles
   prev_target_joint_angles_ = target_joint_state_.position;
 
-  auto target_leg_ends = getTargetLegEnds();
-  // save the previous target joint angles
-  prev_target_leg_ends_ = target_leg_ends;
+  if (prev_target_leg_ends_.size() == 0) {
+    getCurrentLegEndsPos(prev_target_leg_ends_);
+  }
   // update the foot postion, and thus the joint angles
-  for (auto& leg_end:  target_leg_ends) {
-    tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
+  tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
+  for (auto& leg_end:  prev_target_leg_ends_) {
     leg_end.p += KDL::Vector(delta.x(), delta.y(), delta.z());
   }
-  setTargetLegEnds(target_leg_ends);
+  setTargetLegEnds(prev_target_leg_ends_, false);
+  std::vector<int> fail_list(0);
+  updateJoinAngleFrominverseKinematics(true, fail_list);
+  for (const auto& id: fail_list) {
+    prev_target_leg_ends_.at(id).p -= KDL::Vector(delta.x(), delta.y(), delta.z());
+  }
 
   // save the final (real) target joint angles
   final_target_joint_angles_ = target_joint_state_.position;

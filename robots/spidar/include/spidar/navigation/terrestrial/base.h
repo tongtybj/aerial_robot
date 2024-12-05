@@ -179,6 +179,7 @@ namespace aerial_robot_navigation
 
         void updateRobotModelForNav();
         bool updateJoinAngleFrominverseKinematics(bool allow_fail = false);
+        bool updateJoinAngleFrominverseKinematics(bool allow_fail, std::vector<int>& fail_list);
         void freeLegAction();
         virtual void failSafeAction();
 

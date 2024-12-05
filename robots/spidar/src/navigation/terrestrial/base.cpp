@@ -113,11 +113,20 @@ void Base::update()
 // calculate target joint angle from target baselink based on IK
 bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
 {
+  std::vector<int> dummy_list(0);
+  return updateJoinAngleFrominverseKinematics(allow_fail, dummy_list);
+}
+
+
+// calculate target joint angle from target baselink based on IK
+bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail, std::vector<int>& fail_list)
+{
   const int leg_num = spidar_robot_model_->getRotorNum() / 2;
   const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
   std::vector<KDL::Frame> curr_leg_ends;
   getCurrentLegEndsPos(curr_leg_ends);
 
+  fail_list.resize(0);
 
   // calculate the target joint angles from baselink and end position
   KDL::Frame fw_target_baselink;
@@ -190,6 +199,7 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
                        << "; baselink pos: " << aerial_robot_model::kdlToEigen(fw_target_baselink.p).transpose());
 
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
@@ -205,18 +215,21 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
     if(fabs(angle) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
     if(fabs(theta1) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_pitch exceeds the valid range, angle is " << theta1);
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
     if(fabs(theta2) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 2 << "_pitch exceeds the valid range, angle is " << theta2);
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
@@ -224,6 +237,7 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
     if(names.at(4 * i) != std::string("joint") + std::to_string(2*i+1) + std::string("_yaw")) {
       ROS_WARN_STREAM("[Spider][Navigator] name order is different. ID" << i << " name is " << names.at(4 * i));
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
