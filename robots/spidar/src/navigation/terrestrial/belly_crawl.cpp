@@ -43,7 +43,7 @@ void BellyCrawl::rosParamInit()
   nh_belly_crawl.param("belly_debug", belly_debug_, false);
   nh_belly_crawl.param("limb_debug", limb_debug_, false);
 
-  ros::NodeHandle nh_belly_crawl_limb(nh_belly_crawl, "limbw");
+  ros::NodeHandle nh_belly_crawl_limb(nh_belly_crawl, "limb");
   nh_belly_crawl_limb.param("joint_err_thresh", limb_.joint_err_thresh_, 0.05);
   nh_belly_crawl_limb.param("loop_duration", limb_.loop_duration_, 0.1);
   nh_belly_crawl_limb.param("servo_switch_duration", limb_.servo_switch_duration_, 0.5);
