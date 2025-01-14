@@ -163,6 +163,18 @@
     </inertial>
   </xacro:extra_module>
 
+  <!-- front usb camera -->
+  <xacro:extra_module name = "usb_cam" parent = "main_body" visible = "0"  >
+    <origin xyz="0.09 0 0" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "0.02" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.00001" ixy="0.0" ixz="0.0"
+          iyy="0.00001" iyz="0.0" izz="0.00002"/>
+    </inertial>
+  </xacro:extra_module>
+
   <!-- propellers -->
   <xacro:propeller_module id = "1" x = "${-rotor_x}" y = "${-rotor_y}" z = "${rotor_z}" direction = "-1" />
   <xacro:propeller_module id = "2" x = "${rotor_x}" y = "${-rotor_y}" z = "${rotor_z}" direction = "1" />
