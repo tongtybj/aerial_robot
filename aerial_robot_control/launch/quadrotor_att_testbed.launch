@@ -2,7 +2,7 @@
 <launch>
 
   # sipnal
-  <include file="$(find spinal_ros_bridge)/launch/serial.launch" >
+  <include file="$(find spinal)/launch/bridge.launch" >
   </include>
 
   # rqt reconfigure
