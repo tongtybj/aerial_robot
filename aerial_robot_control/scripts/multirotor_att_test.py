@@ -77,15 +77,15 @@ class QuadrotorAttitudeTest(object):
                 pitch_sign = 1
                 yaw_sign = -1
 
-            motor_gain.roll_p = roll_sign * self.p_gain
-            motor_gain.roll_i = roll_sign * self.i_gain
-            motor_gain.roll_d = roll_sign * self.d_gain
-            motor_gain.pitch_p = pitch_sign * self.p_gain
-            motor_gain.pitch_i = pitch_sign * self.i_gain
-            motor_gain.pitch_d = pitch_sign * self.d_gain
-            motor_gain.yaw_p = yaw_sign * self.yaw_p_gain
-            motor_gain.yaw_i = yaw_sign * self.yaw_i_gain
-            motor_gain.yaw_d = yaw_sign * self.yaw_d_gain
+            motor_gain.roll_p = int(roll_sign * self.p_gain)
+            motor_gain.roll_i = int(roll_sign * self.i_gain)
+            motor_gain.roll_d = int(roll_sign * self.d_gain)
+            motor_gain.pitch_p = int(pitch_sign * self.p_gain)
+            motor_gain.pitch_i = int(pitch_sign * self.i_gain)
+            motor_gain.pitch_d = int(pitch_sign * self.d_gain)
+            motor_gain.yaw_p = int(yaw_sign * self.yaw_p_gain)
+            motor_gain.yaw_i = int(yaw_sign * self.yaw_i_gain)
+            motor_gain.yaw_d = int(yaw_sign * self.yaw_d_gain)
 
             gains_msgs.motors.append(motor_gain)
 
