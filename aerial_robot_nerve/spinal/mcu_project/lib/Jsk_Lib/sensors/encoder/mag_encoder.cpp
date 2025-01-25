@@ -26,6 +26,20 @@ void MagEncoder::init(I2C_HandleTypeDef* hi2c, ros::NodeHandle* nh)
   last_time_ = HAL_GetTick() + 6000; // after 6s
 }
 
+void MagEncoder::configure(void)
+{
+  uint8_t val[2];
+  val[0] = AS5600_REG_ABN;
+  val[1] = 0xFF; // 2048 positions (512 ppr)
+  HAL_I2C_Master_Transmit(hi2c_, AS5600_I2C_ADDRESS, val, 2, 100);
+  HAL_Delay(100); //wait for initialization
+
+  val[0] = AS5600_REG_BURN;
+  val[1] = 0x40;
+  HAL_I2C_Master_Transmit(hi2c_, AS5600_I2C_ADDRESS, val, 2, 100);
+  HAL_Delay(100); //wait for burn
+}
+
 void MagEncoder::update(void)
 {
   uint32_t now_time = HAL_GetTick();

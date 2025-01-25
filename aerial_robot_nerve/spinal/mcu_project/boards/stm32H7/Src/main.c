@@ -264,7 +264,8 @@ int main(void)
 #endif
 
   mag_encoder_.init(&hi2c3, &nh_);
-
+  mag_encoder_.configure();
+  
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */

@@ -1,5 +1,4 @@
-/*
-******************************************************************************
+/*******************************************************************************
 * File Name          : mag_encoder.h
 * Description        : Magnetic Encoder Interface
 ******************************************************************************
@@ -25,9 +24,12 @@ public:
   
   static const uint8_t AS5600_I2C_ADDRESS =  0x6c; // 0x36 << 1; NOTE: STM: i2c_address << 1 !!!
   static const uint8_t AS5600_REG_RAW_ANGLE =  0x0C;
+  static const uint8_t AS5600_REG_ABN =  0x09;
+  static const uint8_t AS5600_REG_BURN =  0xff;
   static const uint8_t UPDATE_INTERVAL = 20; //20 -> 50Hz
 
   void init(I2C_HandleTypeDef* hi2c, ros::NodeHandle* nh);
+  void configure(void);
   void update(void);
 
 private:
