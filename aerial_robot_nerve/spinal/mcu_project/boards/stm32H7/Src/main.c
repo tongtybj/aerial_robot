@@ -114,6 +114,8 @@ Baro baro_;
 GPS gps_;
 BatteryStatus battery_status_;
 
+MagEncoder mag_encoder_;
+
 /* servo instance */
 DirectServo servo_;
 
@@ -239,7 +241,6 @@ int main(void)
   /* FlashMemory::write(); */
   FlashMemory::read();
 #endif
-
   imu_.init(&hspi1, &hi2c3, &nh_, IMUCS_GPIO_Port, IMUCS_Pin, LED0_GPIO_Port, LED0_Pin);
   IMU_ROS_CMD::init(&nh_);
   IMU_ROS_CMD::addImu(&imu_);
@@ -261,7 +262,9 @@ int main(void)
   Spine::init(&hfdcan1, &nh_, &estimator_, LED1_GPIO_Port, LED1_Pin);
   Spine::useRTOS(&canMsgMailHandle); // use RTOS for CAN in spianl
 #endif
-  
+
+  mag_encoder_.init(&hi2c3, &nh_);
+
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */
@@ -1095,6 +1098,8 @@ void coreTaskFunc(void const * argument)
 #if !SERVO_FLAG && NERVE_COMM
       Spine::update();
 #endif
+
+      mag_encoder_.update();
 
       // Workaround to handle the BUSY->TIMEOUT Error problem of ETH handler in STM32H7
       // We observe this is occasionally occur, but the ETH DMA is valid.

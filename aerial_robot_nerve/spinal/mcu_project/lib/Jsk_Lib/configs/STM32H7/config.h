@@ -29,7 +29,7 @@
 #define GPIO_L(port, pin) HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET)
 
 //0. Comm Type
-#define NERVE_COMM 1
+#define NERVE_COMM 0
 
 //1. Specials board options
 #define STM32H7_V2 0
