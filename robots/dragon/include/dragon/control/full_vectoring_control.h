@@ -63,8 +63,6 @@ namespace aerial_robot_control
     DragonFullVectoringController();
     ~DragonFullVectoringController()
     {
-      wrench_estimate_thread_.interrupt();
-      wrench_estimate_thread_.join();
     }
 
     void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
@@ -79,9 +77,6 @@ namespace aerial_robot_control
     ros::Publisher flight_cmd_pub_; //for spinal
     ros::Publisher gimbal_control_pub_;
     ros::Publisher target_vectoring_force_pub_;
-    ros::Publisher estimate_external_wrench_pub_;
-    ros::Publisher rotor_interfere_wrench_pub_;
-    ros::Publisher interfrence_marker_pub_;
 
     ros::Publisher rpy_gain_pub_;
     ros::Publisher torque_allocation_matrix_inv_pub_;
@@ -91,42 +86,10 @@ namespace aerial_robot_control
     std::vector<float> target_base_thrust_;
     std::vector<double> target_gimbal_angles_;
     Eigen::VectorXd target_vectoring_f_;
-    bool decoupling_;
     bool gimbal_vectoring_check_flag_;
     double allocation_refine_threshold_;
     int allocation_refine_max_iteration_;
     Eigen::VectorXd target_wrench_acc_cog_;
-
-    /* external wrench */
-    std::mutex wrench_mutex_;
-    boost::thread wrench_estimate_thread_;
-    Eigen::VectorXd init_sum_momentum_;
-    Eigen::VectorXd est_external_wrench_;
-    Eigen::MatrixXd momentum_observer_matrix_;
-    Eigen::VectorXd integrate_term_;
-    double prev_est_wrench_timestamp_;
-
-    bool rotor_interfere_estimate_;
-    bool rotor_interfere_compensate_;
-    double fz_bias_;
-    double tx_bias_;
-    double ty_bias_;
-    double wrench_lpf_rate_;
-    double fz_bias_thresh_;
-    double comp_wrench_lpf_rate_;
-    double rotor_interfere_torque_xy_weight_;
-    double rotor_interfere_force_dev_weight_;
-    Eigen::VectorXd rotor_interfere_force_;
-    Eigen::VectorXd rotor_interfere_comp_wrench_;
-    std::vector<Eigen::VectorXd> overlap_positions_;
-    std::vector<double> overlap_weights_;
-    std::vector<std::string> overlap_segments_;
-    std::vector<std::string> overlap_rotors_;
-    double overlap_dist_rotor_thresh_;
-    double overlap_dist_rotor_relax_thresh_;
-    double overlap_dist_link_thresh_;
-    double overlap_dist_link_relax_thresh_;
-    double overlap_dist_inter_joint_thresh_;
 
     double takeoff_acc_z_thresh_;
 
@@ -140,21 +103,16 @@ namespace aerial_robot_control
     bool force_lock_all_angle_{false};
     double force_tilt_limit_angle_{0};
 
-    void externalWrenchEstimate();
     const Eigen::VectorXd getTargetWrenchAccCog()
     {
-      std::lock_guard<std::mutex> lock(wrench_mutex_);
       return target_wrench_acc_cog_;
     }
     void setTargetWrenchAccCog(const Eigen::VectorXd target_wrench_acc_cog)
     {
-      std::lock_guard<std::mutex> lock(wrench_mutex_);
       target_wrench_acc_cog_ = target_wrench_acc_cog;
     }
 
     void controlCore() override;
-    void rotorInterfereEstimate();
-    void rotorInterfereCompensate(Eigen::VectorXd& target_wrench_acc);
     void rosParamInit();
     void sendCmd();
 
