@@ -36,6 +36,8 @@
 #pragma once
 
 #include <dragon/model/hydrus_like_robot_model.h>
+#include <dragon/util/allocation.h>
+#include <dragon/util/vectoring.h>
 #include <nlopt.hpp>
 #include <numeric>
 #include <ros/console.h>
@@ -45,7 +47,6 @@
 
 // alias
 using RobotModelPtr = boost::shared_ptr<aerial_robot_model::transformable::RobotModel>;
-using PrimeBoundMap = std::map<int, std::pair<double, double>>;
 
 namespace Dragon
 {
@@ -95,24 +96,6 @@ namespace Dragon
 
     bool stabilityCheck(bool verbose) override;
 
-    static void getShortestPath(double& roll_angle, const double prev_roll_angle, \
-                                double& pitcn_angle, const double prev_pitch_angle);
-
-
-    static void updateJointTorqueMatrices(RobotModelPtr robot_model, \
-                                          const KDL::JntArray& gimbal_processed_joint, \
-                                          const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, \
-                                          const std::vector<int>& roll_locked_gimbal, \
-                                          const std::vector<double>& gimbal_nominal_angles, \
-                                          const double thrust_force_weight, const double joint_torque_weight, \
-                                          Eigen::MatrixXd& A1, Eigen::VectorXd& b1, Eigen::MatrixXd& Psi);
-
-    static void compensateJointTorque(const Eigen::MatrixXd& A1, const Eigen::MatrixXd& Psi, \
-                                      const Eigen::VectorXd& b1, const Eigen::VectorXd& b2, \
-                                      const Eigen::MatrixXd& full_q_mat_inv, const Eigen::MatrixXd& full_q_mat, \
-                                      const double joint_torque_weight, \
-                                      Eigen::VectorXd& target_vectoring_f);
-
   private:
 
     RobotModelPtr robot_model_for_plan_;
@@ -160,7 +143,6 @@ namespace Dragon
     virtual void updateRobotModelImpl(const KDL::JntArray& joint_positions) override;
 
     void graspControl(const KDL::JntArray& gimbal_processed_joint, const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque);
-    void rotorInterfereAvoid(PrimeBoundMap& bound_map, std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles, int& gimbal_lock_num);
 
     double thrust_force_weight_, joint_torque_weight_;
   };

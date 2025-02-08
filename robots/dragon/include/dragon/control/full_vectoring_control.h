@@ -37,6 +37,8 @@
 
 #include <aerial_robot_control/control/base/pose_linear_controller.h>
 #include <dragon/model/full_vectoring_robot_model.h>
+#include <dragon/util/allocation.h>
+#include <dragon/util/vectoring.h>
 #include <geometry_msgs/WrenchStamped.h>
 #include <spinal/FourAxisCommand.h>
 #include <spinal/RollPitchYawTerm.h>
@@ -51,6 +53,7 @@
 
 // alias
 using DragonModelPtr = boost::shared_ptr<Dragon::FullVectoringRobotModel>;
+using PrimeBoundMap = std::map<int, std::pair<double, double>>;
 
 namespace aerial_robot_control
 {
@@ -157,5 +160,10 @@ namespace aerial_robot_control
 
     void sendTorqueAllocationMatrixInv();
     void setAttitudeGains();
+
+    void rotorInterfereAvoid(const DragonModelPtr robot_model, \
+                             PrimeBoundMap& prime_bound_map, \
+                             std::vector<int>& roll_locked_gimbal, \
+                             std::vector<double>& gimbal_nominal_angles);
   };
 };
