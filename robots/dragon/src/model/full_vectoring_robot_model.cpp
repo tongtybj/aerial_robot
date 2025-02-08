@@ -378,12 +378,6 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       Eigen::VectorXd gravity_force = getGravity() * robot_model_for_plan_->getMass();
       Eigen::VectorXd hover_vectoring_f = full_q_mat_inv * gravity_force;
 
-      allocation::compensateJointTorque(A1, Psi, b1, -gravity_force, full_q_mat_inv, full_q_mat, \
-                                        joint_torque_weight_, hover_vectoring_f);
-
-
-      // ROS_ERROR("A1 : [%d %d], full q mat : [%d %d]", A1.rows(), A1.cols(), full_q_mat.rows(), full_q_mat.cols());
-
       // find the joint torque:
       Eigen::VectorXd extra_joint_torque = A1 * hover_vectoring_f + b1;
       // ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());

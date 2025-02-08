@@ -643,20 +643,6 @@ void DragonFullVectoringController::controlCore()
       Eigen::MatrixXd full_q_mat_inv = aerial_robot_model::pseudoinverse(full_q_mat);
       target_vectoring_f_ = full_q_mat_inv * target_wrench_acc_cog;
 
-      // compesante joint torque without the constaint (closed-form)
-      // only if the robot is flying or almost flying.
-      if (start_rp_integration_)
-        {
-          tf::Vector3 acc_bias_w(0, 0, pid_controllers_.at(Z).result()); // TODO: maybe only I term is better
-          //tf::Vector3 acc_bias_w(0, 0, pid_controllers_.at(Z).getPTerm() + pid_controllers_.at(Z).getITerm());
-          tf::Vector3 acc_bias_cog = uav_rot.inverse() * acc_bias_w;
-          Eigen::VectorXd wrench_bias = Eigen::VectorXd::Zero(6);
-          wrench_bias.head(3) = Eigen::Vector3d(acc_bias_cog.x(), acc_bias_cog.y(), acc_bias_cog.z());
-
-          allocation::compensateJointTorque(A1, Psi, b1, -wrench_bias, \
-                                            full_q_mat_inv, full_q_mat, joint_torque_weight_, \
-                                            target_vectoring_f_);
-        }
       // 2. solve by QP
       allocation::constraint::vectoring(robot_model_for_control_, full_q_mat,    \
                                         target_wrench_acc_cog,          \
