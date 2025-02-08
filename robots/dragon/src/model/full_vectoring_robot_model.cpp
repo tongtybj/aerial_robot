@@ -89,13 +89,6 @@ FullVectoringRobotModel::FullVectoringRobotModel(bool init_with_rosparam, bool v
       if(ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug) )
         ros::console::notifyLoggerLevelsChanged();
     }
-
-  /* WIP: add ball inertial model */
-  KDL::Frame f(KDL::Vector(0,0, -0.8));
-  KDL::RigidBodyInertia rigid_body_inertia(1.0, KDL::Vector(0, 0, 0), KDL::RotationalInertia(0.01, 0.01, 0.01, 0, 0, 0));
-  KDL::Vector dim(0.25, 0, 0);
-  addExtraModule("ball", "center_link", f, rigid_body_inertia, dim);
-
 }
 
 void FullVectoringRobotModel::getParamFromRos()
