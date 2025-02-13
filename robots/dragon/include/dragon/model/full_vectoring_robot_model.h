@@ -96,6 +96,17 @@ namespace Dragon
 
     bool stabilityCheck(bool verbose) override;
 
+    void setVectoringBounds(PrimeBoundMap vectoring_bounds)
+    {
+      std::lock_guard<std::mutex> lock(vb_mutex_);
+      vectoring_bounds_ = vectoring_bounds;
+    }
+    const PrimeBoundMap& getVectoringBounds()
+    {
+      std::lock_guard<std::mutex> lock(vb_mutex_);
+      return vectoring_bounds_;
+    }
+
   private:
 
     RobotModelPtr robot_model_for_plan_;
@@ -126,6 +137,9 @@ namespace Dragon
     std::vector<Eigen::Vector3d> overlap_positions_;
     std::vector<double> overlap_magnitudes_;
 
+    PrimeBoundMap vectoring_bounds_;
+    std::mutex vb_mutex_;
+
     //private functions
     void getParamFromRos();
 
@@ -141,8 +155,6 @@ namespace Dragon
 
   protected:
     virtual void updateRobotModelImpl(const KDL::JntArray& joint_positions) override;
-
-    void graspControl(const KDL::JntArray& gimbal_processed_joint, const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque);
 
     double thrust_force_weight_, joint_torque_weight_;
   };

@@ -35,8 +35,26 @@
 
 #pragma once
 
+#include <boost/shared_ptr.hpp>
+#include <map>
+
+namespace Dragon
+{
+  class FullVectoringRobotModel;
+};
+
+using DragonModelPtr = boost::shared_ptr<Dragon::FullVectoringRobotModel>;
+using PrimeBoundMap = std::map<int, std::pair<double, double>>;
 
 namespace vectoring
 {
-  void getShortestPath(double& roll_angle, const double prev_roll_angle, double& pitcn_angle, const double prev_pitch_angle);
+  void getShortestPath(double& roll_angle, const double prev_roll_angle, \
+                       double& pitcn_angle, const double prev_pitch_angle);
+
+  namespace interfere
+  {
+    void getBounds(Dragon::FullVectoringRobotModel* robot_model_ptr, PrimeBoundMap& prime_bound_map, \
+                   std::vector<int>& roll_locked_gimbal, std::vector<double>& gimbal_nominal_angles);
+
+  };
 };

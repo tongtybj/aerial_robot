@@ -66,7 +66,6 @@ namespace allocation
     bool vectoring(RobotModelPtr robot_model,        \
                    const Eigen::MatrixXd& full_q_mat,           \
                    const Eigen::VectorXd& target_wrench,        \
-                   const std::vector<double>& gimbal_nominal_angles, \
                    const std::vector<int>& roll_locked_gimbal,  \
                    const PrimeBoundMap& rotor_bound_map,        \
                    Eigen::VectorXd& vec_f);

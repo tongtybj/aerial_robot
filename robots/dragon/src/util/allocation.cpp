@@ -127,7 +127,6 @@ namespace allocation
     bool vectoring(RobotModelPtr robot_model, \
                    const Eigen::MatrixXd& full_q_mat, \
                    const Eigen::VectorXd& target_wrench, \
-                   const std::vector<double>& gimbal_nominal_angles, \
                    const std::vector<int>& roll_locked_gimbal, \
                    const PrimeBoundMap& rotor_bound_map, \
                    Eigen::VectorXd& vec_f)
@@ -178,13 +177,13 @@ namespace allocation
                   double sub_bound = map_it->second.second;
                   double direction = sub_bound - prime_bound;
 
-                  double prime_pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + prime_bound;
+                  double prime_pitch_angle = prime_bound;
                   constraints(row, col) = cos(prime_pitch_angle); // x
                   constraints(row, col + 1) = -sin(prime_pitch_angle); // z
                   if (direction > 0) lower_bound(row) = 0;
                   else upper_bound(row) = 0;
 
-                  double sub_pitch_angle = gimbal_nominal_angles.at(i * 2 + 1) + sub_bound;
+                  double sub_pitch_angle = sub_bound;
                   constraints(row + 1, col) = cos(sub_pitch_angle); // x
                   constraints(row + 1, col + 1) = -sin(sub_pitch_angle); // z
                   if (direction > 0) upper_bound(row+1) = 0;
