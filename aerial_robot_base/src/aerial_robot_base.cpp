@@ -3,7 +3,8 @@
 AerialRobotBase::AerialRobotBase(ros::NodeHandle nh, ros::NodeHandle nh_private)
   : nh_(nh), nhp_(nh_private), callback_spinner_(4), main_loop_spinner_(1, &main_loop_queue_),
     controller_loader_("aerial_robot_control", "aerial_robot_control::ControlBase"),
-    navigator_loader_("aerial_robot_control", "aerial_robot_navigation::BaseNavigator")
+    navigator_loader_("aerial_robot_control", "aerial_robot_navigation::BaseNavigator"),
+    extra_plugin_loader_("aerial_robot_base", "extra_plugin::Base")
 {
 
   bool param_verbose;
@@ -53,6 +54,24 @@ AerialRobotBase::AerialRobotBase(ros::NodeHandle nh, ros::NodeHandle nh_private)
       ROS_ERROR("The plugin failed to load for some reason. Error: %s", ex.what());
     }
 
+
+  // extra plugins
+  ros::V_string extra_plugin_list{};
+  nh.getParam("extra_plugin_list", extra_plugin_list);
+
+  for (const auto &name : extra_plugin_list)
+    {
+      try
+        {
+          extra_plugins_.push_back(extra_plugin_loader_.createInstance(name));
+          extra_plugins_.back()->initialize(nh_, nhp_, robot_model, estimator_, controller_, navigator_);
+        }
+      catch(pluginlib::PluginlibException& ex)
+        {
+          ROS_ERROR_STREAM("[Extra Plugin] failed to load " << name <<  " for some reason. Error: " << ex.what());
+        }
+    }
+
   if(param_verbose) cout << nhp_.getNamespace() << ": main_rate is " << main_rate << endl;
   if(main_rate <= 0)
     ROS_ERROR_STREAM("mian rate is negative, can not run the main timer");
@@ -66,7 +85,6 @@ AerialRobotBase::AerialRobotBase(ros::NodeHandle nh, ros::NodeHandle nh_private)
       main_timer_ = nhp_.createTimer(ops);
       main_loop_spinner_.start();
     }
-
 
   // note2: callback_spinner_ calls following items with 4 threads
   //  - all subscribers (joint state for robot model, sensor for state estimation, uav/nav for navigation)
@@ -89,4 +107,9 @@ void AerialRobotBase::mainFunc(const ros::TimerEvent & e)
 {
   navigator_->update();
   controller_->update();
+
+  for (auto& plugin: extra_plugins_)
+    {
+      plugin->update();
+    }
 }

@@ -3,6 +3,7 @@
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
 #include <pluginlib/class_loader.h>
+#include <aerial_robot_base/extra_plugin.h>
 #include <aerial_robot_control/control/base/base.h>
 #include <aerial_robot_control/flight_navigation.h>
 #include <aerial_robot_estimation/state_estimation.h>
@@ -31,6 +32,10 @@ class AerialRobotBase
 
   pluginlib::ClassLoader<aerial_robot_control::ControlBase> controller_loader_;
   boost::shared_ptr<aerial_robot_control::ControlBase> controller_;
+
+  pluginlib::ClassLoader<extra_plugin::Base> extra_plugin_loader_;
+  std::vector<boost::shared_ptr<extra_plugin::Base>> extra_plugins_;
+
 
   ros::AsyncSpinner callback_spinner_; // Use 4 threads
   ros::AsyncSpinner main_loop_spinner_; // Use 1 threads
