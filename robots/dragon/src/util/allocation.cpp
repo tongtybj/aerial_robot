@@ -37,7 +37,7 @@
 
 namespace allocation
 {
-  void updateJointTorqueMatrices(RobotModelPtr robot_model, \
+  void updateJointTorqueMatrices(TransformableModelPtr robot_model, \
                                  const KDL::JntArray& gimbal_processed_joint, \
                                  const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, \
                                  const std::vector<int>& roll_locked_gimbal, \
@@ -124,7 +124,7 @@ namespace allocation
   namespace constraint
   {
 
-    bool vectoring(RobotModelPtr robot_model, \
+    bool vectoring(TransformableModelPtr robot_model, \
                    const Eigen::MatrixXd& full_q_mat, \
                    const Eigen::VectorXd& target_wrench, \
                    const std::vector<int>& roll_locked_gimbal, \
