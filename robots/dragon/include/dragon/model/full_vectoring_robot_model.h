@@ -46,7 +46,8 @@
 #include <OsqpEigen/OsqpEigen.h>
 
 // alias
-using RobotModelPtr = boost::shared_ptr<aerial_robot_model::transformable::RobotModel>;
+using TransformableModel = aerial_robot_model::transformable::RobotModel;
+using TransformableModelPtr = boost::shared_ptr<TransformableModel>;
 
 namespace Dragon
 {
@@ -65,7 +66,7 @@ namespace Dragon
     void addCompThrustToStaticThrust() override;
     void calcJointTorque(const bool update_jacobian = true) override;
 
-    inline RobotModelPtr getRobotModelForPlan() { return robot_model_for_plan_;}
+    inline TransformableModelPtr getRobotModelForPlan() { return robot_model_for_plan_;}
     inline const Eigen::VectorXd& getHoverVectoringF() const {return hover_vectoring_f_;}
 
     const std::vector<int> getRollLockedGimbal()
@@ -109,7 +110,7 @@ namespace Dragon
 
   private:
 
-    RobotModelPtr robot_model_for_plan_;
+    TransformableModelPtr robot_model_for_plan_;
 
     Eigen::VectorXd hover_vectoring_f_;
 

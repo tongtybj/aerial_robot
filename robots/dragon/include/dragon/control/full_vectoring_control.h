@@ -81,7 +81,7 @@ namespace aerial_robot_control
     ros::Publisher torque_allocation_matrix_inv_pub_;
 
     DragonModelPtr dragon_robot_model_;
-    RobotModelPtr robot_model_for_control_;
+    TransformableModelPtr robot_model_for_control_;
     std::vector<float> target_base_thrust_;
     std::vector<double> target_gimbal_angles_;
     Eigen::VectorXd target_vectoring_f_;
