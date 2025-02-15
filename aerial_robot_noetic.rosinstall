@@ -28,6 +28,20 @@
     uri: https://github.com/tongtybj/rosserial.git
     version: rosservice_server
 
+# livox ros driver
+# modification for quick build of ROS1 version
+- git:
+    local-name: livox_ros_driver2
+    uri: https://github.com/tongtybj/livox_ros_driver2.git
+    version: PR/ros1
+
+# fast lio
+# modification for fast odometry based on EKF
+- git:
+    local-name: fast_lio
+    uri: https://github.com/tongtybj/FAST_LIO
+    version: 3684fe463086e7cc5052b0295415ac53e617b4e3
+
 # realsense
 #- git:
 #    local-name: realsense-ros
