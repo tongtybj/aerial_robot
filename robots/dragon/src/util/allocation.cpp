@@ -37,13 +37,27 @@
 
 namespace allocation
 {
-  void updateJointTorqueMatrices(TransformableModelPtr robot_model, \
-                                 const KDL::JntArray& gimbal_processed_joint, \
-                                 const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, \
-                                 const std::vector<int>& roll_locked_gimbal, \
-                                 const std::vector<double>& gimbal_nominal_angles, \
-                                 const double thrust_force_weight, const double joint_torque_weight,  \
-                                 Eigen::MatrixXd& A1, Eigen::VectorXd& b1, Eigen::MatrixXd& Psi)
+
+  void updateAllocationMatrices(TransformableModelPtr robot_model, \
+                                Eigen::MatrixXd& A1, Eigen::VectorXd& b1)
+  {
+    auto dragon_robot_model = boost::dynamic_pointer_cast<Dragon::FullVectoringRobotModel>(robot_model);
+
+    auto gimbal_processed_joint = dragon_robot_model->getGimbalProcessedJoint<KDL::JntArray>();
+    auto links_rotation_from_cog = dragon_robot_model->getLinksRotationFromCog<Eigen::Matrix3d>();
+    auto roll_locked_gimbal = dragon_robot_model->getRollLockedGimbal();
+    auto gimbal_nominal_angles = dragon_robot_model->getGimbalNominalAngles();
+
+    updateAllocationMatrices(robot_model, gimbal_processed_joint, links_rotation_from_cog, \
+                             roll_locked_gimbal, gimbal_nominal_angles, A1, b1);
+  }
+
+  void updateAllocationMatrices(TransformableModelPtr robot_model,      \
+                                const KDL::JntArray& gimbal_processed_joint, \
+                                const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, \
+                                const std::vector<int>& roll_locked_gimbal, \
+                                const std::vector<double>& gimbal_nominal_angles, \
+                                Eigen::MatrixXd& A1, Eigen::VectorXd& b1)
   {
     int gimbal_lock_num = std::accumulate(roll_locked_gimbal.begin(), roll_locked_gimbal.end(), 0);
 
@@ -79,7 +93,7 @@ namespace allocation
 
     Eigen::VectorXd g = robot_model->getGravity();
     for(const auto& inertia : robot_model->getInertiaMap()) {
-      Eigen::MatrixXd cog_coord_jacobian = robot_model->getJacobian(gimbal_processed_joint, inertia.first, inertia.second.getCOG());
+      Eigen::MatrixXd cog_coord_jacobian = robot_model->TransformableModel::getJacobian(gimbal_processed_joint, inertia.first, inertia.second.getCOG());
       b1_all -= cog_coord_jacobian.rightCols(joint_num).transpose() * inertia.second.getMass() * (-g);
     }
 
@@ -96,9 +110,6 @@ namespace allocation
         }
       if(cnt == link_joint_num) break;
     }
-    Eigen::MatrixXd W1 = thrust_force_weight * Eigen::MatrixXd::Identity(f_ndof, f_ndof);
-    Eigen::MatrixXd W2 = joint_torque_weight * Eigen::MatrixXd::Identity(link_joint_num, link_joint_num);
-    Psi = (W1 + A1.transpose() * W2 * A1).inverse();
   }
 
   void compensateJointTorque(const Eigen::MatrixXd& A1, const Eigen::MatrixXd& Psi, \

@@ -65,6 +65,9 @@
     ###########  Navigation  ###########
     <rosparam file="$(arg config_dir)/navigate/WalkNavigateConfig.yaml" command="load" if="$(arg ground_mode)" />
     <rosparam file="$(arg config_dir)/navigate/FlightNavigateConfig.yaml" command="load" unless="$(arg ground_mode)" />
+
+    ###########  Extra Plugin  ###########
+    <rosparam file="$(arg config_dir)/extra_plugin/Flying.yaml" command="load" unless="$(arg ground_mode)" />
   </group>
 
   ###########  Base Platform  ###########

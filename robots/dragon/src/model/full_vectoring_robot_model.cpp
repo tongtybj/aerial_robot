@@ -106,9 +106,6 @@ void FullVectoringRobotModel::getParamFromRos()
   nh.param("gimbal_roll_change_threshold", gimbal_roll_change_threshold_, 0.02); // rad/s
   nh.param("min_force_weight", min_force_weight_, 1.0);
   nh.param("min_torque_weight", min_torque_weight_, 1.0);
-
-  nh.param("thrust_force_weight", thrust_force_weight_, 1.0);
-  nh.param("joint_torque_weight", joint_torque_weight_, 1.0);
 }
 
 void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_positions)
@@ -341,13 +338,11 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
 
   Eigen::MatrixXd A1;
   Eigen::VectorXd b1;
-  Eigen::MatrixXd Psi;
   const auto links_rotation = aerial_robot_model::kdlToEigen(links_rotation_from_cog);
-  allocation::updateJointTorqueMatrices(robot_model_for_plan_,      \
-                                        gimbal_processed_joint, links_rotation, \
-                                        roll_locked_gimbal, gimbal_nominal_angles, \
-                                        thrust_force_weight_, joint_torque_weight_, \
-                                        A1, b1, Psi);
+  allocation::updateAllocationMatrices(robot_model_for_plan_,      \
+                                       gimbal_processed_joint, links_rotation, \
+                                       roll_locked_gimbal, gimbal_nominal_angles, \
+                                       A1, b1);
 
 
   for(int j = 0; j < robot_model_refine_max_iteration_; j++)
@@ -386,7 +381,7 @@ void FullVectoringRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_po
       // find the joint torque:
       Eigen::VectorXd extra_joint_torque = A1 * hover_vectoring_f + b1;
       // ROS_INFO_STREAM_THROTTLE(1.0, "extra joint torque: " << extra_joint_torque.transpose());
-      ROS_INFO_STREAM_ONCE("extra joint torque by general hovering process: " << extra_joint_torque.transpose());
+      // ROS_INFO_STREAM_ONCE("extra joint torque by general hovering process: " << extra_joint_torque.transpose());
 
       Eigen::VectorXd static_thrust = Eigen::VectorXd::Zero(getRotorNum());
       if(debug_verbose_) ROS_DEBUG_STREAM("vectoring force for hovering in iteration "<< j+1 << ": " << hover_vectoring_f.transpose());

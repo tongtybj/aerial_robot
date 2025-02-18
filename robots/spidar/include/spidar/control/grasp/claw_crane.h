@@ -35,62 +35,57 @@
 
 #pragma once
 
-#include <ros/ros.h>
-#include <aerial_robot_control/control/base/base.h>
-#include <aerial_robot_control/flight_navigation.h>
-#include <aerial_robot_estimation/state_estimation.h>
-#include <aerial_robot_model/model/aerial_robot_model.h>
+#include <aerial_robot_base/extra_plugin.h>
+#include <dragon/model/full_vectoring_robot_model.h>
+#include <dragon/control/full_vectoring_control.h>
+#include <dragon/dragon_navigation.h>
+#include <thread>
 
-using RobotModelPtr = boost::shared_ptr<aerial_robot_model::RobotModel>;
-using EstimatorPtr  = boost::shared_ptr<aerial_robot_estimation::StateEstimator>;
-using ControllerPtr = boost::shared_ptr<aerial_robot_control::ControlBase>;
-using NavigatorPtr  = boost::shared_ptr<aerial_robot_navigation::BaseNavigator>;
+using DragonRobotModel = Dragon::FullVectoringRobotModel;
+using DragonController = aerial_robot_control::DragonFullVectoringController;
+using DragonNavigator  = aerial_robot_navigation::DragonNavigator;
+using DragonRobotModelPtr = boost::shared_ptr<DragonRobotModel>;
+using DragonControllerPtr = boost::shared_ptr<DragonController>;
+using DragonNavigatorPtr  = boost::shared_ptr<DragonNavigator>;
 
 namespace extra_plugin
 {
-  class Base
-  {
-  public:
-    Base()
-    {}
-
-    virtual ~Base(){}
-    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                            RobotModelPtr robot_model,
-                            EstimatorPtr  estimator,
-                            ControllerPtr controller,
-                            NavigatorPtr  navigator)
+  namespace grasp
     {
-      nh_ = nh;
-      nhp_ = nhp;
+     class ClawCrane: public Base
+     {
+     public:
+       ClawCrane();
+       ~ClawCrane() override {}
 
-      robot_model_ = robot_model;
-      estimator_ = estimator;
-      controller_ = controller;
-      navigator_ = navigator;
+       void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
+                       RobotModelPtr robot_model,
+                       EstimatorPtr  estimator,
+                       ControllerPtr controller,
+                       NavigatorPtr  navigator) override;
 
-      getParam<bool>(nhp_, "param_verbose", param_verbose_, false);
-    }
+       void update() override;
 
-    virtual void update() = 0;
+     private:
+       DragonRobotModelPtr dragon_robot_model_;
+       DragonControllerPtr dragon_controller_;
+       DragonNavigatorPtr  dragon_navigator_;
 
-  protected:
-    ros::NodeHandle nh_;
-    ros::NodeHandle nhp_;
+       ros::Publisher extra_thrust_force_pub_;
+       ros::Publisher total_joint_torque_pub_;
+       std::thread thread_;
+       void threadFunc();
 
-    RobotModelPtr robot_model_;
-    EstimatorPtr  estimator_;
-    ControllerPtr controller_;
-    NavigatorPtr  navigator_;
+       double plan_rate_;
+       double grasp_force_;
+       double thrust_force_weight_, joint_torque_weight_;
 
-    bool param_verbose_;
+       double default_mass_;
+       bool grasp_flag_;
 
-    template<class T> void getParam(ros::NodeHandle nh, std::string param_name, T& param, T default_value)
-    {
-      nh.param<T>(param_name, param, default_value);
-
-      if(param_verbose_)
-        ROS_INFO_STREAM("[" << nh.getNamespace() << "] " << param_name << ": " << param);
-    }
-  };
+       void thrustControl();
+       void optimizeGraspForce(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, \
+                               const Eigen::VectorXd& extra_joint_torque, Eigen::VectorXd& extra_thrust);
+     };
+    };
 };

@@ -1,0 +1,8 @@
+extra_plugin_list:
+- grasp/claw_crane
+
+grasp:
+   claw_crane:
+        graso_force: 10 # [N] # try from 5
+        thrust_force_weight: 1.0
+        joint_torque_weight: 20.0

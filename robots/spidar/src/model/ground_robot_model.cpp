@@ -48,6 +48,9 @@ GroundRobotModel::GroundRobotModel(bool init_with_rosparam, bool verbose, double
 
   nh.param("joint_torque_limit", joint_torque_limit_, 3.0);
   nh.param("init_free_leg", free_leg_id_, -1);
+
+  nh.param("thrust_force_weight", thrust_force_weight_, 1.0);
+  nh.param("joint_torque_weight", joint_torque_weight_, 1.0);
 }
 
 void GroundRobotModel::updateRobotModelImpl(const KDL::JntArray& joint_positions)

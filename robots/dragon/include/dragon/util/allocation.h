@@ -37,6 +37,7 @@
 
 #include <OsqpEigen/OsqpEigen.h>
 #include <aerial_robot_model/model/transformable_aerial_robot_model.h>
+#include <dragon/model/full_vectoring_robot_model.h>
 #include <numeric>
 
 // alias
@@ -46,13 +47,15 @@ using PrimeBoundMap = std::map<int, std::pair<double, double>>;
 namespace allocation
 {
 
-  void updateJointTorqueMatrices(TransformableModelPtr robot_model, \
-                                 const KDL::JntArray& gimbal_processed_joint, \
-                                 const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, \
-                                 const std::vector<int>& roll_locked_gimbal, \
-                                 const std::vector<double>& gimbal_nominal_angles, \
-                                 const double thrust_force_weight, const double joint_torque_weight,  \
-                                 Eigen::MatrixXd& A1, Eigen::VectorXd& b1, Eigen::MatrixXd& Psi);
+  void updateAllocationMatrices(TransformableModelPtr robot_model, \
+                                Eigen::MatrixXd& A1, Eigen::VectorXd& b1);
+
+  void updateAllocationMatrices(TransformableModelPtr robot_model, \
+                                const KDL::JntArray& gimbal_processed_joint, \
+                                const std::vector<Eigen::Matrix3d>& links_rotation_from_cog, \
+                                const std::vector<int>& roll_locked_gimbal, \
+                                const std::vector<double>& gimbal_nominal_angles, \
+                                Eigen::MatrixXd& A1, Eigen::VectorXd& b1);
 
 
   void compensateJointTorque(const Eigen::MatrixXd& A1, const Eigen::MatrixXd& Psi, \

@@ -1,0 +1,2 @@
+extra_plugin_list:
+- sensor_plugin/dragon_imu

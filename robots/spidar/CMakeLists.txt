@@ -220,7 +220,6 @@ target_link_libraries(spidar_robot_model ${catkin_LIBRARIES} ${NLOPT_LIBRARIES} 
 add_library(spidar_controllib src/control/walk_control.cpp)
 target_link_libraries (spidar_controllib ${catkin_LIBRARIES} spidar_robot_model  ${OsqpEigen_LIBRARIES})
 
-
 add_library(spidar_navigation
   src/navigation/terrestrial/base.cpp
   src/navigation/terrestrial/quadruped_primitive_walk.cpp
@@ -228,6 +227,8 @@ add_library(spidar_navigation
   src/navigation/flight_navigation.cpp)
 target_link_libraries(spidar_navigation ${catkin_LIBRARIES} ${OsqpEigen_LIBRARIES}) # no need to add spidar_controllib
 
+add_library(spidar_extra_pluginlib src/control/grasp/claw_crane.cpp)
+target_link_libraries(spidar_extra_pluginlib ${catkin_LIBRARIES} ${OsqpEigen_LIBRARIES})
 
 #############
 ## Testing ##

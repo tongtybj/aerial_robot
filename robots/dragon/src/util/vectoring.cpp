@@ -379,7 +379,7 @@ namespace vectoring
               }
           }
 
-        ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
+        //ROS_INFO_STREAM_THROTTLE(1.0, "\033[32m" << ss_map.str() << "\033[0m");
       }
   }
 

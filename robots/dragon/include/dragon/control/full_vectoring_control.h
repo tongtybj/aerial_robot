@@ -92,8 +92,6 @@ namespace aerial_robot_control
 
     double takeoff_acc_z_thresh_;
 
-    double thrust_force_weight_, joint_torque_weight_;
-
     double torque_allocation_matrix_inv_pub_stamp_;
     double torque_allocation_matrix_inv_pub_interval_;
 

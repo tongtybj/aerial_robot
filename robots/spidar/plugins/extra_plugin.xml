@@ -1,0 +1,7 @@
+<library path="lib/libspidar_extra_pluginlib">
+
+  <class name="grasp/claw_crane" type="extra_plugin::grasp::ClawCrane" base_class_type="extra_plugin::Base">
+    <description>plugin for claw-crane type grasping control module </description>
+  </class>
+
+</library>

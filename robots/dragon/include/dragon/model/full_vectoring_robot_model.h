@@ -156,8 +156,6 @@ namespace Dragon
 
   protected:
     virtual void updateRobotModelImpl(const KDL::JntArray& joint_positions) override;
-
-    double thrust_force_weight_, joint_torque_weight_;
   };
 
   template<> inline std::vector<KDL::Vector> FullVectoringRobotModel::getGimbalRollOriginFromCog() const

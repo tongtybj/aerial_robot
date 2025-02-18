@@ -108,12 +108,10 @@ void DragonFullVectoringController::controlCore()
 
   Eigen::MatrixXd A1;
   Eigen::VectorXd b1;
-  Eigen::MatrixXd Psi;
-  allocation::updateJointTorqueMatrices(robot_model_for_control_,                 \
-                                        gimbal_processed_joint, links_rotation_from_cog, \
-                                        roll_locked_gimbal, gimbal_nominal_angles, \
-                                        thrust_force_weight_, joint_torque_weight_, \
-                                        A1, b1, Psi);
+  allocation::updateAllocationMatrices(robot_model_for_control_,                 \
+                                       gimbal_processed_joint, links_rotation_from_cog, \
+                                       roll_locked_gimbal, gimbal_nominal_angles, \
+                                       A1, b1);
 
   double t = ros::Time::now().toSec();
   for(int j = 0; j < allocation_refine_max_iteration_; j++)
@@ -344,9 +342,6 @@ void DragonFullVectoringController::rosParamInit()
   getParam<int>(control_nh, "allocation_refine_max_iteration", allocation_refine_max_iteration_, 1);
 
   getParam<double>(control_nh, "takeoff_acc_z_thresh", takeoff_acc_z_thresh_, 8.0);
-
-  getParam<double>(control_nh, "thrust_force_weight", thrust_force_weight_, 1.0);
-  getParam<double>(control_nh, "joint_torque_weight", joint_torque_weight_, 1.0);
 
   getParam<double>(control_nh, "torque_allocation_matrix_inv_pub_interval", torque_allocation_matrix_inv_pub_interval_, 0.1);
 }
