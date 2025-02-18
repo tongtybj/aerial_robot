@@ -166,6 +166,11 @@ void DragonFullVectoringController::controlCore()
       static double ave_t_diff_inv = t_diff_inv;
       ave_t_diff_inv = 0.8 * ave_t_diff_inv + 0.2 * t_diff_inv;
 
+      Eigen::Vector3d vectoring_f = target_vectoring_f_;
+      if (target_vectoring_f_.size() == extra_vectoring_f_.size())
+        {
+          vectoring_f += extra_vectoring_f_;
+        }
 
       if(control_verbose_) ROS_DEBUG_STREAM("vectoring force for control in iteration "<< j+1 << ": " << target_vectoring_f_.transpose());
       last_col = 0;
@@ -176,7 +181,7 @@ void DragonFullVectoringController::controlCore()
 
           if(roll_locked_gimbal.at(i) == 0)
             {
-              Eigen::Vector3d f = target_vectoring_f_.segment(last_col, 3);
+              Eigen::Vector3d f = vectoring_f.segment(last_col, 3);
               target_base_thrust_.at(i) = f.norm();
 
               double roll_angle = atan2(-f.y(), f.z());
@@ -189,7 +194,7 @@ void DragonFullVectoringController::controlCore()
             }
           else
             {
-              Eigen::VectorXd f_2d = target_vectoring_f_.segment(last_col, 2);
+              Eigen::VectorXd f_2d = vectoring_f.segment(last_col, 2);
               target_base_thrust_.at(i) = f_2d.norm();
 
 
@@ -355,6 +360,24 @@ void DragonFullVectoringController::forceLockRollCallback(const std_msgs::Float3
   else
     force_lock_all_angle_ = false;
 }
+
+void DragonFullVectoringController::addExtraThrustForce(const Eigen::VectorXd v)
+{
+  if (v.size() != target_vectoring_f_.size())
+    {
+      ROS_WARN("[addExtraThrustForce] the size of extra thrust (%d) is not equal to that of target one (%d), skip",
+               (int)v.size(), (int)target_vectoring_f_.size());
+      return;
+    }
+
+  extra_vectoring_f_ = v;
+}
+
+void DragonFullVectoringController::resetExtraThrustForce()
+{
+  extra_vectoring_f_.resize(0);
+}
+
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>

@@ -71,6 +71,9 @@ namespace aerial_robot_control
                     double ctrl_loop_rate) override;
     void reset() override;
 
+    void addExtraThrustForce(const Eigen::VectorXd v);
+    void resetExtraThrustForce();
+
   private:
 
     ros::Publisher flight_cmd_pub_; //for spinal
@@ -89,6 +92,8 @@ namespace aerial_robot_control
     double allocation_refine_threshold_;
     int allocation_refine_max_iteration_;
     Eigen::VectorXd target_wrench_acc_cog_;
+
+    Eigen::VectorXd extra_vectoring_f_;
 
     double takeoff_acc_z_thresh_;
 
