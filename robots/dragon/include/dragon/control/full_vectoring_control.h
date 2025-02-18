@@ -71,6 +71,7 @@ namespace aerial_robot_control
                     double ctrl_loop_rate) override;
     void reset() override;
 
+    const Eigen::VectorXd getExtraThrustForce();
     void addExtraThrustForce(const Eigen::VectorXd v);
     void resetExtraThrustForce();
 
@@ -93,6 +94,7 @@ namespace aerial_robot_control
     int allocation_refine_max_iteration_;
     Eigen::VectorXd target_wrench_acc_cog_;
 
+    std::mutex evf_mutex_;
     Eigen::VectorXd extra_vectoring_f_;
 
     double takeoff_acc_z_thresh_;

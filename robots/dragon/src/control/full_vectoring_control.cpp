@@ -166,7 +166,8 @@ void DragonFullVectoringController::controlCore()
       static double ave_t_diff_inv = t_diff_inv;
       ave_t_diff_inv = 0.8 * ave_t_diff_inv + 0.2 * t_diff_inv;
 
-      Eigen::Vector3d vectoring_f = target_vectoring_f_;
+      Eigen::VectorXd vectoring_f = target_vectoring_f_;
+      Eigen::VectorXd extra_vectoring_f = getExtraThrustForce();
       if (target_vectoring_f_.size() == extra_vectoring_f_.size())
         {
           vectoring_f += extra_vectoring_f_;
@@ -370,14 +371,23 @@ void DragonFullVectoringController::addExtraThrustForce(const Eigen::VectorXd v)
       return;
     }
 
-  extra_vectoring_f_ = v;
+  {
+    std::lock_guard<std::mutex> lock(evf_mutex_);
+    extra_vectoring_f_ = v;
+  }
 }
 
 void DragonFullVectoringController::resetExtraThrustForce()
 {
+  std::lock_guard<std::mutex> lock(evf_mutex_);
   extra_vectoring_f_.resize(0);
 }
 
+const Eigen::VectorXd DragonFullVectoringController::getExtraThrustForce()
+{
+  std::lock_guard<std::mutex> lock(evf_mutex_);
+  return extra_vectoring_f_;
+}
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>

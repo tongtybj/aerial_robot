@@ -118,7 +118,7 @@ void ClawCrane::thrustControl()
       if (grasp_flag_)
         {
           grasp_flag_ = false;
-          // TODO: setzero extravectoring
+          dragon_controller_->resetExtraThrustForce();
           ROS_INFO("[Claw Crane] stop grasping object");
         }
       return;
@@ -162,7 +162,7 @@ void ClawCrane::thrustControl()
   ROS_INFO_STREAM_ONCE("the extra thrust for grasping: " << extra_thrust.transpose());
 
   // Phase4. set the extra thrust to controller
-  // TODO
+  dragon_controller_->addExtraThrustForce(extra_thrust);
 }
 
 void ClawCrane::optimizeGraspForce(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque, Eigen::VectorXd& extra_thrust)
