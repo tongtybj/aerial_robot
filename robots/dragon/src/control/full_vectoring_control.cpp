@@ -156,10 +156,11 @@ void DragonFullVectoringController::controlCore()
       target_vectoring_f_ = full_q_mat_inv * target_wrench_acc_cog;
 
       // 2. solve by QP
-      allocation::constraint::vectoring(robot_model_for_control_, full_q_mat,    \
-                                        target_wrench_acc_cog,          \
-                                        roll_locked_gimbal, \
-                                        vectoring_bounds, target_vectoring_f_);
+      bool ret = allocation::constraint::vectoring(robot_model_for_control_, full_q_mat, \
+                                                   target_wrench_acc_cog, \
+                                                   roll_locked_gimbal,  \
+                                                   vectoring_bounds, target_vectoring_f_);
+      if (!ret) ROS_WARN("[Control] the constraint based allocation for hovering is invalid");
 
 
       double t_diff_inv = ros::WallTime::now().toSec() - s_t1;
