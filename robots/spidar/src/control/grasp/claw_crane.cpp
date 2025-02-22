@@ -140,9 +140,14 @@ void ClawCrane::thrustControl()
   Eigen::VectorXd gravity_force = robot_model_->getGravity() * robot_model_->getMass();
   Eigen::VectorXd hovering_thrust;
 
-  allocation::constraint::vectoring(dragon_robot_model_, full_q_mat,
-                                    gravity_force,  roll_locked_gimbal, \
-                                    vectoring_bounds, hovering_thrust);
+  bool ret = allocation::constraint::vectoring(dragon_robot_model_, full_q_mat,
+                                               gravity_force,  roll_locked_gimbal, \
+                                               vectoring_bounds, hovering_thrust);
+
+  if (!ret) {
+    ROS_WARN("[Claw Crane] the constraint based allocation for hovering is invalid");
+    return;
+  }
 
 
   Eigen::MatrixXd A1;
