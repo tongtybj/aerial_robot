@@ -39,6 +39,7 @@
 #include <dragon/model/full_vectoring_robot_model.h>
 #include <dragon/control/full_vectoring_control.h>
 #include <dragon/dragon_navigation.h>
+#include <algorithm>
 #include <thread>
 
 using DragonRobotModel = Dragon::FullVectoringRobotModel;
@@ -79,10 +80,13 @@ namespace extra_plugin
        double plan_rate_;
        double grasp_force_;
        double thrust_force_weight_, joint_torque_weight_;
+       double deform_thresh_;
 
        double default_mass_;
        bool grasp_flag_;
+       double nominal_gripper_dist_;
 
+       double calculateGripperDistance();
        void thrustControl();
        void optimizeGraspForce(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, \
                                const Eigen::VectorXd& extra_joint_torque, Eigen::VectorXd& extra_thrust);

@@ -37,7 +37,7 @@
 
 using namespace extra_plugin::grasp;
 
-ClawCrane::ClawCrane():default_mass_(0), grasp_flag_(false)
+ClawCrane::ClawCrane():default_mass_(0), grasp_flag_(false), nominal_gripper_dist_(0)
 {
 }
 
@@ -58,7 +58,7 @@ void ClawCrane::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
   grasp_nh.param("graso_force", grasp_force_, 1.0); // [N]
   grasp_nh.param("thrust_force_weight", thrust_force_weight_, 1.0);
   grasp_nh.param("joint_torque_weight", joint_torque_weight_, 1.0);
-
+  grasp_nh.param("deform_thresh", deform_thresh_, 0.8); // rate
 
   extra_thrust_force_pub_ = grasp_nh.advertise<std_msgs::Float32MultiArray>("extra_thrust_force", 1);
   total_joint_torque_pub_ = grasp_nh.advertise<std_msgs::Float32MultiArray>("total_joint_torque", 1);
@@ -91,8 +91,12 @@ void ClawCrane::thrustControl()
       default_mass_ = robot_model_->getMass();
     }
 
+  // calculate the distance between diagonal gripper tips
+  double gripper_dist = calculateGripperDistance();
+
   // Phase 0: check whether there is extra module need to grasp
   bool find_grasp_obj = false;
+  std::string obj_name;
   for (const auto& it: robot_model_->getExtraModuleMap())
     {
       auto name = it.first;
@@ -100,6 +104,7 @@ void ClawCrane::thrustControl()
       if(name.find("grasp") != std::string::npos)
         {
           find_grasp_obj = true;
+          obj_name = name;
           break;
         }
     }
@@ -109,7 +114,17 @@ void ClawCrane::thrustControl()
       if (!grasp_flag_)
         {
           grasp_flag_ = true;
-          ROS_INFO("[Claw Crane] start grasping object");
+          nominal_gripper_dist_ = gripper_dist;
+          ROS_INFO("[Claw Crane] start grasping object, nominal gripper distance is %f", nominal_gripper_dist_);
+        }
+
+      if (gripper_dist < deform_thresh_ * nominal_gripper_dist_)
+        {
+          ROS_WARN("[Claw Crane] grasping causes large deformation (gripper distance: %f), relase and stop grasping", gripper_dist);
+          robot_model_->removeExtraModule(obj_name);
+          grasp_flag_ = false;
+          dragon_controller_->resetExtraThrustForce();
+          return;
         }
     }
 
@@ -168,6 +183,28 @@ void ClawCrane::thrustControl()
 
   // Phase4. set the extra thrust to controller
   dragon_controller_->addExtraThrustForce(extra_thrust);
+}
+
+double ClawCrane::calculateGripperDistance()
+{
+  const auto& seg_tf_map = dragon_robot_model_->getSegmentsTf();
+  const int fc_num =  dragon_robot_model_->getRotorNum() / 2;
+
+  if (seg_tf_map.empty()) return 0;
+
+  std::vector<double> dist_list;
+  for (int i = 0; i < fc_num/2; i++) {
+    std::string n1 = std::string("link") + std::to_string((i + 1) * 2) + std::string("_foot");
+    auto pos1 = seg_tf_map.at(n1).p;
+    std::string n2 = std::string("link") + std::to_string((i + fc_num/2 + 1) * 2) + std::string("_foot");
+    auto pos2 = seg_tf_map.at(n2).p;
+
+    dist_list.push_back((pos1 - pos2).Norm());
+  }
+
+  auto min_itr = std::min_element(dist_list.begin(), dist_list.end());
+
+  return *min_itr;
 }
 
 void ClawCrane::optimizeGraspForce(const Eigen::MatrixXd& A1_fr, const Eigen::MatrixXd& A2_fr, const Eigen::VectorXd& extra_joint_torque, Eigen::VectorXd& extra_thrust)
