@@ -27,6 +27,7 @@ class GraspTest:
         self.pregrasp_duration = rospy.get_param("~pregrasp_duration", 8.0)
         self.wait_duration = rospy.get_param("~wait_duration", 2.0)
         self.grasp_duration = rospy.get_param("~grasp_duration", 8.0)
+        self.prelift_duration = rospy.get_param("~prelift_duration", 3.0)
 
         self.release_duration = rospy.get_param("~release_duration", 8.0)
 
@@ -52,7 +53,7 @@ class GraspTest:
 
         # sleep to make sure the robot has reached the pre-grasp pose
         rospy.sleep(self.pregrasp_duration + self.wait_duration)
-        rospy.loginfo("conplete the pre-grasp pose");
+        rospy.loginfo("complete the pre-grasp pose");
 
         self.joint_node.start(self.grasp_joint_angles, self.grasp_duration) # move the grasp pose
 
@@ -70,22 +71,44 @@ class GraspTest:
         self.joint_node.start(release_joint_angles, self.release_duration)
 
     def graspObject(self):
+
+        # two step2: step1 for grasping, step2 for lifting
+
+        # step0: general settings
+        add_object_client = rospy.ServiceProxy('/spidar/add_extra_module', AddExtraModule)
+        req = AddExtraModuleRequest()
+        req.action = req.ADD
+        req.parent_link_name= "center_link"
+        req.transform.translation = Vector3(*self.object_center)
+        req.transform.rotation.w = 1
+
+        # step1: add object with real size but zero inertia
+
+        req.module_name= "grasp_object"
+        req.inertia.m = 0.0001
+        req.inertia.ixx = 0.000001
+        req.inertia.iyy = 0.000001
+        req.inertia.izz = 0.000001
+        req.size = Vector3(self.object_radius, 0, 0)
         # rosserice call
         try:
-            add_object_client = rospy.ServiceProxy('/spidar/add_extra_module', AddExtraModule)
+            add_object_client(req)
+        except rospy.ServiceException as e:
+            rospy.logerr("Service call failed: %s"%e)
 
-            req = AddExtraModuleRequest()
-            req.action = req.ADD
-            req.module_name= "grasp_object"
-            req.parent_link_name= "center_link"
-            req.transform.translation = Vector3(*self.object_center)
-            req.transform.rotation.w = 1
-            req.inertia.m = self.object_mass
-            req.inertia.ixx = 0.4 * self.object_mass * self.object_radius * self.object_radius
-            req.inertia.iyy = 0.4 * self.object_mass * self.object_radius * self.object_radius
-            req.inertia.izz = 0.4 * self.object_mass * self.object_radius * self.object_radius
-            req.size = Vector3(self.object_radius, 0, 0)
+        rospy.sleep(self.prelift_duration)
 
+        # step2: add object with zero size but real inertia
+
+        req.module_name= "real_object"
+        req.inertia.m = self.object_mass
+        req.inertia.ixx = 0.4 * self.object_mass * self.object_radius * self.object_radius
+        req.inertia.iyy = 0.4 * self.object_mass * self.object_radius * self.object_radius
+        req.inertia.izz = 0.4 * self.object_mass * self.object_radius * self.object_radius
+        req.size = Vector3(0, 0, 0)
+
+        # rosserice call
+        try:
             add_object_client(req)
         except rospy.ServiceException as e:
             rospy.logerr("Service call failed: %s"%e)
@@ -94,17 +117,22 @@ class GraspTest:
     def releaseObject(self):
         # rosserice call
 
+        remove_object_client = rospy.ServiceProxy('/spidar/add_extra_module', AddExtraModule)
+
+        req = AddExtraModuleRequest()
+        req.action = req.REMOVE
+
         try:
-            remove_object_client = rospy.ServiceProxy('/spidar/add_extra_module', AddExtraModule)
-
-            req = AddExtraModuleRequest()
-            req.action = req.REMOVE
             req.module_name= "grasp_object"
-
             remove_object_client(req)
         except rospy.ServiceException as e:
             rospy.logerr("Service call failed: %s"%e)
 
+        try:
+            req.module_name= "real_object"
+            remove_object_client(req)
+        except rospy.ServiceException as e:
+            rospy.logerr("Service call failed: %s"%e)
 
     def eventCallback(self, event):
 
