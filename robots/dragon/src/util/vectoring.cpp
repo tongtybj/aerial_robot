@@ -271,7 +271,7 @@ namespace vectoring
                     bounds_temp.push_back(std::make_pair(theta2, curr_theta2));
                   }
 
-                if (theta1 < curr_theta1 && theta2 > curr_theta2)
+                if (theta1 <= curr_theta1 && theta2 >= curr_theta2)
                   {
                     // skip
                     continue;
@@ -301,6 +301,8 @@ namespace vectoring
                     bounds_temp.push_back(curr_bound);
                   }
               }
+
+            if (bounds_temp.size() == 0) continue;
 
             bounds = bounds_temp;
           }
