@@ -331,17 +331,25 @@ namespace vectoring
         // skip if the range is enough for normal tilting
         if (lower * upper < 0 && fabs(lower) > area_thresh / 2) continue;
 
+        if (lower * upper > 0)
+          {
+            if (fabs(M_PI/2 - fabs(lower + gimbal_nominal_angles.at(2 * i + 1))) < 0.34)
+              {
+                // ROS_INFO("rotor %d, pitch vectorng is too close to 90deg: %f", i+1, lower + gimbal_nominal_angles.at(2 * i + 1));
+                if (roll_locked_gimbal.at(i) == 0)
+                  {
+                    roll_locked_gimbal.at(i) = 1;
+                    gimbal_nominal_angles.at(2 * i) = 0;
+                  }
+              }
+          }
+
         // add the offset of the gimbal nominal angle
         lower += gimbal_nominal_angles.at(2 * i + 1);
         upper += gimbal_nominal_angles.at(2 * i + 1);
         prime_bound_map.insert(std::make_pair(i, std::make_pair(lower, upper)));
 
 
-        if (roll_locked_gimbal.at(i) == 0)
-          {
-            roll_locked_gimbal.at(i) = 1;
-            gimbal_nominal_angles.at(2 * i) = 0;
-          }
       }
 
     if (interfere_raw_map.size() > 0)
