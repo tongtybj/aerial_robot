@@ -60,3 +60,6 @@ navigation:
       reset_baselink: false # use the actual state (e.g., joint angles) to reset baselink
       debug: false
       debug_legs: 4
+    belly_crawl:
+      belly_debug: false
+      horizontal_vel: 0.2

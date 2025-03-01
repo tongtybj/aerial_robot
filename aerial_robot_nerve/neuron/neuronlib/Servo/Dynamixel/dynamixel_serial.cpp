@@ -63,7 +63,6 @@ void DynamixelSerial::init(UART_HandleTypeDef* huart, I2C_HandleTypeDef* hi2c, o
 	}
 	Flashmemory::addValue(&(ttl_rs485_mixed_), 2);
         Flashmemory::addValue(&(pulley_skip_thresh_), 2);
-        Flashmemory::addValue(&(internal_offset_lpf_rate_), 4);
 
 	Flashmemory::read();
 
@@ -105,12 +104,6 @@ void DynamixelSerial::init(UART_HandleTypeDef* huart, I2C_HandleTypeDef* hi2c, o
             cmdWriteGoalCurrent(i);
           }
 	}
-
-        if (std::isnan(internal_offset_lpf_rate_)) {
-          internal_offset_lpf_rate_ = 1.0f;
-          Flashmemory::erase();
-          Flashmemory::write();
-        }
 }
 
 void DynamixelSerial::ping()
@@ -310,13 +303,18 @@ void DynamixelSerial::update()
 
     // check the latest error status with original rule
     for (unsigned int i = 0; i < servo_num_; i++) {
-      if (servo_[i].hardware_error_status_ != 0) {
 
-        // ingnore overload error for current based position control
-        if (servo_[i].hardware_error_status_ == (1 << OVERLOAD_ERROR)) {
+      servo_[i].force_servo_off_ = false;
+
+      uint8_t error_status = servo_[i].hardware_error_status_;
+      error_status &= ~(1 << PULLEY_SKIP_ERROR);  // ignore pulley skip error
+
+      if (error_status != 0) {
+
+        // ingnore overload error for current based position control (only with this error bit)
+        if (error_status == (1 << OVERLOAD_ERROR)) {
           if (servo_[i].operating_mode_ == CURRENT_BASE_POSITION_CONTROL_MODE) {
             if (servo_[i].goal_current_ < servo_[i].current_limit_) {
-              servo_[i].force_servo_off_ = false;
               continue;
             }
           }
@@ -324,9 +322,6 @@ void DynamixelSerial::update()
 
         setTorque(i, false); // servo off
         servo_[i].force_servo_off_ = true;
-      }
-      else {
-        servo_[i].force_servo_off_ = false;
       }
     }
   }
@@ -693,11 +688,25 @@ int8_t DynamixelSerial::readStatusPacket(uint8_t status_packet_instruction)
                         // check pulley skip
                         int32_t diff = internal_offset - s->internal_offset_; // this should be proportional to joint load.
                         // TODO: use diff to estimate the joint torque
+
+
                         if (abs(diff) > pulley_skip_thresh_) {
+                          if (!(s->hardware_error_status_ & (1 << PULLEY_SKIP_ERROR))) {
+                            s->pulley_skip_time_ = HAL_GetTick();
+                          }
+
                           s->hardware_error_status_ |= 1 << PULLEY_SKIP_ERROR;
                         }
 
-                        s->internal_offset_ = (1 - internal_offset_lpf_rate_) * internal_offset + internal_offset_lpf_rate_ * s->internal_offset_;
+                        if (s->hardware_error_status_ & (1 << PULLEY_SKIP_ERROR)) {
+                          if (HAL_GetTick() - s->pulley_skip_time_ > s->pulley_skip_reset_du_) {
+                            // reset the internal_offset, goal_position, and error flag
+                            s->internal_offset_ = internal_offset;
+                            s->goal_position_ = s->present_position_;
+                            s->send_goal_position_ = true; // send this goal position to spinal
+                            s->hardware_error_status_ &= ~(1 << PULLEY_SKIP_ERROR);
+                          }
+                        }
                       }
                     }
                     else {
@@ -1302,16 +1311,4 @@ HAL_StatusTypeDef DynamixelSerial::read(uint8_t* data,  uint32_t timeout)
           return HAL_TIMEOUT;
         }
     }
-}
-
-void DynamixelSerial::setInternalOffsetLPFRate(float value)
-{
-  if (value < 0) {
-    value = 0;
-  }
-  if (value > 1) {
-    value = 1;
-  }
-
-  internal_offset_lpf_rate_ = value;
 }

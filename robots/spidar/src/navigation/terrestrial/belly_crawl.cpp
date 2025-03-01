@@ -14,6 +14,8 @@ BellyCrawl::BellyCrawl()
 
   limb_.prev_t_ = 0;
   belly_.prev_t_ = 0;
+
+  prev_target_leg_ends_.resize(0);
 }
 
 
@@ -38,15 +40,15 @@ void BellyCrawl::rosParamInit()
   ros::NodeHandle nh_walk(nh_, "navigation/walk");
   ros::NodeHandle nh_belly_crawl(nh_walk, "belly_crawl");
   nh_belly_crawl.param("stride", stride_, 0.2);
-  nh_belly_crawl.param("reset_leg_end", cycle_reset_leg_end_, true);
-  nh_belly_crawl.param("reset_baselink", cycle_reset_baselink_, true);
   nh_belly_crawl.param("belly_debug", belly_debug_, false);
   nh_belly_crawl.param("limb_debug", limb_debug_, false);
+  nh_belly_crawl.param("horizontal_vel", horizontal_vel_, 0.15);
 
-  ros::NodeHandle nh_belly_crawl_limb(nh_belly_crawl, "limbw");
+  ros::NodeHandle nh_belly_crawl_limb(nh_belly_crawl, "limb");
   nh_belly_crawl_limb.param("joint_err_thresh", limb_.joint_err_thresh_, 0.05);
   nh_belly_crawl_limb.param("loop_duration", limb_.loop_duration_, 0.1);
   nh_belly_crawl_limb.param("servo_switch_duration", limb_.servo_switch_duration_, 0.5);
+  nh_belly_crawl_limb.param("raise_time_thresh", limb_.raise_time_thresh_, 10.0);
 
   ros::NodeHandle nh_belly_crawl_baselink(nh_belly_crawl, "baselink");
   nh_belly_crawl_baselink.param("loop_duration", belly_.loop_duration_, 0.1);
@@ -55,6 +57,7 @@ void BellyCrawl::rosParamInit()
   nh_belly_crawl_baselink.param("raise_thresh", belly_.raise_thresh_, 0.05);
   nh_belly_crawl_baselink.param("move_thresh", belly_.move_thresh_, 0.05);
   nh_belly_crawl_baselink.param("descend_thresh", belly_.descend_thresh_, 0.02);
+  nh_belly_crawl_baselink.param("raise_time_thresh", belly_.raise_time_thresh_, 5.0);
 }
 
 
@@ -63,6 +66,15 @@ void BellyCrawl::update()
   Base::update();
 
   stateMachine();
+}
+
+void BellyCrawl::failSafeAction()
+{
+  Base::failSafeAction();
+
+  if (servo_error_flag_) {
+    reset();
+  }
 }
 
 void BellyCrawl::stateMachine()
@@ -131,6 +143,8 @@ void BellyCrawl::limbSubStateMachine()
       ROS_INFO_STREAM(prefix << " shift to PHASE1 for raise all limbs");
       limb_.phase_ = limb_.PHASE1;
 
+      limb_.raise_start_t_ = ros::Time::now().toSec();
+
       break;
     }
   case limb_.PHASE1:
@@ -138,7 +152,14 @@ void BellyCrawl::limbSubStateMachine()
       // free leg is raising
       std::string prefix("[Spider][Belly Crawl][Limb][Phase1]");
 
-      // 1. check the inside pitch joint of all limbs
+      // 1. check raise duration
+      if (ros::Time::now().toSec() - limb_.raise_start_t_ > limb_.raise_time_thresh_) {
+        lowerAllLimbs();
+        ROS_ERROR_STREAM(prefix << " take too long time for rasing all legs, prompt");
+        reset();
+      }
+
+      // 2. check the inside pitch joint of all limbs
       if (!raise_converge_) {
         break;
       }
@@ -161,6 +182,8 @@ void BellyCrawl::limbSubStateMachine()
       ROS_INFO_STREAM(prefix << " shift to PHASE2 for all limbs horizontal move");
       limb_.phase_ = limb_.PHASE2;
 
+      limb_.raise_start_t_ = ros::Time::now().toSec();
+
       break;
     }
   case limb_.PHASE2:
@@ -169,6 +192,13 @@ void BellyCrawl::limbSubStateMachine()
       std::string prefix("[Spider][Belly Crawl][Limb][Phase2]");
 
       bool converge = true;
+
+      // 1. check raise duration
+      if (ros::Time::now().toSec() - limb_.raise_start_t_ > limb_.raise_time_thresh_) {
+        lowerAllLimbs();
+        ROS_ERROR_STREAM(prefix << " take too long time for rasing all legs, prompt");
+        reset();
+      }
 
       // 2. check the inside yaw joint of each limb to lower leg
       for (int l = 0; l < limb_num; l++) {
@@ -281,16 +311,6 @@ void BellyCrawl::limbSubStateMachine()
 
       limb_.phase_ = limb_.PHASE0;
 
-      // reset the target leg ends to further update the target joint angles
-      if (cycle_reset_leg_end_) {
-        reset_leg_ends_flag_ = true;
-      }
-
-      // reset the target baselink to further update the target joint angles
-      if (cycle_reset_baselink_) {
-        reset_baselink_flag_ = true;
-      }
-
       // workaround: condition for whole state machine
       phase_ = PHASE2; // move to belly move
       break;
@@ -320,7 +340,12 @@ void BellyCrawl::bellySubStateMachine()
     {
       std::string prefix("[Spidar][Belly Crawl][Baselink][Phase0]");
       walk_controller_->setFloatingBellyMode(true);
-      addTargetBaselinkPos(tf::Vector3(0, 0, belly_.raise_height_)); // TODO: only horizontal ground
+
+      // update strategy:
+      // leg ends: temporary update for lifting baselink
+      resetTargetLegEnds(false); // do not need to update joint angle, so use false
+
+      addTargetBaselinkPos(tf::Vector3(0, 0, belly_.raise_height_), true); // update joitn angle
 
       init_pos_ = curr_pos;
 
@@ -328,11 +353,22 @@ void BellyCrawl::bellySubStateMachine()
       belly_.phase_ ++;
       ROS_INFO_STREAM(prefix << " shift to PHASE1 for raise");
 
+      belly_.raise_start_t_ = ros::Time::now().toSec();
+
       break;
     }
   case belly_.PHASE1:
     {
       std::string prefix("[Spidar][Belly Crawl][Baselink][Phase1]");
+
+      // check raise duration
+      if (ros::Time::now().toSec() - belly_.raise_start_t_ > belly_.raise_time_thresh_) {
+
+        ROS_ERROR_STREAM(prefix << " take too long time for rasing baselink, prompt");
+        jointPitchTorque(false); /* torque of */
+        reset();
+      }
+
 
       double diff = curr_pos.z() - init_pos_.z();
 
@@ -341,13 +377,11 @@ void BellyCrawl::bellySubStateMachine()
       if (diff > belly_.raise_thresh_) {
         ROS_INFO_STREAM(prefix << " baselink has raised to a enough height, move horizontally");
 
-        target_pos.setX(target_pos_.x());
-        target_pos.setY(target_pos_.y());
-        setTargetBaselinkPos(target_pos);
-
         // shift to belly_.PHASE2
         belly_.phase_ ++;
         ROS_INFO_STREAM(prefix << " shift to PHASE2 for horizontal move");
+
+        belly_.raise_start_t_ = ros::Time::now().toSec();
       }
 
       break;
@@ -357,12 +391,39 @@ void BellyCrawl::bellySubStateMachine()
     {
       std::string prefix("[Spidar][Belly Crawl][Baselink][Phase2]");
 
-      tf::Vector3 diff_vec = curr_pos - target_pos;
+
+      // check raise duration
+      if (ros::Time::now().toSec() - belly_.raise_start_t_ > belly_.raise_time_thresh_) {
+
+        ROS_ERROR_STREAM(prefix << " take too long time for rasing baselink, prompt");
+        jointPitchTorque(false); /* torque of */
+        reset();
+      }
+
+      // iteratively update the target pos
+      tf::Vector3 target_diff_vec = target_pos_ - target_pos;
+      target_diff_vec.setZ(0);
+      double iteraive_dist = horizontal_vel_ * belly_.loop_duration_;
+      if (target_diff_vec.length() < iteraive_dist) {
+        target_pos.setX(target_pos_.x());
+        target_pos.setY(target_pos_.y());
+      } else {
+        tf::Vector3 unit_vec = target_diff_vec.normalized();
+        target_pos += unit_vec * iteraive_dist;
+      }
+      setTargetBaselinkPos(target_pos);
+      tf::Vector3 target_pos_for_thrust_control = target_pos_;
+      target_pos_for_thrust_control.setZ(target_pos.z());
+      // workaround to directly assign the target value for thrust control
+      setTargetBaselinkPosForThrustControl(target_pos_for_thrust_control);
+
+      tf::Vector3 diff_vec = curr_pos - target_pos_;
       diff_vec.setZ(0);
       double diff = diff_vec.length();
 
       ROS_INFO_STREAM_THROTTLE(0.1, prefix << " curr x: " << curr_pos.x() << ", y: " << curr_pos.y() \
-                               << "; target x: " << target_pos.x() << ", y: " << target_pos.y());
+                               << "; curr target x: " << target_pos.x() << ", y: " << target_pos.y() \
+                               << "; final target x: " << target_pos_.x() << ", y: " << target_pos_.y());
 
       if (fabs(diff) < belly_.move_thresh_) {
         ROS_INFO_STREAM(prefix << " baselink has moved to the right place");
@@ -436,22 +497,13 @@ void BellyCrawl::bellySubStateMachine()
       // set the static floating belly mode
       walk_controller_->setFloatingBellyMode(false);
 
-
-      // reset the target leg ends to further update the target joint angles
-      if (cycle_reset_leg_end_) {
-        reset_leg_ends_flag_ = true;
-      }
-
-      // reset the target baselink to further update the target joint angles
-      if (cycle_reset_baselink_) {
-        reset_baselink_flag_ = true;
-      }
-
       // workaround: condition for whole state machine
       phase_ = PHASE0; // move to initialize phase
       if (target_pos_ == final_target_pos_) {
         ROS_INFO_STREAM(prefix << " complete the iterative move");
+
         reset();
+        resetTargetLegEnds();
       }
 
       break;
@@ -484,13 +536,20 @@ void BellyCrawl::raiseAllLimbs()
   // save the previous target joint angles
   prev_target_joint_angles_ = target_joint_state_.position;
 
+  if (prev_target_leg_ends_.size() == 0) {
+    getCurrentLegEndsPos(prev_target_leg_ends_);
+  }
   // update the foot postion, and thus the joint angles
-  auto target_leg_ends = getTargetLegEnds();
-  for (auto& leg_end:  target_leg_ends) {
-    tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
+  tf::Vector3 delta = target_pos_ - getTargetBaselinkPos();
+  for (auto& leg_end:  prev_target_leg_ends_) {
     leg_end.p += KDL::Vector(delta.x(), delta.y(), delta.z());
   }
-  setTargetLegEnds(target_leg_ends);
+  setTargetLegEnds(prev_target_leg_ends_, false);
+  std::vector<int> fail_list(0);
+  updateJoinAngleFrominverseKinematics(true, fail_list);
+  for (const auto& id: fail_list) {
+    prev_target_leg_ends_.at(id).p -= KDL::Vector(delta.x(), delta.y(), delta.z());
+  }
 
   // save the final (real) target joint angles
   final_target_joint_angles_ = target_joint_state_.position;

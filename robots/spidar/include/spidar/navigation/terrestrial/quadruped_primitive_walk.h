@@ -96,6 +96,8 @@ namespace aerial_robot_navigation
 
         void resetStateMachine();
 
+        void failSafeAction() override;
+
       };
     };
   };

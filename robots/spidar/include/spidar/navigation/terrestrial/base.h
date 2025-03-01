@@ -44,6 +44,8 @@
 #include <std_msgs/Empty.h>
 #include <std_msgs/Bool.h>
 #include <spinal/FlightConfigCmd.h>
+#include <spinal/ServoState.h>
+#include <spinal/ServoStates.h>
 
 namespace aerial_robot_control
 {
@@ -75,6 +77,7 @@ namespace aerial_robot_navigation
         tf::Vector3 getCurrentBaselinkPos();
 
         inline tf::Vector3 getTargetBaselinkPos() {return target_baselink_pos_;}
+        inline tf::Vector3 getTargetBaselinkPosForThrustControl() {return target_baselink_pos_for_thrust_control_;}
         inline tf::Vector3 getTargetBaselinkRpy() {return target_baselink_rpy_;}
         inline tf::Vector3 getTargetBaselinkVel() {return target_baselink_vel_;}
         inline sensor_msgs::JointState getTargetJointState() {return target_joint_state_;}
@@ -85,11 +88,11 @@ namespace aerial_robot_navigation
         inline bool isRaiseLegConverge() const { return raise_converge_; }
         inline int getFreeleg() const { return free_leg_id_; }
         void setTargetBaselinkPos(tf::Vector3 pos, bool update_joint_angle = true);
+        void setTargetBaselinkPosForThrustControl(tf::Vector3 pos);
         void addTargetBaselinkPos(tf::Vector3 delta_pos, bool update_joint_angle = true);
         void setTargetBaselinkPose(tf::Vector3 pos, tf::Vector3 rpy, bool update_joint_angle = true);
         void setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_angle = true);
-        void resetTargetLegEnds();
-
+        void resetTargetLegEnds(bool update_joint_angle = true);
 
         void setController(aerial_robot_control::Spider::WalkController* controller){
           walk_controller_ = controller;
@@ -99,6 +102,7 @@ namespace aerial_robot_navigation
       protected:
 
         tf::Vector3 target_baselink_pos_;
+        tf::Vector3 target_baselink_pos_for_thrust_control_;
         tf::Vector3 target_baselink_vel_;
         tf::Vector3 target_baselink_rpy_;
 
@@ -134,11 +138,16 @@ namespace aerial_robot_navigation
 
         double converge_timestamp_;
 
+        std::vector<spinal::ServoState> raw_servo_states_;
+        bool servo_error_flag_;
+
         ros::Subscriber target_baselink_pos_sub_;
         ros::Subscriber target_baselink_delta_pos_sub_;
 
         ros::Subscriber raise_leg_sub_;
         ros::Subscriber lower_leg_sub_;
+
+        ros::Subscriber raw_servo_state_sub_;
 
         ros::Publisher target_leg_ends_pub_;
         ros::Publisher sim_baselink_pose_pub_;
@@ -162,6 +171,7 @@ namespace aerial_robot_navigation
         void lowerLegCallback(const std_msgs::EmptyConstPtr& msg);
         void walkCallback(const std_msgs::BoolConstPtr& msg);
         void simulateFlightConfigCallback(const spinal::FlightConfigCmdConstPtr& msg);
+        void rawServoStateCallback(const spinal::ServoStatesConstPtr& state_msg);
 
         bool checkKinematics();
 
@@ -172,8 +182,9 @@ namespace aerial_robot_navigation
 
         void updateRobotModelForNav();
         bool updateJoinAngleFrominverseKinematics(bool allow_fail = false);
+        bool updateJoinAngleFrominverseKinematics(bool allow_fail, std::vector<int>& fail_list);
         void freeLegAction();
-        void failSafeAction();
+        virtual void failSafeAction();
 
         void kinematicSimulate();
 
@@ -181,6 +192,8 @@ namespace aerial_robot_navigation
         void setJointIndexMap();
         std::vector<double> getCurrentJointAngles();
         bool getCurrentLegEndsPos(std::vector<KDL::Frame>& leg_ends_pos);
+        void jointPitchTorque(bool flag);
+        void allServoTorque(bool flag);
       };
     };
   };

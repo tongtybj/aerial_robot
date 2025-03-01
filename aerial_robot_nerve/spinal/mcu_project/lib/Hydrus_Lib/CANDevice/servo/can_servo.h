@@ -27,7 +27,7 @@ private:
 	uint8_t error_;
 	bool send_data_flag_;
 	bool torque_enable_;
-	bool goal_position_valid_flag_;
+	bool goal_position_ack_;
 	bool force_servo_off_;
 	bool external_encoder_flag_;
 	uint16_t joint_resolution_;
@@ -36,7 +36,7 @@ private:
 	friend class CANServo;
 	friend class CANInitializer;
 public:
-  Servo():torque_enable_(true), goal_position_valid_flag_(false) {}
+  Servo():torque_enable_(true), goal_position_ack_(false) {}
 	uint8_t getId() const {return id_;}
 	uint8_t getIndex () const {return index_;}
 	uint16_t getPGain() const {return p_gain_;}
@@ -65,7 +65,7 @@ class CANServo : public CANDevice
 {
 public:
 	CANServo(){}
-  CANServo(uint8_t slave_id, unsigned int servo_num, bool dynamixel_ttl_rs485_mixed, uint16_t thresh, float rate):CANDevice(CAN::DEVICEID_SERVO, slave_id), servo_(servo_num), dynamixel_ttl_rs485_mixed_(dynamixel_ttl_rs485_mixed), pulley_skip_thresh_(thresh), internal_offset_lpf_rate_(rate){}
+  CANServo(uint8_t slave_id, unsigned int servo_num, bool dynamixel_ttl_rs485_mixed, uint16_t thresh):CANDevice(CAN::DEVICEID_SERVO, slave_id), servo_(servo_num), dynamixel_ttl_rs485_mixed_(dynamixel_ttl_rs485_mixed), pulley_skip_thresh_(thresh){}
 	void setServoNum(unsigned int servo_num) {servo_.resize(servo_num);}
 	void sendServoConfigRequest();
 	void sendData() override;
@@ -75,13 +75,10 @@ public:
 	void setDynamixelTTLRS485Mixed(bool dynamixel_ttl_rs485_mixed) {dynamixel_ttl_rs485_mixed_ = dynamixel_ttl_rs485_mixed;}
 	uint16_t getPulleySkipThresh() const {return pulley_skip_thresh_;}
 	void setPulleySkipThresh(uint16_t value) {pulley_skip_thresh_ = value;}
-  float getInternalOffsetLPFRate() const {return internal_offset_lpf_rate_;}
-  void setInternalOffsetLPFRate(float value) {internal_offset_lpf_rate_ = value;}
 
 private:
 	bool dynamixel_ttl_rs485_mixed_;
 	uint16_t pulley_skip_thresh_;
-  	float internal_offset_lpf_rate_;
 	struct CANServoData{
 		int16_t angle;
 		uint8_t temperature;

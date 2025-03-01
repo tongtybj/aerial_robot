@@ -17,7 +17,9 @@ Base::Base():
   free_leg_id_(-1),
   raise_leg_flag_(false),
   lower_leg_flag_(false),
-  raise_converge_(false)
+  raise_converge_(false),
+  raw_servo_states_(0),
+  servo_error_flag_(false)
 {
 }
 
@@ -38,6 +40,8 @@ void Base::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 
   raise_leg_sub_ = nh_.subscribe("walk/raise_leg", 1, &Base::raiseLegCallback, this);
   lower_leg_sub_ = nh_.subscribe("walk/lower_leg", 1, &Base::lowerLegCallback, this);
+
+  raw_servo_state_sub_ = nh_.subscribe("servo/states", 1, &Base::rawServoStateCallback, this);
 
   target_leg_ends_pub_ = nh_.advertise<geometry_msgs::PoseArray>("debug/nav/target_leg_ends", 1); // for debug
 
@@ -72,6 +76,9 @@ void Base::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
 void Base::update()
 {
   if (getNaviState() == aerial_robot_navigation::START_STATE) {
+
+    allServoTorque(true); // force to torque-on all servo
+
     if(estimator_->getUnhealthLevel() == Sensor::UNHEALTH_LEVEL3){
       ROS_WARN("Sensor Unhealth, cannot arming");
       setNaviState(ARM_OFF_STATE);
@@ -106,11 +113,20 @@ void Base::update()
 // calculate target joint angle from target baselink based on IK
 bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
 {
+  std::vector<int> dummy_list(0);
+  return updateJoinAngleFrominverseKinematics(allow_fail, dummy_list);
+}
+
+
+// calculate target joint angle from target baselink based on IK
+bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail, std::vector<int>& fail_list)
+{
   const int leg_num = spidar_robot_model_->getRotorNum() / 2;
   const auto& seg_tf_map = spidar_robot_model_->getSegmentsTf();
   std::vector<KDL::Frame> curr_leg_ends;
   getCurrentLegEndsPos(curr_leg_ends);
 
+  fail_list.resize(0);
 
   // calculate the target joint angles from baselink and end position
   KDL::Frame fw_target_baselink;
@@ -183,6 +199,7 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
                        << "; baselink pos: " << aerial_robot_model::kdlToEigen(fw_target_baselink.p).transpose());
 
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
@@ -198,18 +215,21 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
     if(fabs(angle) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_yaw exceeds the valid range, angle is " << angle);
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
     if(fabs(theta1) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 1 << "_pitch exceeds the valid range, angle is " << theta1);
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
     if(fabs(theta2) > joint_angle_limit_) {
       ROS_WARN_STREAM("[Spider][Navigator] joint" << i * 2 + 2 << "_pitch exceeds the valid range, angle is " << theta2);
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
@@ -217,6 +237,7 @@ bool Base::updateJoinAngleFrominverseKinematics(bool allow_fail)
     if(names.at(4 * i) != std::string("joint") + std::to_string(2*i+1) + std::string("_yaw")) {
       ROS_WARN_STREAM("[Spider][Navigator] name order is different. ID" << i << " name is " << names.at(4 * i));
       fail = true;
+      fail_list.push_back(i);
       continue;
     }
 
@@ -432,10 +453,30 @@ void Base::freeLegAction()
 
 void Base::failSafeAction()
 {
+  // servo error
+  if (!servo_error_flag_) {
+    for(const auto& state: raw_servo_states_) {
+      if (state.error > 0) {
+        ROS_ERROR("servo %d has error, Err Code: %d", state.index, state.error);
+        servo_error_flag_ = true;
+
+        lower_leg_flag_ = false;
+        raise_leg_flag_ = false;
+        raise_converge_ = false;
+
+
+        ROS_ERROR("force servo off all joint pitch becuase of servo error");
+        jointPitchTorque(false);
+      }
+    }
+  }
+
   // baselink rotation
+  tf::Matrix3x3 target_rot; target_rot.setRPY(target_baselink_rpy_.x(), target_baselink_rpy_.y(), target_baselink_rpy_.z());
   tf::Matrix3x3 rot = estimator_->getOrientation(Frame::BASELINK, estimate_mode_);
-  tf::Vector3 zb = rot * tf::Vector3(0,0,1);
-  double theta = atan2(sqrt(zb.x() * zb.x() + zb.y() * zb.y()), zb.z());
+  tf::Matrix3x3 diff_rot = target_rot.transpose() * rot;
+  tf::Vector3 zb = diff_rot * tf::Vector3(0,0,1);
+  double theta = atan2(sqrt(zb.x() * zb.x() + zb.y() * zb.y()), fabs(zb.z()));
 
   if (theta > baselink_rot_thresh_){
     ROS_WARN_STREAM("[Spider][Walk][Navigation] baselink rotation is abnormal, tool tiled: " << theta);
@@ -443,23 +484,6 @@ void Base::failSafeAction()
     if (raise_leg_flag_) {
       lowerLeg();
       ROS_WARN_STREAM("[Spider][Walk][Navigation] instantly lower the raised leg" << free_leg_id_ + 1);
-    }
-  }
-
-  // pitch joint of opposite of raise leg
-  if (raise_leg_flag_) {
-    int leg_num = spidar_robot_model_->getRotorNum() / 2;
-    int leg_id = (free_leg_id_ + leg_num / 2) % leg_num;
-    int j = 4 * leg_id + 1;
-    double target_angle = target_joint_state_.position.at(j);
-    double current_angle = getCurrentJointAngles().at(j);
-    std::string name = target_joint_state_.name.at(j);
-
-    //ROS_INFO_STREAM("[Spider][Walk][Navigation] " << name << ", target angle  " << target_angle << ", current angle: " << current_angle);
-    if (target_angle - current_angle > opposite_raise_leg_thresh_) {
-      ROS_WARN_STREAM("[Spider][Walk][Navigation] " << name << " is overload because of raising leg, target angle  " << target_angle << ", current angle: " << current_angle);
-      ROS_WARN_STREAM("[Spider][Walk][Navigation] instantly lower the raising leg" << free_leg_id_ + 1);
-      lowerLeg();
     }
   }
 }
@@ -556,21 +580,28 @@ void Base::setJointIndexMap()
 void Base::setTargetBaselinkPos(tf::Vector3 pos, bool update_joint_angle)
 {
   target_baselink_pos_ = pos;
+  setTargetBaselinkPosForThrustControl(pos);
 
   if (update_joint_angle) {
     updateJoinAngleFrominverseKinematics();
   }
 }
 
+void Base::setTargetBaselinkPosForThrustControl(tf::Vector3 pos)
+{
+  target_baselink_pos_for_thrust_control_ = pos;
+}
+
 void Base::addTargetBaselinkPos(tf::Vector3 delta_pos, bool update_joint_angle)
 {
-  target_baselink_pos_ += delta_pos;
-  setTargetBaselinkPos(target_baselink_pos_, update_joint_angle);
+  tf::Vector3 target_baselink_pos = getTargetBaselinkPos();
+  target_baselink_pos += delta_pos;
+  setTargetBaselinkPos(target_baselink_pos, update_joint_angle);
 }
 
 void Base::setTargetBaselinkPose(tf::Vector3 pos, tf::Vector3 rpy, bool update_joint_angle)
 {
-  target_baselink_pos_ = pos;
+  setTargetBaselinkPos(pos, false);
   target_baselink_rpy_ = rpy;
 
   if (update_joint_angle) {
@@ -587,14 +618,14 @@ void Base::setTargetLegEnds(std::vector<KDL::Frame> frames, bool update_joint_an
   }
 }
 
-void Base::resetTargetLegEnds()
+void Base::resetTargetLegEnds(bool update_joint_angle)
 {
   std::vector<KDL::Frame> curr_leg_ends;
   if(!getCurrentLegEndsPos(curr_leg_ends)) {
     return ;
   }
 
-  setTargetLegEnds(curr_leg_ends);
+  setTargetLegEnds(curr_leg_ends, update_joint_angle);
 }
 
 tf::Vector3 Base::getCurrentBaselinkPos()
@@ -754,16 +785,23 @@ void Base::rosParamInit()
 
 void Base::targetBaselinkPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
 {
-  tf::vector3MsgToTF(msg->vector, target_baselink_pos_);
+  tf::Vector3 target_baselink_pos;
+  tf::vector3MsgToTF(msg->vector, target_baselink_pos);
+  setTargetBaselinkPos(target_baselink_pos, false);
 }
 
 void Base::targetBaselinkDeltaPosCallback(const geometry_msgs::Vector3StampedConstPtr& msg)
 {
   tf::Vector3 delta_pos;
   tf::vector3MsgToTF(msg->vector, delta_pos);
-  target_baselink_pos_ += delta_pos;
+  addTargetBaselinkPos(delta_pos, false);
 
   ROS_ERROR("get new target baselink");
+}
+
+void Base::rawServoStateCallback(const spinal::ServoStatesConstPtr& state_msg)
+{
+  raw_servo_states_ = state_msg->servos;
 }
 
 void Base::raiseLegCallback(const std_msgs::UInt8ConstPtr& msg)
@@ -822,22 +860,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo on */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joints/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = true;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] enable alll joint torque");
-      else
-        ROS_ERROR("Failed to call service joints/torque_enable");
-
-      client = nh_.serviceClient<std_srvs::SetBool>("gimbals/torque_enable");
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] enable alll gimbal torque");
-      else
-        ROS_ERROR("Failed to call service gimbals/torque_enable");
+      allServoTorque(true);
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -850,22 +873,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo off */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joints/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = false;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] disable the all joint torque");
-      else
-        ROS_ERROR("Failed to call service joints/torque_enable");
-
-      client = nh_.serviceClient<std_srvs::SetBool>("gimbals/torque_enable");
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] disable the all gimbal torque");
-      else
-        ROS_ERROR("Failed to call service gimbals/torque_enable");
+      allServoTorque(false);
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -878,15 +886,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo on */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joint_pitch/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = true;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] enable the pitch joint torque");
-      else
-        ROS_ERROR("Failed to call service joint_pitch/torque_enable");
+      jointPitchTorque(true); /* torque on */
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -899,15 +899,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
         return;
       }
 
-      /* servo off */
-      ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joint_pitch/torque_enable");
-      std_srvs::SetBool srv;
-      srv.request.data = false;
-
-      if (client.call(srv))
-        ROS_INFO("[Spider][Joy] disable the pitch joint torque");
-      else
-        ROS_ERROR("Failed to call service joint_pitch/torque_enable");
+      jointPitchTorque(false); /* torque off */
 
       prev_joy_cmd = joy_cmd;
       return;
@@ -1019,6 +1011,7 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 
     if(getNaviState() == ARM_ON_STATE)
       {
+        allServoTorque(false); // force to torque-off all servo
         setNaviState(STOP_STATE);
         ROS_ERROR("Joy Conrol: not land, but disarm motors directly");
       }
@@ -1029,6 +1022,39 @@ void Base::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 
   prev_joy_cmd = joy_cmd;
 }
+
+void Base::jointPitchTorque(bool flag)
+{
+  ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joint_pitch/torque_enable");
+  std_srvs::SetBool srv;
+  srv.request.data = flag;
+
+  if (client.call(srv))
+    ROS_INFO("[Spider][Joy] enable the pitch joint torque");
+  else
+    ROS_ERROR("Failed to call service joint_pitch/torque_enable");
+}
+
+void Base::allServoTorque(bool flag)
+{
+  ros::ServiceClient client = nh_.serviceClient<std_srvs::SetBool>("joints/torque_enable");
+  std_srvs::SetBool srv;
+  srv.request.data = flag;
+
+  if (client.call(srv))
+    ROS_INFO("[Spider][Joy] disable the all joint torque");
+  else
+    ROS_ERROR("Failed to call service joints/torque_enable");
+
+  client = nh_.serviceClient<std_srvs::SetBool>("gimbals/torque_enable");
+
+  if (client.call(srv))
+    ROS_INFO("[Spider][Joy] disable the all gimbal torque");
+  else
+    ROS_ERROR("Failed to call service gimbals/torque_enable");
+
+}
+
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>

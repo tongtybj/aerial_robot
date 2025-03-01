@@ -427,7 +427,7 @@ void WalkController::quadrupedThrustControl()
   tf::Vector3 baselink_vel = estimator_->getVel(Frame::BASELINK, estimate_mode_);
   tf::Vector3 baselink_rpy = estimator_->getEuler(Frame::BASELINK, estimate_mode_);
 
-  tf::Vector3 baselink_target_pos = spidar_walk_navigator_->getTargetBaselinkPos();
+  tf::Vector3 baselink_target_pos = spidar_walk_navigator_->getTargetBaselinkPosForThrustControl();
   tf::Vector3 baselink_target_vel = spidar_walk_navigator_->getTargetBaselinkVel();
   tf::Vector3 baselink_target_rpy = spidar_walk_navigator_->getTargetBaselinkRpy();
 

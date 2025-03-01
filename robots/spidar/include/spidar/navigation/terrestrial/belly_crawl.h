@@ -82,16 +82,17 @@ namespace aerial_robot_navigation
         double target_yaw_;
         std::vector<double> prev_target_joint_angles_;
         std::vector<double> final_target_joint_angles_;
+        std::vector<KDL::Frame> prev_target_leg_ends_;
+
 
         int phase_;
         bool move_flag_;
 
         // param
         double stride_;
-        bool cycle_reset_leg_end_;
-        bool cycle_reset_baselink_;
         bool belly_debug_;
         bool limb_debug_;
+        double horizontal_vel_;
 
         // limb move
         struct Limb {
@@ -108,11 +109,13 @@ namespace aerial_robot_navigation
 
           double prev_t_;
           double servo_switch_t_;
+          double raise_start_t_;
 
           // param
           double loop_duration_;
           double servo_switch_duration_;
           double joint_err_thresh_;
+          double raise_time_thresh_;
         };
 
         Limb limb_;
@@ -132,6 +135,7 @@ namespace aerial_robot_navigation
 
           double prev_t_;
           double servo_switch_t_;
+          double raise_start_t_;
 
           double raise_height_;
           double raise_thresh_;
@@ -139,6 +143,7 @@ namespace aerial_robot_navigation
           double descend_thresh_;
           double loop_duration_;
           double servo_switch_duration_;
+          double raise_time_thresh_;
 
         };
 
@@ -152,6 +157,8 @@ namespace aerial_robot_navigation
         void bellySubStateMachine();
 
         void iterativeUpdateTargetPos();
+
+        void failSafeAction() override;
 
         void rosParamInit() override;
         void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg) override;

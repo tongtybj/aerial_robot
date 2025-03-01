@@ -316,6 +316,8 @@ public:
           id_(id),
           goal_current_(0),
           internal_offset_(0),
+          pulley_skip_time_(0),
+          pulley_skip_reset_du_(1000),
           operating_mode_(0),
           hardware_error_status_(0),
           torque_enable_(false),
@@ -331,7 +333,9 @@ public:
         int32_t calib_value_;
 	int32_t homing_offset_;
         int32_t internal_offset_;
-        uint8_t present_temp_;
+	uint32_t pulley_skip_time_;
+	uint32_t pulley_skip_reset_du_;
+	uint8_t present_temp_;
 	int16_t present_current_;
 	uint8_t moving_;
   	uint16_t model_number_;
@@ -384,8 +388,6 @@ public:
   void setTTLRS485Mixed(uint16_t flag) {ttl_rs485_mixed_ = flag;}
   uint16_t getPulleySkipThresh() const {return pulley_skip_thresh_;}
   void setPulleySkipThresh(uint16_t value) {pulley_skip_thresh_ = value;}
-  float getInternalOffsetLPFRate() const {return internal_offset_lpf_rate_;}
-  void setInternalOffsetLPFRate(float value);
   std::array<ServoData, MAX_SERVO_NUM>& getServo() {return servo_;}
   const std::array<ServoData, MAX_SERVO_NUM>& getServo() const {return servo_;}
 
@@ -398,7 +400,6 @@ private:
   std::array<ServoData, MAX_SERVO_NUM> servo_;
   uint16_t ttl_rs485_mixed_;
   uint16_t pulley_skip_thresh_;
-  float internal_offset_lpf_rate_;
   uint32_t set_command_tick_;
   uint32_t set_pos_tick_;
   uint32_t get_pos_tick_;

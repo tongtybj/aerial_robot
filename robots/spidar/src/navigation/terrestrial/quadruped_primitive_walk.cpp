@@ -58,6 +58,29 @@ void QuadrupedPrimitiveWalk::update()
   stateMachine();
 }
 
+void QuadrupedPrimitiveWalk::failSafeAction()
+{
+  Base::failSafeAction();
+
+  // pitch joint of opposite of raise leg
+  if (raise_leg_flag_) {
+    int leg_num = spidar_robot_model_->getRotorNum() / 2;
+    int leg_id = (free_leg_id_ + leg_num / 2) % leg_num;
+    int j = 4 * leg_id + 1;
+    double target_angle = target_joint_state_.position.at(j);
+    double current_angle = getCurrentJointAngles().at(j);
+    std::string name = target_joint_state_.name.at(j);
+
+    //ROS_INFO_STREAM("[Spider][Walk][Navigation] " << name << ", target angle  " << target_angle << ", current angle: " << current_angle);
+    if (target_angle - current_angle > opposite_raise_leg_thresh_) {
+      ROS_WARN_STREAM("[Spider][Walk][Navigation] " << name << " is overload because of raising leg, target angle  " << target_angle << ", current angle: " << current_angle);
+      ROS_WARN_STREAM("[Spider][Walk][Navigation] instantly lower the raising leg" << free_leg_id_ + 1);
+      lowerLeg();
+    }
+  }
+}
+
+
 void QuadrupedPrimitiveWalk::stateMachine()
 {
   /*
