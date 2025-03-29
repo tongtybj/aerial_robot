@@ -188,15 +188,18 @@ namespace allocation
                   double sub_bound = map_it->second.second;
                   double direction = sub_bound - prime_bound;
 
+                  int z_index = 2;
+                  if (roll_locked_gimbal.at(i)) z_index = 1;
+
                   double prime_pitch_angle = prime_bound;
                   constraints(row, col) = cos(prime_pitch_angle); // x
-                  constraints(row, col + 1) = -sin(prime_pitch_angle); // z
+                  constraints(row, col + z_index) = -sin(prime_pitch_angle); // z
                   if (direction > 0) lower_bound(row) = 0;
                   else upper_bound(row) = 0;
 
                   double sub_pitch_angle = sub_bound;
                   constraints(row + 1, col) = cos(sub_pitch_angle); // x
-                  constraints(row + 1, col + 1) = -sin(sub_pitch_angle); // z
+                  constraints(row + 1, col + z_index) = -sin(sub_pitch_angle); // z
                   if (direction > 0) upper_bound(row+1) = 0;
                   else lower_bound(row+1) = 0;
                   row += 2;
