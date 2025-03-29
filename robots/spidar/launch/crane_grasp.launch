@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="mode" default="bottom" doc="choose 'bottom' or 'top'"  />
+
+
+  <arg name="object_mass" default="1.0" if="$(eval mode=='bottom')"/>
+  <arg name="object_radius" default="0.25" if="$(eval mode=='bottom')"/>
+  <arg name="object_center" default="[0.0, 0.0, -0.77]" if="$(eval mode=='bottom')"/>
+  <arg name="pregrasp_duration" default="8.0" if="$(eval mode=='bottom')"/>
+  <arg name="wait_duration" default="2.0" if="$(eval mode=='bottom')"/>
+  <arg name="grasp_duration" default="8.0" if="$(eval mode=='bottom')"/>
+  <arg name="prelift_duration" default="3.0" if="$(eval mode=='bottom')"/>
+  <arg name="pregrasp_joint_angles" default="[0.0, 0.0, 0.0, 1.57]" if="$(eval mode=='bottom')"/>
+  <arg name="grasp_joint_angles" default="[0.0, 0.8, 0.0, 1.57]" if="$(eval mode=='bottom')"/>
+
+
+  <arg name="object_mass" default="1.0" if="$(eval mode=='top')"/>
+  <arg name="object_radius" default="0.35" if="$(eval mode=='top')"/>
+  <arg name="object_center" default="[0, 0, 0.74]" if="$(eval mode=='top')"/>
+  <arg name="pregrasp_duration" default="2.0" if="$(eval mode=='top')"/>
+  <arg name="wait_duration" default="2.0" if="$(eval mode=='top')"/>
+  <arg name="grasp_duration" default="10.0" if="$(eval mode=='top')"/>
+  <arg name="prelift_duration" default="3.0" if="$(eval mode=='top')"/>
+  <arg name="pregrasp_joint_angles" default="[0.0, 0, 0.0, 0.0]" if="$(eval mode=='top')"/>
+  <arg name="grasp_joint_angles" default="[0, -0.66, 0, -1.57]" if="$(eval mode=='top')"/>
+
+  <node pkg="spidar" type="grasp_test.py" name="grasp_test" output="screen">
+    <param name="object_mass" value="$(arg object_mass)"/>
+    <param name="object_radius" value="$(arg object_radius)"/>
+    <param name="pregrasp_duration" value="$(arg pregrasp_duration)"/>
+    <param name="wait_duration" value="$(arg wait_duration)"/>
+    <param name="grasp_duration" value="$(arg grasp_duration)"/>
+    <param name="prelift_duration" value="$(arg prelift_duration)"/>
+    <rosparam subst_value="true">
+      object_center: $(arg object_center)
+      grasp_joint_angles: $(arg grasp_joint_angles)
+      pregrasp_joint_angles: $(arg pregrasp_joint_angles)
+    </rosparam>
+  </node>
+
+</launch>
