@@ -15,10 +15,10 @@
   <arg name="grasp_joint_angles" default="[0.0, 0.8, 0.0, 1.57]" if="$(eval mode=='bottom')"/>
 
 
-  <arg name="object_mass" default="1.0" if="$(eval mode=='top')"/>
+  <arg name="object_mass" default="1.4" if="$(eval mode=='top')"/>
   <arg name="object_radius" default="0.35" if="$(eval mode=='top')"/>
   <arg name="object_center" default="[0, 0, 0.74]" if="$(eval mode=='top')"/>
-  <arg name="pregrasp_duration" default="2.0" if="$(eval mode=='top')"/>
+  <arg name="pregrasp_duration" default="5.0" if="$(eval mode=='top')"/>
   <arg name="wait_duration" default="2.0" if="$(eval mode=='top')"/>
   <arg name="grasp_duration" default="10.0" if="$(eval mode=='top')"/>
   <arg name="prelift_duration" default="3.0" if="$(eval mode=='top')"/>
