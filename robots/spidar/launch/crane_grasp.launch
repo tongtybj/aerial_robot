@@ -23,7 +23,7 @@
   <arg name="grasp_duration" default="10.0" if="$(eval mode=='top')"/>
   <arg name="prelift_duration" default="3.0" if="$(eval mode=='top')"/>
   <arg name="pregrasp_joint_angles" default="[0.0, 0, 0.0, 0.0]" if="$(eval mode=='top')"/>
-  <arg name="grasp_joint_angles" default="[0, -0.66, 0, -1.57]" if="$(eval mode=='top')"/>
+  <arg name="grasp_joint_angles" default="[0, -0.7, 0, -1.57]" if="$(eval mode=='top')"/>
 
   <node pkg="spidar" type="grasp_test.py" name="grasp_test" output="screen">
     <param name="object_mass" value="$(arg object_mass)"/>
