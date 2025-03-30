@@ -331,9 +331,10 @@ namespace vectoring
         // skip if the range is enough for normal tilting
         if (lower * upper < 0 && fabs(lower) > area_thresh / 2) continue;
 
+        double roll_lock_tresh = 0.51; // TODO: rosparameter. old: 0.34 (20deg)
         if (lower * upper > 0)
           {
-            if (fabs(M_PI/2 - fabs(lower + gimbal_nominal_angles.at(2 * i + 1))) < 0.34)
+            if (fabs(M_PI/2 - fabs(lower + gimbal_nominal_angles.at(2 * i + 1))) < roll_lock_tresh)
               {
                 // ROS_INFO("rotor %d, pitch vectorng is too close to 90deg: %f", i+1, lower + gimbal_nominal_angles.at(2 * i + 1));
                 if (roll_locked_gimbal.at(i) == 0)
