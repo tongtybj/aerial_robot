@@ -2,6 +2,7 @@
 
 import rospy
 from sensor_msgs.msg import JointState
+from std_msgs.msg import UInt8
 import argparse
 import numpy as np
 
@@ -12,8 +13,10 @@ class LinearJointMotion:
         self.index = None
 
         self.start_flag = False
+        self.flight_state = 0
 
         self.pub = rospy.Publisher('/spidar/joints_ctrl', JointState, queue_size = 1)
+        self.state_sub = rospy.Subscriber('/spidar/flight_state', UInt8, self.stateCallback)
         self.timer = rospy.Timer(rospy.Duration(1/freq), self.timerCallback)
 
     def start(self, final_joint_angles, duration):
@@ -42,6 +45,10 @@ class LinearJointMotion:
         if not self.start_flag:
             return
 
+        if self.flight_state != 5:
+            rospy.loginfo_throttle(1.0, "skip, flight_state: %d", self.flight_state)
+            return
+
         joint_msg = JointState()
         joint_msg.header.stamp = rospy.Time.now()
         joint_msg.position = self.joint_seq[self.index]
@@ -53,6 +60,8 @@ class LinearJointMotion:
         if self.index == len(self.joint_seq):
             self.start_flag = False
 
+    def stateCallback(self, msg):
+        self.flight_state = msg.data
 
 
 if __name__ == '__main__':
