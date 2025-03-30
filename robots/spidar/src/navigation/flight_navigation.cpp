@@ -107,23 +107,23 @@ void FlightNavigator::landingProcess()
 
           /* force set the current deisre tilt to current estimated tilt */
           curr_target_baselink_rot_.setValue(curr_roll, curr_pitch, 0);
-        }
 
-      level_flag_ = true;
+          if(getNaviState() == LAND_STATE)
+            {
+              setNaviState(PRE_LAND_STATE);
+              setTeleopFlag(false);
+              setTargetPosZ(estimator_->getState(State::Z_COG, estimate_mode_)[0]);
+              setTargetVelZ(0);
+              land_height_ = 0; // reset the land height, since it is updated in the first land_state which is forced to change to hover state to level the orientation. Thus, it is possible to have the same land height just after switching back to land state and thus stop in midair
+              ROS_INFO("[Navigation] shift to pre_land state to make the robot level");
+            }
 
-      if(getNaviState() == LAND_STATE && !landing_flag_)
-        {
-          landing_flag_ = true;
-          setTeleopFlag(false);
-          setTargetPosZ(estimator_->getState(State::Z_COG, estimate_mode_)[0]);
-          setTargetVelZ(0);
-          land_height_ = 0; // reset the land height, since it is updated in the first land_state which is forced to change to hover state to level the orientation. Thus, it is possible to have the same land height just after switching back to land state and thus stop in midair
-          setNaviState(HOVER_STATE);
+          level_flag_ = true;
         }
     }
 
   /* back to landing process */
-  if(landing_flag_)
+  if(getNaviState() == PRE_LAND_STATE)
     {
       const auto joint_state = robot_model_->kdlJointToMsg(robot_model_->getJointPositions());
       bool already_level = true;
@@ -153,9 +153,9 @@ void FlightNavigator::landingProcess()
 
       if(curr_target_baselink_rot_.length()) already_level = false;
 
-      if(already_level && getNaviState() == HOVER_STATE)
+      if(already_level)
         {
-          ROS_WARN("gimbal control: back to land state");
+          ROS_INFO("[Navigation] back to land state");
           setNaviState(LAND_STATE);
           setTeleopFlag(true);
         }
