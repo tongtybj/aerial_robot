@@ -8,7 +8,7 @@ navigation:
   # Attitude Control Mode: 4
 
 
-  takeoff_height: 0.4 # livox outdoor: 0.2; mocap/livox indoor: 0.4
+  takeoff_height: 0.5 # livox outdoor: 0.2; mocap/livox indoor: 0.4
   outdoor_takeoff_height: 1.5
 
   # teleop operation
