@@ -75,9 +75,6 @@ namespace sensor_plugin
   private:
     /* ros */
     ros::Subscriber vo_sub_;
-    ros::Publisher vo_servo_pub_;
-    ros::Subscriber vo_servo_debug_sub_;
-    ros::Timer  servo_control_timer_;
 
     /* ros param */
     double throttle_rate_;
@@ -96,18 +93,6 @@ namespace sensor_plugin
     bool outdoor_;
     bool z_no_delay_;
 
-    /* servo */
-    std::string joint_name_;
-    bool servo_auto_change_flag_;
-    double servo_height_thresh_;
-    double servo_angle_;
-    double servo_init_angle_, servo_downwards_angle_;
-    double servo_vel_;
-    double servo_control_rate_;
-
-    double servo_min_angle_, servo_max_angle_;
-    int servo_index_;
-
     tf::Transform world_offset_tf_; // ^{w}H_{w_vo}: transform from true world frame to the vo/vio world frame
     tf::Transform baselink_tf_; // ^{w}H_{b}: transform from true world frame to the baselink frame, but is estimated by vo/vio
     tf::Vector3 raw_global_vel_;
@@ -121,11 +106,6 @@ namespace sensor_plugin
     void servoControl(const ros::TimerEvent & e);
     void estimateProcess();
     void voCallback(const nav_msgs::Odometry::ConstPtr & vo_msg);
-
-    void servoDebugCallback(const std_msgs::Empty::ConstPtr & msg)
-    {
-      servo_auto_change_flag_ = true;
-    }
   };
 };
 
