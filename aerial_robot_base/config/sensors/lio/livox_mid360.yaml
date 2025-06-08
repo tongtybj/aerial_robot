@@ -7,7 +7,7 @@ sensor_plugin:
     vel_noise_sigma: 0.01 # TODO: modification
     sensor_frame: lidar_imu
     reference_frame: fc
-    vio_mode: true
+    vio_mode: false
     local_vel_mode: false # the twist/twist/velocity is described in global frame
     time_sync: false
     reset_duration: 0.5
