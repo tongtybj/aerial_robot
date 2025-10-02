@@ -1,0 +1,11 @@
+# FAST LIO
+common:
+        imu_topic: /quadrotor/sensor_plugin/imu1/ros_converted
+mapping:
+        extrinsic_T: [ 0.02, 0.005, 0.06 ]
+
+
+# KF
+sensor_plugin:
+  vo:
+    sensor_frame: fc

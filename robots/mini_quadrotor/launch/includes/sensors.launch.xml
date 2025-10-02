@@ -30,6 +30,9 @@
     <rosparam file="$(find aerial_robot_base)/config/sensors/imu/spinal.yaml" command="load" />
     <rosparam file="$(find aerial_robot_base)/config/sensors/mocap.yaml" command="load" />
     <rosparam file="$(find aerial_robot_base)/config/sensors/lio/livox_mid360.yaml" command="load" />
+
+    <!-- special configuration for FAST_LIO by LIVOX MID360 -->
+    <rosparam file="$(find mini_quadrotor)/config/sensors/livox_mid360.yaml" command="load" />
   </group>
 
 </launch>
