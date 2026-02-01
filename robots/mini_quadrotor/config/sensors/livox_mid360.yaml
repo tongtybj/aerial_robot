@@ -2,7 +2,7 @@
 common:
         imu_topic: /quadrotor/sensor_plugin/imu1/ros_converted
 mapping:
-        extrinsic_T: [ 0.02, 0.005, 0.06 ]
+        extrinsic_T: [ 0.016, 0.0, 0.069 ]
 
 
 # KF
