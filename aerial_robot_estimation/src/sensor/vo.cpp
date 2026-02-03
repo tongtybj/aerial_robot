@@ -81,6 +81,7 @@ namespace sensor_plugin
     uint32_t queuse_size = 1; // if the timestamp is not synchronized, we can only use the latest sensor value.
     if(time_sync_) queuse_size = 10;
     vo_sub_ = nh_.subscribe(topic_name, queuse_size, &VisualOdometry::voCallback, this);
+    reset_origin_offset_sub_ = nh_.subscribe("reset_origin_offset", queuse_size, &VisualOdometry::resetOriginOffsetCallback, this);
 
     /* servo control timer */
     if(variable_sensor_tf_flag_)
@@ -263,76 +264,10 @@ namespace sensor_plugin
 
         /** step3: ^{w}H_{vo} = ^{w}H_{b} * ^{b}H_{vo} **/
         world_offset_tf_ = w_b_f * vo_b_f.inverse();
-
-        /* publish the offset tf if necessary */
-        geometry_msgs::TransformStamped static_transformStamped;
-        static_transformStamped.header.stamp = vo_msg->header.stamp;
-        static_transformStamped.header.frame_id = "world";
-        static_transformStamped.child_frame_id = vo_msg->header.frame_id;
-        tf::transformTFToMsg(world_offset_tf_, static_transformStamped.transform);
-        static_broadcaster_.sendTransform(static_transformStamped);
+        publishStaticWorldFrameOffset(world_offset_tf_, vo_msg->header);
 
         tf::Vector3 init_pos = w_b_f.getOrigin();
-
-        for(auto& fuser : estimator_->getFuser(EGOMOTION_ESTIMATE))
-          {
-            string plugin_name = fuser.first;
-            boost::shared_ptr<kf_plugin::KalmanFilter> kf = fuser.second;
-            int id = kf->getId();
-
-            if(plugin_name == "kalman_filter/kf_pos_vel_acc")
-              {
-                if(id < (1 << State::TOTAL_NUM))
-                  {
-                    /* not need to initialize */
-                    if(estimator_->getStateStatus(State::X_BASE + (id >> (State::X_BASE + 1)), EGOMOTION_ESTIMATE))
-                      continue;
-
-                    if(fusion_mode_ != ONLY_VEL_MODE) //debug
-                      {
-                        if(id & (1 << State::Z_BASE))
-                          {
-                            if(!z_vel_mode_)
-                              {
-                                kf->setInitState(init_pos[2], 0);
-                                std::cout << ", init state z with " << ((fusion_mode_== ONLY_POS_MODE)?"ony_pos":"pos_vel") << " mode";
-                              }
-                            else
-                              std::cout << ", init state z with vel mode";
-                          }
-                        else
-                          {
-                            kf->setInitState(init_pos[id >> (State::X_BASE + 1)], 0);
-                            std::cout << ", init state " << ((id >> (State::X_BASE + 1) == 0)?"x":"y") << "  with "
-                                      << ((fusion_mode_== ONLY_POS_MODE)?"only_pos":"pos_vel") << " mode";
-                          }
-                      }
-                    kf->setMeasureFlag();
-                  }
-              }
-
-            if(plugin_name == "aerial_robot_base/kf_xy_roll_pitch_bias")
-              {
-                if((id & (1 << State::X_BASE)) && (id & (1 << State::Y_BASE)))
-                  {
-                    if(estimator_->getStateStatus(State::X_BASE, EGOMOTION_ESTIMATE) && estimator_->getStateStatus(State::Y_BASE, EGOMOTION_ESTIMATE))
-                      continue;
-
-                    if(fusion_mode_ != ONLY_VEL_MODE)
-                      {
-                        VectorXd init_state(6);
-                        init_state << init_pos[0], 0, init_pos[1], 0, 0, 0;
-                        kf->setInitState(init_state);
-                        std::cout << ", init state x/y with pos mode";
-                      }
-                    else
-                      std::cout << ", init state x/y with vel mode";
-
-                    kf->setMeasureFlag();
-                  }
-              }
-          }
-        std::cout << std::endl;
+        setInitPosition(init_pos);
 
         estimator_->setStateStatus(State::X_BASE, EGOMOTION_ESTIMATE, true);
         estimator_->setStateStatus(State::Y_BASE, EGOMOTION_ESTIMATE, true);
@@ -698,6 +633,94 @@ namespace sensor_plugin
         msg.position.push_back(servo_angle_);
         vo_servo_pub_.publish(msg);
       }
+  }
+
+  void VisualOdometry::setInitPosition(tf::Vector3 init_pos)
+  {
+    for(auto& fuser : estimator_->getFuser(EGOMOTION_ESTIMATE))
+      {
+        string plugin_name = fuser.first;
+        boost::shared_ptr<kf_plugin::KalmanFilter> kf = fuser.second;
+        int id = kf->getId();
+
+        if(plugin_name == "kalman_filter/kf_pos_vel_acc")
+          {
+            if(id < (1 << State::TOTAL_NUM))
+              {
+                /* not need to initialize */
+                if(estimator_->getStateStatus(State::X_BASE + (id >> (State::X_BASE + 1)), EGOMOTION_ESTIMATE))
+                  continue;
+
+                if(fusion_mode_ != ONLY_VEL_MODE) //debug
+                  {
+                    if(id & (1 << State::Z_BASE))
+                      {
+                        if(!z_vel_mode_)
+                          {
+                            kf->resetState();
+                            kf->setInitState(init_pos[2], 0);
+                            std::cout << ", init state z with " << ((fusion_mode_== ONLY_POS_MODE)?"ony_pos":"pos_vel") << " mode";
+                          }
+                        else
+                          std::cout << ", init state z with vel mode";
+                      }
+                    else
+                      {
+                        kf->resetState();
+                        kf->setInitState(init_pos[id >> (State::X_BASE + 1)], 0);
+                        std::cout << ", init state " << ((id >> (State::X_BASE + 1) == 0)?"x":"y") << "  with "
+                                  << ((fusion_mode_== ONLY_POS_MODE)?"only_pos":"pos_vel") << " mode";
+                      }
+                  }
+                kf->setMeasureFlag();
+              }
+          }
+
+        if(plugin_name == "aerial_robot_base/kf_xy_roll_pitch_bias")
+          {
+            if((id & (1 << State::X_BASE)) && (id & (1 << State::Y_BASE)))
+              {
+                if(estimator_->getStateStatus(State::X_BASE, EGOMOTION_ESTIMATE) && estimator_->getStateStatus(State::Y_BASE, EGOMOTION_ESTIMATE))
+                  continue;
+
+                if(fusion_mode_ != ONLY_VEL_MODE)
+                  {
+                    kf->resetState();
+                    VectorXd init_state(6);
+                    init_state << init_pos[0], 0, init_pos[1], 0, 0, 0;
+                    kf->setInitState(init_state);
+                    std::cout << ", init state x/y with pos mode";
+                  }
+                else
+                  std::cout << ", init state x/y with vel mode";
+
+                kf->setMeasureFlag();
+              }
+          }
+      }
+    std::cout << std::endl;
+  }
+
+  void VisualOdometry::publishStaticWorldFrameOffset(tf::Transform offset_tf, std_msgs::Header header)
+  {
+    /* publish the offset tf if necessary */
+    geometry_msgs::TransformStamped static_transformStamped;
+    static_transformStamped.header.stamp = header.stamp;
+    static_transformStamped.header.frame_id = "world";
+    static_transformStamped.child_frame_id = header.frame_id;
+    tf::transformTFToMsg(offset_tf, static_transformStamped.transform);
+    static_broadcaster_.sendTransform(static_transformStamped);
+  }
+
+  void VisualOdometry::resetOriginOffsetCallback(const nav_msgs::Odometry::ConstPtr & offset_msg)
+  {
+    // reset the static tf from world frame to vo origin frame
+    tf::poseMsgToTF(offset_msg->pose.pose, world_offset_tf_);
+    publishStaticWorldFrameOffset(world_offset_tf_, offset_msg->header);
+
+    // re-initialize the position for KF
+    tf::Transform baselink_tf = world_offset_tf_ * prev_sensor_tf * sensor_tf_.inverse();
+    setInitPosition(baselink_tf_.getOrigin());
   }
 
   bool VisualOdometry::reset()

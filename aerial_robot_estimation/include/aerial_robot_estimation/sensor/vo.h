@@ -76,6 +76,7 @@ namespace sensor_plugin
     /* ros */
     ros::Subscriber vo_sub_;
     ros::Publisher vo_servo_pub_;
+    ros::Subscriber reset_origin_offset_sub_;
     ros::Subscriber vo_servo_debug_sub_;
     ros::Timer  servo_control_timer_;
 
@@ -121,6 +122,11 @@ namespace sensor_plugin
     void servoControl(const ros::TimerEvent & e);
     void estimateProcess();
     void voCallback(const nav_msgs::Odometry::ConstPtr & vo_msg);
+    void resetOriginOffsetCallback(const nav_msgs::Odometry::ConstPtr & offset_msg);
+
+    void setInitPosition(tf::Vector3 init_pos);
+    void publishStaticWorldFrameOffset(tf::Transform offset_tf, std_msgs::Header header);
+
 
     void servoDebugCallback(const std_msgs::Empty::ConstPtr & msg)
     {
