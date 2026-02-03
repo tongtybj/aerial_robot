@@ -41,7 +41,7 @@
 # fast lio
 # modification for fast odometry based on EKF
 - git:
-    local-name: fast_lio
+    local-name: develop/localization
     uri: https://github.com/tongtybj/FAST_LIO
     version: PR/odometry
 
