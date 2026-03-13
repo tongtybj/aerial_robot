@@ -90,5 +90,6 @@ namespace aerial_robot_control
     void publishGain() override;
     void rosParamInit() override;
     void contactFlagCallback(const std_msgs::Empty msg);
+    void clampCommand(Eigen::VectorXd &cmd, const Eigen::Vector3d &limit);
   };
 };
