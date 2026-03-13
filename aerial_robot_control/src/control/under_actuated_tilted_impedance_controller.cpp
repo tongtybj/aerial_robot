@@ -55,13 +55,11 @@ void UnderActuatedTiltedImpedanceController::initialize(ros::NodeHandle nh,
   pid_controllers_.at(Z).setLimitSum(1e6); // do not clamp the sum of PID terms for z axis
   target_wrench_cog_ = Eigen::VectorXd::Zero(6);
   est_external_wrench_clamped_ = Eigen::VectorXd::Zero(6);
-  tao_ = Eigen::VectorXd::Zero(6);
 
   omega_x_ = 0.0;
   omega_y_ = 0.0;
   omega_z_ = 0.0;
 
-  contact_flag_sub_ = nh_.subscribe("contact_flag", 1, &UnderActuatedTiltedImpedanceController::contactFlagCallback, this);
 }
 
 void UnderActuatedTiltedImpedanceController::sendFourAxisCommand()
@@ -159,14 +157,6 @@ void UnderActuatedTiltedImpedanceController::controlCore()
   // Eigen::Vector3d pe_cog = R*Rc.transpose()*(pe-pc);
   // Eigen::Vector3d pe_world = pc_world+R*Rc.transpose()*(pe-pc);
 
-
-  // if (contact_flag_)
-  // {
-  //   delta_p(0) = pe_world[0] - target_pos_.x();
-  //   delta_p(1) = pe_world[1] - target_pos_.y();
-  // }
-  // else
-  // {
 
   delta_p(0) = pos_.x() - target_pos_.x();
   delta_p(1) = pos_.y() - target_pos_.y();
@@ -288,11 +278,6 @@ void UnderActuatedTiltedImpedanceController::controlCore()
       target_yaw_thrust_.at(i) = target_thrust_yaw_term_(i);
       pid_msg_.z.total.at(i) =  target_thrust_z_term(i);
     }
-    //  target_base_thrust_.at(0) = target_base_thrust_.at(0);
-    //  target_base_thrust_.at(1) = target_base_thrust_.at(1);
-    //  target_base_thrust_.at(2) = target_base_thrust_.at(2);
-    //  target_base_thrust_.at(3) = target_base_thrust_.at(3);
-
   Eigen::MatrixXd q_mat_inv = getQInv();
   double ff_ang_yaw = navigator_->getTargetAngAcc().z();
   Eigen::VectorXd ff_ang_yaw_term = q_mat_inv.col(3) * ff_ang_yaw;
@@ -306,9 +291,7 @@ void UnderActuatedTiltedImpedanceController::controlCore()
       pid_controllers_.at(YAW).setErrI(pid_controllers_.at(YAW).getPrevErrI());
       target_thrust_yaw_term_ *= (1 - yaw_residual / max_yaw_term);
     }
-  // special process for yaw since the bandwidth between PC and spinal
-  //std::cout<<"P"<<robot_model_->calcWrenchMatrixOnCoG()<<std::endl;
-  // candidate_yaw_term_ = target_thrust_yaw_term_(0);
+ 
   candidate_yaw_term_ = 0.0;
 
   // message for impedance control target command
@@ -402,11 +385,6 @@ void UnderActuatedTiltedImpedanceController::rosParamInit()
 {
   UnderActuatedImpedanceController::rosParamInit();
 
-}
-
-void UnderActuatedTiltedImpedanceController::contactFlagCallback(const std_msgs::Empty msg)
-{
-  contact_flag_ = true;
 }
 
 

@@ -78,11 +78,7 @@ void UnderActuatedImpedanceController::initialize(ros::NodeHandle nh,
 
   joint_pos_ = Eigen::VectorXd::Zero(robot_model_->getJointNum());
   joint_vel_ = Eigen::VectorXd::Zero(robot_model_->getJointNum());
-  // joint_pos_ = Eigen::VectorXd::Zero(6);
-  // joint_vel_ = Eigen::VectorXd::Zero(6); 
-  // // target_joint_pos_ = Eigen::VectorXd::Zero(6);
-  // target_joint_vel_ = Eigen::VectorXd::Zero(6);
-  // target_joint_acc_ = Eigen::VectorXd::Zero(6);
+ 
 
   mode_.data = 0;
 
@@ -401,22 +397,7 @@ void UnderActuatedImpedanceController::rosParamInit()
 
 void UnderActuatedImpedanceController::publishGain()
 {
-  spinal::RollPitchYawTerms rpy_gain_msg; // to spinal
-  rpy_gain_msg.motors.resize(motor_num_);
 
-  for(int i = 0; i < motor_num_; ++i)
-    {
-      /* to flight controller via rosserial scaling by 1000 */
-      rpy_gain_msg.motors[i].roll_p = 0.0;
-      rpy_gain_msg.motors[i].roll_i = 0.0;
-      rpy_gain_msg.motors[i].roll_d = 0.0;
-
-      rpy_gain_msg.motors[i].pitch_p = 0.0;
-      rpy_gain_msg.motors[i].pitch_i = 0.0;
-      rpy_gain_msg.motors[i].pitch_d = 0.0;
-
-      rpy_gain_msg.motors[i].yaw_d = 0.0;
-    }
   //rpy_gain_pub_.publish(rpy_gain_msg);
 }
 

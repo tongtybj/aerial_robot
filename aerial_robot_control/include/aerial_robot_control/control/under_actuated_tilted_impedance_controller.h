@@ -68,9 +68,6 @@ namespace aerial_robot_control
     double mdx_, mdy_, mdz_, Idx_, Idy_, Idz_;
     double x_y_p_, z_p_, roll_pitch_p_, yaw_p_, joints_p_, pos_p_, x_y_zeta_, z_zeta_, roll_pitch_zeta_, yaw_zeta_, joints_d_, pos_d_;
     
-    bool contact_flag_ = false;
-    int contact_count_ = 0;
-    int contact_control_ = 0;
 
     const Eigen::VectorXd getTargetWrenchCog()
     {
@@ -89,7 +86,7 @@ namespace aerial_robot_control
     bool optimalGain() override;
     void publishGain() override;
     void rosParamInit() override;
-    void contactFlagCallback(const std_msgs::Empty msg);
+
     void clampCommand(Eigen::VectorXd &cmd, const Eigen::Vector3d &limit);
   };
 };

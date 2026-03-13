@@ -116,9 +116,6 @@ namespace aerial_robot_control
     bool checkRobotModel() override;
     virtual void controlCore() override;
     virtual void rosParamInit() override;
-    Eigen::Matrix3d getPositionJacobian(std::string name);
-    Eigen::Matrix3d getOrientationJacobian(std::string name);
-    Eigen::MatrixXd getCmatrix(Eigen::MatrixXd delta_M, Eigen::VectorXd delta_xi,  Eigen::VectorXd xi_dot);
     void extForceCallback(const geometry_msgs::WrenchConstPtr& cmd);
     void planStartCallback(const std_msgs::BoolConstPtr& msg);
     void endWrenchCallback(const geometry_msgs::WrenchStampedConstPtr& cmd);
