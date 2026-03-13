@@ -417,7 +417,7 @@ void UnderActuatedImpedanceController::publishGain()
 
       rpy_gain_msg.motors[i].yaw_d = yaw_gains_.at(i)[2] * 1000;
     }
-  rpy_gain_pub_.publish(rpy_gain_msg);
+  //rpy_gain_pub_.publish(rpy_gain_msg);
 }
 
 void UnderActuatedImpedanceController::cfgLQICallback(aerial_robot_control::LQIConfig &config, uint32_t level)
@@ -510,7 +510,7 @@ void UnderActuatedImpedanceController::sendRotationalInertiaComp()
   p_pseudo_inverse_with_inertia_msg.inertia[4] = inertia(1, 2) * 1000;
   p_pseudo_inverse_with_inertia_msg.inertia[5] = inertia(0, 2) * 1000;
 
-  p_matrix_pseudo_inverse_inertia_pub_.publish(p_pseudo_inverse_with_inertia_msg);
+  //p_matrix_pseudo_inverse_inertia_pub_.publish(p_pseudo_inverse_with_inertia_msg);
 }
 
 void UnderActuatedImpedanceController::jointStateCallback(const sensor_msgs::JointStateConstPtr& state)

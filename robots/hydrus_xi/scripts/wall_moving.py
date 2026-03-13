@@ -28,7 +28,7 @@ if __name__ == "__main__":
         pose = Pose()
         twist = Twist()
 
-        pose.position.x = -0.10 * math.sin(math.pi * round / 120)
+        pose.position.x = -0.15 * math.sin(math.pi * round / 100)
         pose.position.y = 0.0
         pose.position.z = 0.0
         pose.orientation.x = 0.0
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         pose.orientation.z = 0.0
         pose.orientation.w = 1.0
 
-        twist.linear.x = 0.10 * math.pi / 6 * math.cos(math.pi * round / 120)
+        twist.linear.x = 0.15 * math.pi / 6 * math.cos(math.pi * round / 100)
         twist.linear.y = 0.0
         twist.linear.z = 0.0
         twist.angular.x = 0.0

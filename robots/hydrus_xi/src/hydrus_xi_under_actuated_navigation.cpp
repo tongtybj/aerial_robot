@@ -39,7 +39,18 @@ namespace
 
     variant = sqrt(variant / force_v.size());
 
-    return planner->getForceNormWeight() * robot_model->getMass() / force_v.norm()  + planner->getForceVariantWeight() / variant + planner->getFCTMinWeight() * robot_model->getFeasibleControlTMin();
+    Eigen::MatrixXd wrench_map = robot_model->calcWrenchMatrixOnCoG();
+    Eigen::MatrixXd wrench_map_inv = aerial_robot_model::pseudoinverse(wrench_map);
+    Eigen::MatrixXd E = Eigen::MatrixXd::Zero(6, 3);
+    E.block(3,0,3,3) = Eigen::Matrix3d::Identity();
+    Eigen::MatrixXd opt_matrix = wrench_map * wrench_map_inv * E - E;
+    double zero_force = opt_matrix.norm();
+    // std::cout<<"norm: "<<planner->getForceNormWeight() * robot_model->getMass() / force_v.norm()<<std::endl;
+    // std::cout<<"variant: "<<planner->getForceVariantWeight() / variant<<std::endl;
+    // std::cout<<"fctmin: "<<planner->getFCTMinWeight() * robot_model->getFeasibleControlTMin()<<std::endl;
+    // std::cout<<"zero: "<<-planner->getZeroForceWeight() * zero_force<<std::endl;
+
+    return planner->getForceNormWeight() * robot_model->getMass() / force_v.norm()  + planner->getForceVariantWeight() / variant + planner->getFCTMinWeight() * robot_model->getFeasibleControlTMin() - planner->getZeroForceWeight() * zero_force;
   }
 
   double maximizeMinYawTorque(const std::vector<double> &x, std::vector<double> &grad, void *planner_ptr)
@@ -117,6 +128,7 @@ namespace
       variant += ((force_v(i) - average_force) * (force_v(i) - average_force));
 
     variant = sqrt(variant / force_v.size());
+
 
     return planner->getForceNormWeight() * robot_model->getMass() / force_v.norm()  + planner->getForceVariantWeight() / variant + planner->getYawTorqueWeight() * planner->getMaxMinYaw();
   }
@@ -391,6 +403,7 @@ void HydrusXiUnderActuatedNavigator::rosParamInit()
   getParam<double>(navi_nh, "force_variant_rate", force_variant_weight_, 0.01);
   getParam<double>(navi_nh, "yaw_torque_weight", yaw_torque_weight_, 1.0);
   getParam<double>(navi_nh, "fc_t_min_weight", fc_t_min_weight_, 1.0);
+  getParam<double>(navi_nh, "zero_force_weight", zero_force_weight_, 0.0);
   getParam<double>(navi_nh, "baselink_rot_thresh", baselink_rot_thresh_, 0.02);
   getParam<double>(navi_nh, "fc_t_min_thresh", fc_t_min_thresh_, 2.0);
 }

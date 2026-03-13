@@ -59,7 +59,7 @@
   </group>
 
   ###########  Base Platform  ###########
-  <node pkg="aerial_robot_base" type="aerial_robot_base_node" name="aerial_robot_base_node" ns="$(arg robot_ns)" output="screen">
+  <node pkg="aerial_robot_base" type="aerial_robot_base_node" name="aerial_robot_base_node" ns="$(arg robot_ns)" output="screen" >
     <param name="tf_prefix" value="$(arg robot_ns)"/>
     <param name="param_verbose" value="false"/>
     <param name="main_rate" value="40"/>
@@ -111,7 +111,7 @@
   ######### Wall model #########
  <group if="$(eval arg('simulation'))">
     <param name="opening/robot_description" command="$(find xacro)/xacro $(find hydrus_xi)/urdf/2d_opening.urdf" />
-    <node pkg="gazebo_ros" type="spawn_model" name="valve_spawn" args="-param opening/robot_description -urdf -x 0 -y 0 -z 0 -model opening" />
+    <node pkg="gazebo_ros" type="spawn_model" name="valve_spawn" args="-param opening/robot_description -urdf -x 0.0 -y 0 -z 0 -model opening" />
   </group>
 
   ########## Simulation in Mujoco #########

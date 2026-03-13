@@ -55,6 +55,13 @@ namespace aerial_robot_control
 
   protected:
     bool checkRobotModel() override;
+    void externalWrenchEstimate();
+    boost::thread wrench_estimate_thread_;
+    Eigen::VectorXd init_sum_momentum_;
+    Eigen::VectorXd integrate_term_;
+    double prev_est_wrench_timestamp_;
+    Eigen::MatrixXd momentum_observer_matrix_;
+  
     
   };
 };

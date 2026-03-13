@@ -238,7 +238,6 @@ void BaseNavigator::naviCallback(const aerial_robot_msgs::FlightNavConstPtr & ms
 
         if(!vel_based_waypoint_)
           xy_control_mode_ = POS_CONTROL_MODE;
-
         setTargetPosX(target_cog_pos.x());
         setTargetPosY(target_cog_pos.y());
         setTargetVelX(0);
@@ -709,7 +708,6 @@ void BaseNavigator::update()
         else
           {
             if (fabs(delta.z()) > z_convergent_thresh_) hover_convergent_start_time_ = ros::Time::now().toSec();
-            std::cout << "fabs(delta.z(): " << fabs(delta.z())<< std::endl;
           }
 
         if (ros::Time::now().toSec() - hover_convergent_start_time_ > hover_convergent_duration_)

@@ -66,6 +66,7 @@ namespace aerial_robot_navigation
     inline const double& getFCTMinWeight() const { return fc_t_min_weight_;}
     inline const double& getBaselinkRotThresh() const { return baselink_rot_thresh_;}
     inline const double& getFCTMinThresh() const { return fc_t_min_thresh_;}
+    inline const double& getZeroForceWeight() const { return zero_force_weight_;} 
 
     const std::vector<std::string>& getControlNames() const { return control_gimbal_names_; }
     const std::vector<int>& getControlIndices() const { return control_gimbal_indices_; }
@@ -94,6 +95,7 @@ namespace aerial_robot_navigation
     double baselink_rot_thresh_; // constraint func
     double fc_t_min_thresh_; // constraint func
     double gimbal_delta_angle_; // configuration state
+    double zero_force_weight_; // cost func
 
     std::vector<double> opt_gimbal_angles_, prev_opt_gimbal_angles_;
 

@@ -111,6 +111,7 @@ void HydrusRobotModel::calcStaticThrust()
   const auto& wrench_mat = getThrustWrenchMatrix();
 
   // under-actuated
+
   Eigen::VectorXd static_thrust = aerial_robot_model::pseudoinverse(wrench_mat) * (-wrench_g.segment(2, wrench_dof_));
   setStaticThrust(static_thrust);
 }

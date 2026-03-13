@@ -16,8 +16,8 @@
   <xacro:property name="rotor_radius" value=".0178"/>
 
   <!-- mass [Kg] -->
-  <xacro:property name="rotor_mass" value="0.02"/> <!-- exclude from center mass -->
-  <xacro:property name="bat_mass" value="0.193"/> <!-- 1300mAh -->
+  <xacro:property name="rotor_mass" value="0.15"/> <!-- exclude from center mass -->
+  <xacro:property name="bat_mass" value="0.0"/> <!-- 1300mAh -->
 
   <!-- dynamics -->
   <m_f_rate value="-0.0182" /> <!-- MN4010KV475_Afro_15inch -->
@@ -49,7 +49,7 @@
     <joint name="joint_eff" type="fixed">
       <parent link="link4"/>
       <child link="end_effector"/>
-      <origin rpy="0 0 0" xyz="${link_length} 0 0"/>
+      <origin rpy="0 0 0" xyz="${link_length} 0 0.04"/>
   </joint>
   <!-- <link name="end_effector">
     <inertial>
@@ -88,12 +88,7 @@
           <cylinder length="0.2" radius="0.01"/>
         </geometry>
       </collision>
-      <collision>
-        <origin rpy="0 0 0" xyz="0.2 0 0"/>
-        <geometry>
-          <sphere radius="0.01"/>
-        </geometry>
-      </collision>
+    
       <visual>
         <origin rpy="0 1.57 0" xyz="0.1 0 0"/>
         <geometry>
@@ -123,10 +118,10 @@
   </link>
 
 
-  <gazebo reference="end_effector">
+  <gazebo reference="end_frame">
     <sensor name="contacts" type="contact">
         <contact>
-          <collision>link4_fixed_joint_lump__end_effector_collision_2</collision>
+          <collision>link4_fixed_joint_lump__end_frame_collision_2</collision>
         </contact>
         <plugin name="gazebo_ros_bumper_controller" filename="libgazebo_ros_bumper.so">
           <always_on>true</always_on>

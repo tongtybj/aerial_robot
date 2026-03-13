@@ -382,6 +382,8 @@ void AttitudeController::update(void)
           {
             for(int axis = 0; axis < 3; axis++)
               {
+                // std::cout<< "p "<<i<<"axis"<<axis<<thrust_p_gain_[i][axis]<<std::endl;
+                // std::cout<< "d "<<i<<"axis"<<axis<<thrust_d_gain_[i][axis]<<std::endl;
                 p_term = error_angle[axis] * thrust_p_gain_[i][axis];
                 i_term = error_angle_i_[axis] * thrust_i_gain_[i][axis];
                 d_term = -vel[axis] * thrust_d_gain_[i][axis];
@@ -946,6 +948,7 @@ void AttitudeController::pwmConversion()
     {
 #ifdef SIMULATION
       float voltage = sim_voltage_;
+
 #else
       float voltage = bat_->getVoltage();
 #endif
@@ -1075,17 +1078,12 @@ void AttitudeController::pwmConversion()
     // std::cout<<i<<std::endl;
     // std::cout<<roll_pitch_term_[i] + (1 + base_thrust_decreasing_rate) * base_thrust_term_[i] + (1 + yaw_decreasing_rate) * yaw_term_[i]<<std::endl;
     target_thrust_[i] = roll_pitch_term_[i] + (1 + base_thrust_decreasing_rate) * base_thrust_term_[i] + (1 + yaw_decreasing_rate) * yaw_term_[i];
-    //target_thrust_[i] =  (1 + base_thrust_decreasing_rate) * base_thrust_term_[i];
-    // std::cout<<target_thrust_[i]<<std::endl;
+   // target_thrust_[i] =  (1 + base_thrust_decreasing_rate) * base_thrust_term_[i];
+    // std::cout<<"roll "<<roll_pitch_term_[i]<<std::endl;
+    // std::cout<<"base_thrust_decreasing_rate "<<base_thrust_decreasing_rate<<" "<<yaw_decreasing_rate<<std::endl;
+    // std::cout<<"yaw "<< yaw_term_[i]<<std::endl;
 
-    // std::cout<<roll_thrust_term_[i]<<std::endl;
-    // std::cout<<pitch_thrust_term_[i]<<std::endl;
-
-    // std::cout<<yaw_thrust_term_[i]<<std::endl;
-    // std::cout<<roll_pitch_term_[i]<<std::endl;
-    // std::cout<<yaw_term_[i]<<std::endl;
-    // std::cout<<"--------------------------------------"<<std::endl;
-  }
+      }
 
   /* convert to target pwm */
   for(int i = 0; i < motor_number_; i++)

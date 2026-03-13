@@ -79,7 +79,7 @@ void HydrusTiltedImpedanceController::initialize(ros::NodeHandle nh,
                                                 loop_rate.sleep();
                                               }
                                           });
-  
+  time_ = ros::Time::now();
 }
 
 bool HydrusTiltedImpedanceController::checkRobotModel()
@@ -122,12 +122,12 @@ void HydrusTiltedImpedanceController::controlCore()
   double r = 0.01;
 
   double dt = (ros::Time::now() - time_).toSec();
-  if (plan_flag_ && dt >= 0.05)
+  if (plan_flag_)
   {
  
       
-    std::cout<<"delta_vx"<<vx<<std::endl;
-    std::cout<<"Fest"<<est_external_wrench_(0)<<std::endl;
+    // std::cout<<"delta_vx"<<vx<<std::endl;
+    // std::cout<<"Fest"<<est_external_wrench_(0)<<std::endl;
 
     // else
     //   contact_flag_ = false;
@@ -144,8 +144,9 @@ void HydrusTiltedImpedanceController::controlCore()
 
     Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
     // ----------first order--------------------
-    double alpha = 0.3;
+    double alpha = 0.2;
     Fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * Fext_(0);
+    //Fext_(0) = 20 * (pos_.x() - target_pos_.x()) + 5 * vel_.x();
     // ------------------------------
 
     // ----------Kalman--------------------
@@ -179,6 +180,7 @@ void HydrusTiltedImpedanceController::controlCore()
     // joint_cmd_pubs_[1].publish(j2_term);
     // joint_cmd_pubs_[2].publish(j3_term);
 
+    std::cout<<"fext_"<<Fext_(0)<<std::endl;
     std::cout<<"xd_"<<xd_<<std::endl;
     std::cout<<"ma_"<<ma_<<std::endl;
     std::cout<<"fref_"<<fref_<<std::endl;
@@ -238,6 +240,25 @@ void HydrusTiltedImpedanceController::controlCore()
     //ee_pos_pub_.publish(ee_pose);
     time_ = ros::Time::now();
   }
+  else
+  {
+    std::cout<<"reset admittance"<<std::endl;
+    // joint_cmd_.position[0] = 1.047;
+    // joint_cmd_.position[1] = 1.047;
+    // joint_cmd_.position[2] = -0.52;
+    // joints_ctrl_pub_.publish(joint_cmd_);
+
+    xref_(0) = 1.039; //1.039 // 1.0357
+    xref_(1) = 0.0;
+
+    xd_(0) = 1.039; //1.039
+    xd_(1) = 0.0;
+
+    xd_dot_ = Eigen::VectorXd::Zero(3);
+
+    time_ = ros::Time::now();
+  }
+
 
   //std::cout << "q" << aerial_robot_model::kdlToEigen(target_pose.M) << aerial_robot_model::kdlToEigen(target_pose.p)<<std::endl;
 
@@ -708,10 +729,12 @@ void HydrusTiltedImpedanceController::rosParamInit()
   getParam<double>(param_nh, "fref", fref_, -0.3);
 
   momentum_observer_matrix_ = Eigen::MatrixXd::Identity(6,6);
-  momentum_observer_matrix_(0, 0) *= 5.0;
-  momentum_observer_matrix_(1, 1) *= 5.0;
-  momentum_observer_matrix_(2, 2) *= 5.0;
-  momentum_observer_matrix_.bottomRows(3) *= 2.5;
+  momentum_observer_matrix_(0, 0) *= 3.0;
+  momentum_observer_matrix_(1, 1) *= 3.0;
+  momentum_observer_matrix_(2, 2) *= 1.0;
+  momentum_observer_matrix_(3, 3) *= 1.0;
+  momentum_observer_matrix_(4, 4) *= 1.0;
+  momentum_observer_matrix_(5, 5) *= 1.0;
 }
 
 void HydrusTiltedImpedanceController::externalWrenchEstimate()
@@ -798,14 +821,17 @@ Eigen::Matrix3d HydrusTiltedImpedanceController::getOrientationJacobian(std::str
     o_jacobian.block(0, 2, 3, 1) = jacobian.block(3, 5, 3, 1);
     return o_jacobian;
 }
+
 void HydrusTiltedImpedanceController::extForceCallback(const geometry_msgs::WrenchConstPtr& cmd)
 {
   std::cout<<"*cmd"<<*cmd<<std::endl;
   ext_force_ = *cmd;
 }
-void HydrusTiltedImpedanceController::planStartCallback(const std_msgs::Empty msg)
+
+void HydrusTiltedImpedanceController::planStartCallback(const std_msgs::BoolConstPtr& msg)
 {
-  plan_flag_ = true;
+  plan_flag_ = msg->data;
+
 }
 
 void HydrusTiltedImpedanceController::endWrenchCallback(const geometry_msgs::WrenchStampedConstPtr& cmd)

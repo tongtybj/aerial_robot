@@ -49,7 +49,7 @@ class DragonDemo():
 
         # create a simple joint motion
         end_angles = copy.deepcopy(init_angles)
-        end_angles[0] = 0
+        #end_angles[0] = 0
         joint_traj = [end_angles]
 
         # rotate cog

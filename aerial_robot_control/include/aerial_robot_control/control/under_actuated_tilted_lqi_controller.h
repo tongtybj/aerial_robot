@@ -61,10 +61,25 @@ namespace aerial_robot_control
 
     double z_limit_;
 
+        std::mutex wrench_mutex_;
+    Eigen::VectorXd est_external_wrench_;
+    Eigen::VectorXd est_external_wrench_clamped_;
+    Eigen::VectorXd target_wrench_cog_;
+
     void controlCore() override;
     bool optimalGain() override;
     void publishGain() override;
     void rosParamInit() override;
+    const Eigen::VectorXd getTargetWrenchCog()
+    {
+      std::lock_guard<std::mutex> lock(wrench_mutex_);
+      return target_wrench_cog_;
+    }
+    void setTargetWrenchCog(const Eigen::VectorXd target_wrench_cog)
+    {
+      std::lock_guard<std::mutex> lock(wrench_mutex_);
+      target_wrench_cog_ = target_wrench_cog;
+    }
 
   };
 };

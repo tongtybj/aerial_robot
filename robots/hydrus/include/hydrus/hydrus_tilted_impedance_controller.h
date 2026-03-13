@@ -40,6 +40,7 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include <gazebo_msgs/ApplyBodyWrench.h>
 #include <hydrus/imu.h>
+#include <std_msgs/Bool.h>
 #include <thread>
 
 namespace differential_kinematics 
@@ -118,7 +119,7 @@ namespace aerial_robot_control
     Eigen::Matrix3d getOrientationJacobian(std::string name);
     Eigen::MatrixXd getCmatrix(Eigen::MatrixXd delta_M, Eigen::VectorXd delta_xi,  Eigen::VectorXd xi_dot);
     void extForceCallback(const geometry_msgs::WrenchConstPtr& cmd);
-    void planStartCallback(const std_msgs::Empty msg);
+    void planStartCallback(const std_msgs::BoolConstPtr& msg);
     void endWrenchCallback(const geometry_msgs::WrenchStampedConstPtr& cmd);
 
   };

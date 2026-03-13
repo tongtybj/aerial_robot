@@ -1,4 +1,4 @@
-aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_controller
+aerial_robot_control_name: aerial_robot_control/hydrus_tilted_impedance_controller
 
 controller:
   xy:
@@ -63,35 +63,31 @@ controller:
     mdx: 1.5
     mdy: 3.0
     mdz: 1.0
-    Idx: 1.0
-    Idy: 1.0
-    Idz: 3.0
+    Idx: 10.0
+    Idy: 10.0
+    Idz: 5.0
 
     # Idy: 0.4
     # Idz: 0.8
 
-    ma: 16.0
-    ca: 32.0
-    ka: 16.0
-    fref: -1.0
+    ma: 20.0
+    ca: 40.0
+    ka: 20.0
+    fref: 0.0
 
-    x_y_p: 2.0
-    x_y_zeta: 0.55
-
- 
+    x_y_p: 3.5
+    x_y_zeta: 0.8
 
 
-    z_p: 4.0
-    z_zeta: 0.5
+    z_p: 3.0
+    z_zeta: 1.0
+
+    roll_pitch_p: 30.0 #15.0
+    roll_pitch_zeta: 1.05 #0.6
 
 
-
-    roll_pitch_p: 30.0
-    roll_pitch_zeta: 0.4
-
-
-    yaw_p: 10.0
-    yaw_zeta: 0.5
+    yaw_p: 12.0 #15.0
+    yaw_zeta: 0.8 #0.5
 
     joints_p: 13.0
     joints_d: 2.0

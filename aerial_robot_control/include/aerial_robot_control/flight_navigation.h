@@ -99,6 +99,8 @@ namespace aerial_robot_navigation
     inline void setTargetPitch(float value) { target_rpy_.setY(value); }
     inline void setTargetOmegaY(float value) { target_omega_.setY(value); }
     inline void setTargetYaw(float value) { target_rpy_.setZ(value); }
+    inline void addTargetRoll(float value) { setTargetRoll(angles::normalize_angle(target_rpy_.x() + value)); }
+    inline void addTargetPitch(float value) { setTargetPitch(angles::normalize_angle(target_rpy_.y() + value)); }
     inline void addTargetYaw(float value) { setTargetYaw(angles::normalize_angle(target_rpy_.z() + value)); }
     inline void setTargetOmegaZ(float value) { target_omega_.setZ(value); }
     inline void setTargetRPY(tf::Vector3 value) { target_rpy_ = value; }
