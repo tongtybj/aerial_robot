@@ -65,10 +65,6 @@ void UnderActuatedImpedanceController::initialize(ros::NodeHandle nh,
   flight_impedance_cmd_pub_ = nh_.advertise<spinal::FourAxisCommandImpedance>("four_axes/imp_command", 1);
   p_matrix_pseudo_inverse_inertia_pub_ = nh_.advertise<spinal::PMatrixPseudoInverseWithInertia>("p_matrix_pseudo_inverse_inertia", 1);
   imp_command_pub_ = nh_.advertise<aerial_robot_msgs::ImpedanceControl>("imp_cmd", 1);
-  joint_state_sub_ = nh_.subscribe("joint_states", 1, &UnderActuatedImpedanceController::jointStateCallback, this);
-  joint_cmd_sub_ = nh_.subscribe("joints_ctrl", 1, &UnderActuatedImpedanceController::jointCmdCallback, this);
-  pos_cmd_sub_ = nh_.subscribe("pos_cmds", 1, &UnderActuatedImpedanceController::posCmdCallback, this);
-  mode_sub_ = nh_.subscribe("imp_mode", 1, &UnderActuatedImpedanceController::modeCallback, this);
   external_wrench_sub_ = nh_.subscribe("external_wrench", 1, &UnderActuatedImpedanceController::addExternalWrenchCallback, this);
 
   target_thrust_z_term_ = Eigen::VectorXd::Zero(motor_num_);
@@ -88,8 +84,7 @@ void UnderActuatedImpedanceController::initialize(ros::NodeHandle nh,
   //dynamic reconfigure server
   ros::NodeHandle control_nh(nh_, "controller");
   lqi_server_ = boost::make_shared<dynamic_reconfigure::Server<aerial_robot_control::LQIConfig> >(ros::NodeHandle(control_nh, "lqi"));
-  dynamic_reconf_func_lqi_ = boost::bind(&UnderActuatedImpedanceController::cfgLQICallback, this, _1, _2);
-  lqi_server_->setCallback(dynamic_reconf_func_lqi_);
+  
 
   //gains
   pitch_gains_.resize(motor_num_, Eigen::Vector3d(0,0,0));
@@ -137,19 +132,7 @@ void UnderActuatedImpedanceController::gainGeneratorFunc()
   while(ros::ok())
     {
       if(checkRobotModel())
-        {
-          if(optimalGain())
-            {
-              clampGain();
-              publishGain();
-            }
-          else
-            ROS_ERROR_NAMED("LQI gain generator", "LQI gain generator: can not solve hamilton matrix");
-        }
-      else
-        {
-          resetGain();
-        }
+   {}
 
       loop_rate.sleep();
     }
@@ -161,14 +144,7 @@ void UnderActuatedImpedanceController::activate()
   ControlBase::activate();
 
   // publish gains in start phase for general multirotor
-  if(optimalGain()) {
-    clampGain();
-    publishGain();
-    ROS_INFO_NAMED("LQI gain generator", "LQI gain generator: send LQI gains");
-  }
-  else {
-    ROS_ERROR_NAMED("LQI gain generator", "LQI gain generator: can not solve hamilton matrix");
-  }
+
 }
 
 void UnderActuatedImpedanceController::sendCmd()
@@ -202,8 +178,6 @@ void UnderActuatedImpedanceController::controlCore()
   target_roll_ = -target_acc_dash.y() / aerial_robot_estimation::G;
 
  
-
-
   //feed-forward term for z
   Eigen::MatrixXd q_mat_inv = getQInv();
   double ff_acc_z = navigator_->getTargetAcc().z();
@@ -277,82 +251,6 @@ Eigen::MatrixXd UnderActuatedImpedanceController::getQInv()
 }
 
 
-
-bool UnderActuatedImpedanceController::optimalGain()
-{
-  // referece:
-  // M, Zhao, et.al, "Transformable multirotor with two-dimensional multilinks: modeling, control, and whole-body aerial manipulation"
-  // Sec. 3.2
-
-  Eigen::MatrixXd P = robot_model_->calcWrenchMatrixOnCoG();
-
-  Eigen::MatrixXd P_inv = aerial_robot_model::pseudoinverse(P);
-
-
-  for(int i = 0; i < motor_num_; ++i)
-    {
-      roll_gains_.at(i) = Eigen::Vector3d::Zero();
-      pitch_gains_.at(i) = Eigen::Vector3d::Zero();
-      yaw_gains_.at(i) = Eigen::Vector3d::Zero();
-
-    }
-
-  return true;
-}
-
-void UnderActuatedImpedanceController::clampGain()
-{
-  /* avoid the violation of 16int_t range because of spinal::RollPitchYawTerms */
-  double max_gain_thresh = 32.767;
-  double max_roll_p_gain = 0, max_roll_d_gain = 0, max_pitch_p_gain = 0, max_pitch_d_gain = 0, max_yaw_d_gain = 0;
-  for(int i = 0; i < motor_num_; ++i)
-    {
-      if(max_roll_p_gain < fabs(roll_gains_.at(i)[0])) max_roll_p_gain = fabs(roll_gains_.at(i)[0]);
-      if(max_roll_d_gain < fabs(roll_gains_.at(i)[2])) max_roll_d_gain = fabs(roll_gains_.at(i)[2]);
-      if(max_pitch_p_gain < fabs(pitch_gains_.at(i)[0])) max_pitch_p_gain = fabs(pitch_gains_.at(i)[0]);
-      if(max_pitch_d_gain < fabs(pitch_gains_.at(i)[2])) max_pitch_d_gain = fabs(pitch_gains_.at(i)[2]);
-      if(max_yaw_d_gain < fabs(yaw_gains_.at(i)[2])) max_yaw_d_gain = fabs(yaw_gains_.at(i)[2]);
-    }
-
-  double roll_p_gain_scale = 1, roll_d_gain_scale = 1, pitch_p_gain_scale = 1, pitch_d_gain_scale = 1, yaw_d_gain_scale = 1;
-  if(max_roll_p_gain > max_gain_thresh)
-    {
-      //ROS_WARN_STREAM_NAMED("LQI gain generator", "LQI gain generator: the max roll p gain violate the range of int16_t: " << max_roll_p_gain);
-      roll_p_gain_scale = max_gain_thresh / max_roll_p_gain;
-    }
-  if(max_roll_d_gain > max_gain_thresh)
-    {
-      //ROS_WARN_STREAM_NAMED("LQI gain generator", "LQI gain generator: the max roll d gain violate the range of int16_t: " << max_roll_d_gain);
-      roll_d_gain_scale = max_gain_thresh / max_roll_d_gain;
-    }
-  if(max_pitch_p_gain > max_gain_thresh)
-    {
-      //ROS_WARN_STREAM_NAMED("LQI gain generator", "LQI gain generator: the max pitch p gain violate the range of int16_t: " << max_pitch_p_gain);
-      pitch_p_gain_scale = max_gain_thresh / max_pitch_p_gain;
-    }
-  if(max_pitch_d_gain > max_gain_thresh)
-    {
-      //ROS_WARN_STREAM_NAMED("LQI gain generator", "LQI gain generator: the max pitch d gain violate the range of int16_t: " << max_pitch_d_gain);
-      pitch_d_gain_scale = max_gain_thresh / max_pitch_d_gain;
-    }
-  if(max_yaw_d_gain > max_gain_thresh)
-    {
-      //ROS_WARN_STREAM_NAMED("LQI gain generator", "LQI gain generator: the max yaw d gain violate the range of int16_t: " << max_yaw_d_gain);
-      yaw_d_gain_scale = max_gain_thresh / max_yaw_d_gain;
-    }
-
-  for(int i = 0; i < motor_num_; ++i)
-    {
-      // roll_gains_.at(i)[0] *= roll_p_gain_scale;
-      // roll_gains_.at(i)[2] *= roll_d_gain_scale;
-
-      // pitch_gains_.at(i)[0] *= pitch_p_gain_scale;
-      // pitch_gains_.at(i)[2] *= pitch_d_gain_scale;
-
-      // yaw_gains_.at(i)[2] *= yaw_d_gain_scale;
-    }
-}
-
 bool UnderActuatedImpedanceController::checkRobotModel()
 {
   if(!robot_model_->initialized())
@@ -395,73 +293,6 @@ void UnderActuatedImpedanceController::rosParamInit()
   
 }
 
-void UnderActuatedImpedanceController::publishGain()
-{
-
-  //rpy_gain_pub_.publish(rpy_gain_msg);
-}
-
-void UnderActuatedImpedanceController::cfgLQICallback(aerial_robot_control::LQIConfig &config, uint32_t level)
-{
-  using Levels = aerial_robot_msgs::DynamicReconfigureLevels;
-  if(config.lqi_flag)
-    {
-      switch(level)
-        {
-        case Levels::RECONFIGURE_LQI_ROLL_PITCH_P:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the p gain weight of roll and pitch from " << roll_pitch_weight_.x() <<  " to "  << config.roll_pitch_p);
-          roll_pitch_weight_.x() = config.roll_pitch_p;
-          break;
-        case Levels::RECONFIGURE_LQI_ROLL_PITCH_I:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the i gain weight of roll and pitch from " << roll_pitch_weight_.y() <<  " to "  << config.roll_pitch_i);
-          roll_pitch_weight_.y() = config.roll_pitch_i;
-          break;
-        case Levels::RECONFIGURE_LQI_ROLL_PITCH_D:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the d gain weight of roll and pitch from " << roll_pitch_weight_.z() <<  " to "  << config.roll_pitch_d);
-          roll_pitch_weight_.z() = config.roll_pitch_d;
-          break;
-        case Levels::RECONFIGURE_LQI_YAW_P:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the p gain weight of yaw from " << yaw_weight_.x() <<  " to "  << config.yaw_p);
-          yaw_weight_.x() = config.yaw_p;
-          break;
-        case Levels::RECONFIGURE_LQI_YAW_I:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the i gain weight of yaw from " << yaw_weight_.y() <<  " to "  << config.yaw_i);
-          yaw_weight_.y() = config.yaw_i;
-          break;
-        case Levels::RECONFIGURE_LQI_YAW_D:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the d gain weight of yaw from " << yaw_weight_.z() <<  " to "  << config.yaw_d);
-          yaw_weight_.z() = config.yaw_d;
-          break;
-        case Levels::RECONFIGURE_LQI_Z_P:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the p gain weight of z from " << z_weight_.x() <<  " to "  << config.z_p);
-          z_weight_.x() = config.z_p;
-          break;
-        case Levels::RECONFIGURE_LQI_Z_I:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the i gain weight of z from " << z_weight_.y() <<  " to "  << config.z_i);
-          z_weight_.y() = config.z_i;
-          break;
-        case Levels::RECONFIGURE_LQI_Z_D:
-          //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: change the d gain weight of z from " << z_weight_.z() <<  " to "  << config.z_d);
-          z_weight_.z() = config.z_d;
-          break;
-        default :
-          break;
-        }
-
-      if (!realtime_update_) {
-        // instantly modify gain if no joint angles
-
-        if(optimalGain()) {
-          clampGain();
-          publishGain();
-        }
-        else {
-          //ROS_ERROR_NAMED("LQI gain generator", "LQI gain generator: can not solve hamilton matrix");
-        }
-      }
-
-    }
-}
 
 void UnderActuatedImpedanceController::sendRotationalInertiaComp()
 {
@@ -493,55 +324,8 @@ void UnderActuatedImpedanceController::sendRotationalInertiaComp()
   //p_matrix_pseudo_inverse_inertia_pub_.publish(p_pseudo_inverse_with_inertia_msg);
 }
 
-void UnderActuatedImpedanceController::jointStateCallback(const sensor_msgs::JointStateConstPtr& state)
-{
-  if (joint_pos_.size() > 0)
-  {
-    for (int i = 0; i < state->name.size(); i++)
-    {
-      // std::cout<<"state size"<<state->name.size()<<std::endl;
-      // std::cout<<"pos size"<<joint_pos_.size()<<std::endl;
-      // std::cout<<"vel size"<<joint_vel_.size()<<std::endl;
-      // std::cout<<"pos size"<<state->position.size()<<std::endl;
-      // std::cout<<"vel size"<<state->velocity.size()<<std::endl;
-      //joint_name_[i] = state->name[i];
-      joint_pos_[i] = state->position[i];
-      // joint_vel_[i] = state->velocity[i];
-    }
-  }
-}
 
-void UnderActuatedImpedanceController::jointCmdCallback(const sensor_msgs::JointStateConstPtr& cmd)
-{
-  for (int i = 0; i < cmd->position.size(); i++)
-  {
-    target_joint_pos_[i] = cmd->position[i];
-    //target_joint_vel_[i] = cmd->velocity[i];
-    //target_joint_acc_[i] = cmd->effort[i];
-  }
-  // std::cout << "tar"<<target_joint_pos_<<std::endl;
-}
-void UnderActuatedImpedanceController::posCmdCallback(const geometry_msgs::PointConstPtr& cmd)
-{
-  pos_cmd_ = *cmd;
-}
 
-void UnderActuatedImpedanceController::modeCallback(const std_msgs::UInt8ConstPtr& mode)
-{
-  if (mode_.data != mode->data)
-  {
-    if (mode->data == 1)
-      ROS_INFO_STREAM("Position Control Mode");
-    else if (mode->data == 0)
-      ROS_INFO_STREAM("Joint Angle Mode");
-  }
-  mode_ = *mode;
-}
-
-void UnderActuatedImpedanceController::addExternalWrenchCallback(const geometry_msgs::WrenchStampedConstPtr& msg)
-{
-  external_wrench_ = *msg;
-}
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>

@@ -61,7 +61,6 @@ namespace aerial_robot_control
     Eigen::VectorXd est_external_wrench_;
     Eigen::VectorXd est_external_wrench_clamped_;
     Eigen::VectorXd target_wrench_cog_;
-    Eigen::VectorXd tao_;
     double omega_x_, omega_y_, omega_z_;
 
     double target_acc_x_, target_acc_y_, target_acc_z_;
@@ -83,9 +82,8 @@ namespace aerial_robot_control
     void clampEstExternalWrench();
     void sendFourAxisCommand() override;
     void controlCore() override;
-    bool optimalGain() override;
-    void publishGain() override;
     void rosParamInit() override;
+    void publishDesireCoordinate();
 
     void clampCommand(Eigen::VectorXd &cmd, const Eigen::Vector3d &limit);
   };

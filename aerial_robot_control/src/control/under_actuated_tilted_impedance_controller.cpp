@@ -296,6 +296,7 @@ void UnderActuatedTiltedImpedanceController::controlCore()
 
   // message for impedance control target command
   imp_command_pub_.publish(imp_cmd_);
+  publishDesireCoordinate();
 }
 
 void UnderActuatedTiltedImpedanceController::clampCommand(Eigen::VectorXd &cmd, const Eigen::Vector3d &limit)
@@ -351,30 +352,11 @@ void UnderActuatedTiltedImpedanceController::clampEstExternalWrench()
   }
 }
 
-bool UnderActuatedTiltedImpedanceController::optimalGain()
+
+void UnderActuatedTiltedImpedanceController::publishDesireCoordinate()
 {
-  Eigen::MatrixXd P = robot_model_->calcWrenchMatrixOnCoG();
-  Eigen::MatrixXd P_inv = aerial_robot_model::pseudoinverse(P);
-
-
-  for(int i = 0; i < motor_num_; ++i)
-    {
-      roll_gains_.at(i) = Eigen::Vector3d(0,  0, 0);
-      pitch_gains_.at(i) = Eigen::Vector3d(0, 0, 0);
-      yaw_gains_.at(i) = Eigen::Vector3d(0, 0, 0);
-
-    }
-
-  return true;
-}
-
-void UnderActuatedTiltedImpedanceController::publishGain()
-{
-  UnderActuatedImpedanceController::publishGain();
-
   double roll,pitch, yaw;
   robot_model_->getCogDesireOrientation<KDL::Rotation>().GetRPY(roll, pitch, yaw);
-
   spinal::DesireCoord coord_msg;
   coord_msg.roll = roll;
   coord_msg.pitch = pitch;

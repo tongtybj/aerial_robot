@@ -137,9 +137,7 @@ namespace aerial_robot_control
     virtual void rosParamInit();
     virtual void controlCore() override;
 
-    virtual bool optimalGain();
-    virtual void clampGain();
-    virtual void publishGain();
+
 
     // virtual Eigen::MatrixXd getCmatrix(Eigen::MatrixXd delta_M, Eigen::VectorXd delta_xi,  Eigen::VectorXd xi_dot);
 
@@ -149,20 +147,10 @@ namespace aerial_robot_control
     Eigen::MatrixXd getQInv();
 
     void allocateThrustTerm(Eigen::VectorXd &target_thrust_z_term);
-    
-    void cfgLQICallback(aerial_robot_control::LQIConfig &config, uint32_t level); //dynamic reconfigure
-
+  
     void sendRotationalInertiaComp();
 
     void gainGeneratorFunc();
-
-    void jointStateCallback(const sensor_msgs::JointStateConstPtr& state);
-
-    void jointCmdCallback(const sensor_msgs::JointStateConstPtr& cmd);
-
-    void posCmdCallback(const geometry_msgs::PointConstPtr& cmd);
-
-    void modeCallback(const std_msgs::UInt8ConstPtr& cmd);
 
     void addExternalWrenchCallback(const geometry_msgs::WrenchStampedConstPtr& msg);
   };
