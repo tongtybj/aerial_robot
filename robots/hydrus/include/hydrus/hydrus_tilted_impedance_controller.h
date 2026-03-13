@@ -108,6 +108,7 @@ namespace aerial_robot_control
 
     double ma_, ca_, ka_;
     double fref_;
+    double kot_, kor_;
 
     void externalWrenchEstimate();
     KDL::JntArray q_result_;

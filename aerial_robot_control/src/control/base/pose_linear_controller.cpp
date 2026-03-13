@@ -211,7 +211,6 @@ namespace aerial_robot_control
     target_pos_ = navigator_->getTargetPos();
     target_vel_ = navigator_->getTargetVel();
     target_acc_ = navigator_->getTargetAcc();
-
     // rpy_ = estimator_->getEuler(Frame::COG, estimate_mode_);
     tf::Quaternion cog2baselink_rot;
     tf::quaternionKDLToTF(robot_model_->getCogDesireOrientation<KDL::Rotation>(), cog2baselink_rot);

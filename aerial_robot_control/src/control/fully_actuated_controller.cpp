@@ -101,7 +101,7 @@ namespace aerial_robot_control
      Eigen::VectorXd target_thrust_x_term = q_mat_inv_.col(X) * target_acc_cog.x();
      Eigen::VectorXd target_thrust_y_term = q_mat_inv_.col(Y) * target_acc_cog.y();
      Eigen::VectorXd target_thrust_z_term = q_mat_inv_.col(Z) * target_acc_cog.z();
-
+  
     // constraint x and y
     int index;
     double max_term = target_thrust_x_term.cwiseAbs().maxCoeff(&index);

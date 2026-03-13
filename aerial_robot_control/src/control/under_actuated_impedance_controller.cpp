@@ -295,9 +295,9 @@ bool UnderActuatedImpedanceController::optimalGain()
 
   for(int i = 0; i < motor_num_; ++i)
     {
-      roll_gains_.at(i) = Eigen::Vector3d(P_inv(i,3) * roll_pitch_weight_(0),  0, P_inv(i,3) * roll_pitch_weight_(2));
-      pitch_gains_.at(i) = Eigen::Vector3d(P_inv(i,4) * roll_pitch_weight_(0), 0, P_inv(i,4) * roll_pitch_weight_(2));
-      yaw_gains_.at(i) = Eigen::Vector3d(P_inv(i,5) * yaw_weight_(0), 0, P_inv(i,5) * yaw_weight_(2));
+      roll_gains_.at(i) = Eigen::Vector3d::Zero();
+      pitch_gains_.at(i) = Eigen::Vector3d::Zero();
+      yaw_gains_.at(i) = Eigen::Vector3d::Zero();
 
     }
 
@@ -347,13 +347,13 @@ void UnderActuatedImpedanceController::clampGain()
 
   for(int i = 0; i < motor_num_; ++i)
     {
-      roll_gains_.at(i)[0] *= roll_p_gain_scale;
-      roll_gains_.at(i)[2] *= roll_d_gain_scale;
+      // roll_gains_.at(i)[0] *= roll_p_gain_scale;
+      // roll_gains_.at(i)[2] *= roll_d_gain_scale;
 
-      pitch_gains_.at(i)[0] *= pitch_p_gain_scale;
-      pitch_gains_.at(i)[2] *= pitch_d_gain_scale;
+      // pitch_gains_.at(i)[0] *= pitch_p_gain_scale;
+      // pitch_gains_.at(i)[2] *= pitch_d_gain_scale;
 
-      yaw_gains_.at(i)[2] *= yaw_d_gain_scale;
+      // yaw_gains_.at(i)[2] *= yaw_d_gain_scale;
     }
 }
 
@@ -407,15 +407,15 @@ void UnderActuatedImpedanceController::publishGain()
   for(int i = 0; i < motor_num_; ++i)
     {
       /* to flight controller via rosserial scaling by 1000 */
-      rpy_gain_msg.motors[i].roll_p = roll_gains_.at(i)[0] * 1000;
-      rpy_gain_msg.motors[i].roll_i = roll_gains_.at(i)[1] * 1000;
-      rpy_gain_msg.motors[i].roll_d = roll_gains_.at(i)[2] * 1000;
+      rpy_gain_msg.motors[i].roll_p = 0.0;
+      rpy_gain_msg.motors[i].roll_i = 0.0;
+      rpy_gain_msg.motors[i].roll_d = 0.0;
 
-      rpy_gain_msg.motors[i].pitch_p = pitch_gains_.at(i)[0] * 1000;
-      rpy_gain_msg.motors[i].pitch_i = pitch_gains_.at(i)[1] * 1000;
-      rpy_gain_msg.motors[i].pitch_d = pitch_gains_.at(i)[2] * 1000;
+      rpy_gain_msg.motors[i].pitch_p = 0.0;
+      rpy_gain_msg.motors[i].pitch_i = 0.0;
+      rpy_gain_msg.motors[i].pitch_d = 0.0;
 
-      rpy_gain_msg.motors[i].yaw_d = yaw_gains_.at(i)[2] * 1000;
+      rpy_gain_msg.motors[i].yaw_d = 0.0;
     }
   //rpy_gain_pub_.publish(rpy_gain_msg);
 }
@@ -495,20 +495,19 @@ void UnderActuatedImpedanceController::sendRotationalInertiaComp()
   for(int i = 0; i < motor_num_; ++i)
     {
       /* the p matrix pseudo inverse and inertia */
-      p_pseudo_inverse_with_inertia_msg.pseudo_inverse[i].r = p_mat_pseudo_inv_(i, 1) * 1000;
-      p_pseudo_inverse_with_inertia_msg.pseudo_inverse[i].p = p_mat_pseudo_inv_(i, 2) * 1000;
-      p_pseudo_inverse_with_inertia_msg.pseudo_inverse[i].y = p_mat_pseudo_inv_(i, 3) * 1000;
-
+      p_pseudo_inverse_with_inertia_msg.pseudo_inverse[i].r = 0.0;
+      p_pseudo_inverse_with_inertia_msg.pseudo_inverse[i].p = 0.0;
+      p_pseudo_inverse_with_inertia_msg.pseudo_inverse[i].y = 0.0;
     }
 
   /* the articulated inertia */
   Eigen::Matrix3d inertia = robot_model_->getInertia<Eigen::Matrix3d>();
-  p_pseudo_inverse_with_inertia_msg.inertia[0] = inertia(0, 0) * 1000;
-  p_pseudo_inverse_with_inertia_msg.inertia[1] = inertia(1, 1) * 1000;
-  p_pseudo_inverse_with_inertia_msg.inertia[2] = inertia(2, 2) * 1000;
-  p_pseudo_inverse_with_inertia_msg.inertia[3] = inertia(0, 1) * 1000;
-  p_pseudo_inverse_with_inertia_msg.inertia[4] = inertia(1, 2) * 1000;
-  p_pseudo_inverse_with_inertia_msg.inertia[5] = inertia(0, 2) * 1000;
+  p_pseudo_inverse_with_inertia_msg.inertia[0] = 0.0;
+  p_pseudo_inverse_with_inertia_msg.inertia[1] = 0.0;
+  p_pseudo_inverse_with_inertia_msg.inertia[2] = 0.0;
+  p_pseudo_inverse_with_inertia_msg.inertia[3] = 0.0;
+  p_pseudo_inverse_with_inertia_msg.inertia[4] = 0.0;
+  p_pseudo_inverse_with_inertia_msg.inertia[5] = 0.0;
 
   //p_matrix_pseudo_inverse_inertia_pub_.publish(p_pseudo_inverse_with_inertia_msg);
 }

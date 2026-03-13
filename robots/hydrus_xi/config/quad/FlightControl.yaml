@@ -14,7 +14,8 @@ controller:
     p_gain: 3.6
 
     i_gain: 2.5 # old: 1.55
-    d_gain: 5.0 # old: 3.4
+    d_gain: 5.0 # old: 3.4leus
+    
     limit_err_p: 1.0
     limit_sum: 25.0 # N for clamping thrust force
     limit_p: 25.0 # m / s^2
@@ -60,7 +61,7 @@ controller:
     clamp_gain: true
 
 
-    mdx: 1.5
+    mdx: 0.9
     mdy: 3.0
     mdz: 1.0
     Idx: 10.0
@@ -75,10 +76,21 @@ controller:
     ka: 20.0
     fref: 0.0
 
+<<<<<<< HEAD
     x_y_p: 3.5
     x_y_zeta: 0.8
+=======
+    kot: 3.0 
+    kor: 1.0
 
+    x_y_p: 3.0
+    x_y_zeta: 0.80
+>>>>>>> 9dc48a1715533e59d0ea7771f1561de774bd206d
 
+    z_p: 1.5
+    z_zeta: 0.7
+
+<<<<<<< HEAD
     z_p: 3.0
     z_zeta: 1.0
 
@@ -88,6 +100,13 @@ controller:
 
     yaw_p: 12.0 #15.0
     yaw_zeta: 0.8 #0.5
+=======
+    roll_pitch_p: 45.0
+    roll_pitch_zeta: 1.15
+
+    yaw_p: 10.0
+    yaw_zeta: 0.8
+>>>>>>> 9dc48a1715533e59d0ea7771f1561de774bd206d
 
     joints_p: 13.0
     joints_d: 2.0

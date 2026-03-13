@@ -126,8 +126,12 @@ void HydrusTiltedImpedanceController::controlCore()
   {
  
       
+<<<<<<< HEAD
     // std::cout<<"delta_vx"<<vx<<std::endl;
     // std::cout<<"Fest"<<est_external_wrench_(0)<<std::endl;
+=======
+
+>>>>>>> 9dc48a1715533e59d0ea7771f1561de774bd206d
 
     // else
     //   contact_flag_ = false;
@@ -728,13 +732,23 @@ void HydrusTiltedImpedanceController::rosParamInit()
   getParam<double>(param_nh, "ka", ka_, 20.0);
   getParam<double>(param_nh, "fref", fref_, -0.3);
 
+  getParam<double>(param_nh, "kot", kot_, 2.0);
+  getParam<double>(param_nh, "kor", kor_, 2.0);
+
   momentum_observer_matrix_ = Eigen::MatrixXd::Identity(6,6);
+<<<<<<< HEAD
   momentum_observer_matrix_(0, 0) *= 3.0;
   momentum_observer_matrix_(1, 1) *= 3.0;
   momentum_observer_matrix_(2, 2) *= 1.0;
   momentum_observer_matrix_(3, 3) *= 1.0;
   momentum_observer_matrix_(4, 4) *= 1.0;
   momentum_observer_matrix_(5, 5) *= 1.0;
+=======
+  momentum_observer_matrix_(0, 0) *= kot_;
+  momentum_observer_matrix_(1, 1) *= kot_;
+  momentum_observer_matrix_(2, 2) *= kot_;
+  momentum_observer_matrix_.bottomRows(3) *= kor_;
+>>>>>>> 9dc48a1715533e59d0ea7771f1561de774bd206d
 }
 
 void HydrusTiltedImpedanceController::externalWrenchEstimate()
