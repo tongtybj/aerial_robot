@@ -988,10 +988,6 @@ void AttitudeController::pwmConversion()
   int max_thrust_index = 0;
   for(int i = 0; i < motor_number_ / rotor_coef_; i++)
     {
-<<<<<<< HEAD
-      float thrust = base_thrust_term_[i] + roll_pitch_term_[i];
-      //float thrust = base_thrust_term_[i];
-=======
       float thrust;
       switch(gimbal_dof_)
         {
@@ -1007,7 +1003,6 @@ void AttitudeController::pwmConversion()
         default:
           break;
         }
->>>>>>> upstream/master
       if(max_thrust < thrust)
         {
           max_thrust = thrust;
@@ -1033,10 +1028,9 @@ void AttitudeController::pwmConversion()
               int min_thrust_index = 0;
               for(int i = 0; i < motor_number_ / (rotor_coef_); i++)
                 {
-<<<<<<< HEAD
-                  float thrust = base_thrust_term_[i] + roll_pitch_term_[i] + yaw_term_[i];
-                  //float thrust = base_thrust_term_[i];
-=======
+
+
+
                   float thrust;
                   switch(gimbal_dof_)
                     {
@@ -1052,7 +1046,7 @@ void AttitudeController::pwmConversion()
                     default:
                       break;
                     }
->>>>>>> upstream/master
+
                   if(max_thrust < thrust)
                     {
                       max_thrust = thrust;
@@ -1094,10 +1088,8 @@ void AttitudeController::pwmConversion()
             }
         }
     }
-<<<<<<< HEAD
-=======
+
   
->>>>>>> upstream/master
   for(int i = 0; i < motor_number_; i++)
   {
     // std::cout<<i<<std::endl;
