@@ -37,10 +37,10 @@ void HydrusTiltedImpedanceController::initialize(ros::NodeHandle nh,
   joint_cmd_.name[1] = "joint2";
   joint_cmd_.name[2] = "joint3";
   
-  xref_(0) = 1.039; //1.039 // 1.0357
+  xref_(0) = 1.2; //1.039 // 1.0357
   xref_(1) = 0.0;
 
-  xd_(0) = 1.039; //1.039
+  xd_(0) = 1.2; //1.039
   xd_(1) = 0.0;
 
 
@@ -103,7 +103,7 @@ void HydrusTiltedImpedanceController::controlCore()
   {
     Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
     // filter external force
-    double alpha = 0.2;
+    double alpha = 0.8;
     Fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * Fext_(0);
 
 
@@ -119,23 +119,27 @@ void HydrusTiltedImpedanceController::controlCore()
     xd_dot_ += xd_ddot_ * dt;
     // if (xd_(0) > 0.95)
     //   xd_(0) = 0.95;
-    if (xd_(0) > 1.08)
-      xd_(0) = 1.08;
-    else if (xd_(0) < 0.94)
-      xd_(0) = 0.94;
+    if (xd_(0) > 1.90)
+      xd_(0) = 1.90;
+    else if (xd_(0) < 0.80)
+      xd_(0) = 0.80;
     geometry_msgs::Pose ee_pose;
-    // std::cout<<"fext_"<<Fext_(0)<<std::endl;
-    // std::cout<<"xd_"<<xd_<<std::endl;
-    // std::cout<<"ma_"<<ma_<<std::endl;
-    // std::cout<<"fref_"<<fref_<<std::endl;
+    std::cout<<"fext_"<<Fext_(0)<<std::endl;
+    std::cout<<"xd_"<<xd_<<std::endl;
 
     // ---------------CoG--------------------
     // Calculate joint angle from theta
-    double ctheta = (xd_(0)*m-0.6*m+0.3*M4)/(0.3*M3+0.9*M2+1.2*M1);
+
+    //double ctheta = (xd_(0)*m-0.6*m+0.3*M4)/(0.3*M3+0.9*M2+1.2*M1);
+    double ctheta = (xd_(0)-0.6)/1.2;
     
-    joint_cmd_.position[0] = 1.5708 - std::acos(ctheta);
-    joint_cmd_.position[1] = 2 * std::acos(ctheta);
+    // joint_cmd_.position[0] = 1.5708 - std::acos(ctheta);
+    // joint_cmd_.position[1] = 2 * std::acos(ctheta);
+    // joint_cmd_.position[2] = -std::acos(ctheta);
+    joint_cmd_.position[0] = std::acos(ctheta);
+    joint_cmd_.position[1] = std::acos(ctheta);
     joint_cmd_.position[2] = -std::acos(ctheta);
+    std::cout<<"theta_"<<ctheta<<std::endl;
     // ---------------CoG--------------------
     //sstd::cout<<"theta"<<std::acos(ctheta)<<" "<<std::acos(ctheta)/3.14159*180<<std::endl;
     // publish joint angle command
@@ -150,7 +154,7 @@ void HydrusTiltedImpedanceController::controlCore()
   {
     //std::cout<<"reset admittance"<<std::endl;
 
-    xd_(0) = 1.039; //1.039
+    xd_(0) = 1.2; //1.039
     xd_(1) = 0.0;
 
     xd_dot_ = Eigen::VectorXd::Zero(3);

@@ -152,6 +152,5 @@ namespace aerial_robot_control
 
     void gainGeneratorFunc();
 
-    void addExternalWrenchCallback(const geometry_msgs::WrenchStampedConstPtr& msg);
   };
 };

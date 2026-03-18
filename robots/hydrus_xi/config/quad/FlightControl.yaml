@@ -13,7 +13,7 @@ controller:
   z:
     p_gain: 3.6
 
-    i_gain: 2.5 # old: 1.55
+    i_gain: 3.5 # old: 1.55
     d_gain: 5.0 # old: 3.4leus
     
     limit_err_p: 1.0
@@ -71,10 +71,10 @@ controller:
     # Idy: 0.4
     # Idz: 0.8
 
-    ma: 20.0
-    ca: 40.0
-    ka: 20.0
-    fref: 0.0
+    ma: 10.0
+    ca: 10.0
+    ka: 1.5
+    fref: -1.0
 
 
     kot: 3.0 

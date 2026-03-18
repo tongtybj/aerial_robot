@@ -2,7 +2,7 @@
 <robot
     xmlns:xacro="http://www.ros.org/wiki/xacro" name="opening" >
 
-  <xacro:arg name="opening_height" default="1.0" /> <!-- m -->
+  <xacro:arg name="opening_height" default="2.0" /> <!-- m -->
   <xacro:arg name="opening_width" default="0.0" /> <!-- m -->
   <xacro:arg name="env_width" default="4.0" /> <!-- m -->
   <xacro:arg name="env_length" default="6.0" /> <!-- m -->
@@ -39,9 +39,9 @@
     </link>
   </xacro:macro>
 
-  <xacro:frame_model name="main_frame1" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${0.5 * $(arg env_width)}" height="${0.5 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.00" />
-  <xacro:frame_model name="main_frame2" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${-0.5 * $(arg env_width)}"  height="${0.5 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.00" />
-  <xacro:frame_model name="main_frame3" mass="${frame_mass}" length="0.02" width="$(arg env_width)" x="0" y="0"  height="${0.5 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.15"  />
+  <xacro:frame_model name="main_frame1" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${0.5 * $(arg env_width)}" height="${2 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.00" />
+  <xacro:frame_model name="main_frame2" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${-0.5 * $(arg env_width)}"  height="${2 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.00" />
+  <xacro:frame_model name="main_frame3" mass="${frame_mass}" length="0.02" width="$(arg env_width)" x="0" y="0"  height="${2 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.20"  />
 
 
   <joint name="frame_joint1" type="fixed">

@@ -55,6 +55,8 @@ void UnderActuatedTiltedImpedanceController::initialize(ros::NodeHandle nh,
   pid_controllers_.at(Z).setLimitSum(1e6); // do not clamp the sum of PID terms for z axis
   target_wrench_cog_ = Eigen::VectorXd::Zero(6);
   est_external_wrench_clamped_ = Eigen::VectorXd::Zero(6);
+  pos_mode_sub_ = nh_.subscribe("pos_mode", 1, &UnderActuatedTiltedImpedanceController::posModeCallback, this);
+  pos_mode_ = POSMODE::COG_POSITION;
 
   omega_x_ = 0.0;
   omega_y_ = 0.0;
@@ -146,20 +148,39 @@ void UnderActuatedTiltedImpedanceController::controlCore()
   tf::Vector3 target_omega_cog = cog.inverse() * target_omega_;
 
   // TODO ee-centric control
-  // Eigen::Vector3d pe = robot_model_->getPosition("end_frame");
-  // KDL::Frame cog_frame = robot_model_->getCog<KDL::Frame>();
-  // Eigen::Vector3d pc = aerial_robot_model::kdlToEigen(cog_frame.p);
-  // Eigen::Matrix3d Rc = aerial_robot_model::kdlToEigen(cog_frame.M);
-  // Eigen::Vector3d pc_world = Eigen::Vector3d::Zero();
-  // pc_world[0] = pos_.x();
-  // pc_world[1] = pos_.y();
-  // pc_world[2] = pos_.z();
-  // Eigen::Vector3d pe_cog = R*Rc.transpose()*(pe-pc);
-  // Eigen::Vector3d pe_world = pc_world+R*Rc.transpose()*(pe-pc);
+  Eigen::Vector3d ee_pos = robot_model_->getPosition("end_frame");
+  Eigen::Vector3d be_pos = robot_model_->getPosition("link1");
+  KDL::Frame cog_frame = robot_model_->getCog<KDL::Frame>();
+  Eigen::Vector3d cog_pos = aerial_robot_model::kdlToEigen(cog_frame.p);
+  Eigen::Matrix3d cog_rot = aerial_robot_model::kdlToEigen(cog_frame.M);
+  Eigen::Vector3d cog_pos_world = Eigen::Vector3d::Zero();
+  cog_pos_world[0] = pos_.x();
+  cog_pos_world[1] = pos_.y();
+  cog_pos_world[2] = pos_.z();
+  Eigen::Vector3d ee_pos_cog = R*cog_rot.transpose()*(ee_pos-cog_pos);
+  Eigen::Vector3d be_pos_cog = R*cog_rot.transpose()*(be_pos-cog_pos);
+  Eigen::Vector3d ee_pos_world = cog_pos_world+R*cog_rot.transpose()*(ee_pos-cog_pos);
+  Eigen::Vector3d be_pos_world = cog_pos_world+R*cog_rot.transpose()*(be_pos-cog_pos);
+  if (pos_mode_ == COG_POSITION)
+  {
+    delta_p(0) = pos_.x() - target_pos_.x();
+    delta_p(1) = pos_.y() - target_pos_.y();
+  }
+  else if (pos_mode_ == EE_POSITION)
+  {
+    delta_p(0) = ee_pos_world.x() - target_pos_.x();
+    delta_p(1) = ee_pos_world.y() - target_pos_.y();
+  }
+  else if (pos_mode_ == BE_POSITION)
+  {
+    delta_p(0) = be_pos_world.x() - target_pos_.x();
+    delta_p(1) = be_pos_world.y() - target_pos_.y();
+  }
+
+  //std::cout << "ee pos world: " << ee_pos_world.transpose() << std::endl;
+  std::cout << "be pos world: " << be_pos_world.transpose() << std::endl;
 
 
-  delta_p(0) = pos_.x() - target_pos_.x();
-  delta_p(1) = pos_.y() - target_pos_.y();
   
 
   delta_p(2) = pos_.z() - target_pos_.z();
@@ -367,6 +388,19 @@ void UnderActuatedTiltedImpedanceController::rosParamInit()
 {
   UnderActuatedImpedanceController::rosParamInit();
 
+}
+
+void UnderActuatedTiltedImpedanceController::posModeCallback(const std_msgs::UInt8ConstPtr& mode)
+{
+  pos_mode_ = mode->data;
+  if (mode->data == POSMODE::COG_POSITION)
+    ROS_INFO("Position control mode changed to CoG mode");
+  else if (mode->data == POSMODE::EE_POSITION)
+    ROS_INFO("Position control mode changed to EE mode");
+  else if (mode->data == POSMODE::BE_POSITION)
+    ROS_INFO("Position control mode changed to BE mode");
+  else
+    ROS_WARN("Received invalid position control mode: %d", mode->data);
 }
 
 

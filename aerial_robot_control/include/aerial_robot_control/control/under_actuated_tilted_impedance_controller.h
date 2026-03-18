@@ -54,8 +54,19 @@ namespace aerial_robot_control
 
   protected:
 
+    enum POSMODE
+    {
+      COG_POSITION = 0,
+      EE_POSITION = 1,
+      BE_POSITION = 2
+    };
+    int pos_mode_;
+
     ros::Publisher desired_baselink_rot_pub_;
     ros::Subscriber contact_flag_sub_;
+    ros::Subscriber pos_mode_sub_;
+
+
 
     std::mutex wrench_mutex_;
     Eigen::VectorXd est_external_wrench_;
@@ -84,6 +95,8 @@ namespace aerial_robot_control
     void controlCore() override;
     void rosParamInit() override;
     void publishDesireCoordinate();
+    void posModeCallback(const std_msgs::UInt8ConstPtr& mode);
+
 
     void clampCommand(Eigen::VectorXd &cmd, const Eigen::Vector3d &limit);
   };

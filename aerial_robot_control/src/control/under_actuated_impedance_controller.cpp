@@ -65,7 +65,7 @@ void UnderActuatedImpedanceController::initialize(ros::NodeHandle nh,
   flight_impedance_cmd_pub_ = nh_.advertise<spinal::FourAxisCommandImpedance>("four_axes/imp_command", 1);
   p_matrix_pseudo_inverse_inertia_pub_ = nh_.advertise<spinal::PMatrixPseudoInverseWithInertia>("p_matrix_pseudo_inverse_inertia", 1);
   imp_command_pub_ = nh_.advertise<aerial_robot_msgs::ImpedanceControl>("imp_cmd", 1);
-  external_wrench_sub_ = nh_.subscribe("external_wrench", 1, &UnderActuatedImpedanceController::addExternalWrenchCallback, this);
+
 
   target_thrust_z_term_ = Eigen::VectorXd::Zero(motor_num_);
   target_thrust_roll_term_ = Eigen::VectorXd::Zero(motor_num_);
@@ -213,15 +213,7 @@ void UnderActuatedImpedanceController::controlCore()
       
       target_base_thrust_.at(i) = target_thrust_z_term_(i);
       pid_msg_.z.total.at(i) =  target_thrust_z_term_(i);
-      // pid_msg_.yaw.total.at(i) =  target_thrust_yaw_term_(i);
-
-      // TODO There is not max_gain_thresh to limit yaw_term's value
-
-      // if(abs(target_thrust_yaw_term(i)) > max_yaw_scale)
-      //   {
-          //max_yaw_scale = abs(target_thrust_yaw_term(i));
-     
-        // }
+  
     }
    
     candidate_yaw_term_ = target_thrust_yaw_term_(0);
