@@ -53,7 +53,11 @@ add_library(sensor_pluginlib
   src/sensor/imu.cpp
   src/sensor/plane_detection.cpp)
 
+<<<<<<< HEAD
 target_link_libraries(sensor_pluginlib aerial_robot_estimation ${catkin_LIBRARIES} )
+=======
+target_link_libraries(sensor_pluginlib aerial_robot_estimation ${catkin_LIBRARIES})
+>>>>>>> upstream/master
 add_dependencies(sensor_pluginlib aerial_robot_msgs_generate_messages_cpp spinal_generate_messages_cpp)
 
 ### kalman filter plugins
