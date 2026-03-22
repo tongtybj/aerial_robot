@@ -215,6 +215,8 @@ void HydrusLikeRobotModel::updateJacobians(const KDL::JntArray& joint_positions,
 
   calcBasicKinematicsJacobian(); // need cog_jacobian_
 
+  //calcStaticThrust(); //
+
   calcLambdaJacobian();
 
   calcJointTorque(false);

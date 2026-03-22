@@ -123,7 +123,7 @@ namespace Dragon
     /* gimbal roll angle optimization problem */
     std::vector<double>  calcBestLockGimbalRoll(const std::vector<int>& gimbal_roll_lock, const std::vector<int>& prev_gimbal_roll_lock, const std::vector<double>& prev_opt_locked_roll_angles);
 
-    void calcStaticThrust() override {}; // do nothing
+    void calcStaticThrust() override { HydrusRobotModel::calcStaticThrust(); }; //  add this row to fix bug of could not get thrust_wrench_units and thrust_wrench_allocation
     void calcFeasibleControlFDists() {}; // do nothing
     void calcFeasibleControlTDists() {}; // do nothing
   };
