@@ -105,6 +105,10 @@ namespace aerial_robot_control
     Eigen::VectorXd target_acc_cog_; // 6DoF acc (only represent the dynamic motion)
     Eigen::VectorXd target_wrench_cog_; // 6DoF wrench (target_acc (DoF) * inertia + external wrench compensate term)
 
+    /* impedance parameters */
+    double mdx_, mdy_, mdz_, Idx_, Idy_, Idz_;
+    double x_y_p_, z_p_, roll_pitch_p_, yaw_p_, joints_p_, pos_p_, x_y_zeta_, z_zeta_, roll_pitch_zeta_, yaw_zeta_;
+
     /* control method */
     bool integral_vectoring_allocation_; // use gimbal roll and ptich for all control terms.
 

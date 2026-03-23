@@ -92,3 +92,35 @@ controller:
     limit_d: 10
     limit_err_p: 0.4
     need_d_control: true
+
+  mdx: 0.9
+  mdy: 3.0
+  mdz: 1.0
+  Idx: 10.0
+  Idy: 10.0
+  Idz: 5.0
+
+  # Idy: 0.4
+  # Idz: 0.8
+
+  ma: 10.0
+  ca: 10.0
+  ka: 1.5
+  fref: -1.0
+
+
+  kot: 3.0 
+  kor: 1.0
+
+  x_y_p: 2.5
+  x_y_zeta: 0.80
+
+
+  z_p: 1.5
+  z_zeta: 0.7
+
+  roll_pitch_p: 45.0
+  roll_pitch_zeta: 1.15
+
+  yaw_p: 10.0
+  yaw_zeta: 0.8
