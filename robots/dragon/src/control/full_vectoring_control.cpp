@@ -388,6 +388,10 @@ void DragonFullVectoringController::initialize(ros::NodeHandle nh, ros::NodeHand
   rotor_interfere_wrench_pub_ = nh_.advertise<geometry_msgs::WrenchStamped>("rotor_interfere_wrench", 1);
   interfrence_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("interference_markers", 1);
 
+  joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_ctrl", 1);
+  ee_pos_sub_ = nh_.subscribe(std::string("ee_pos"), 1, &DragonFullVectoringController::eePosCallback, this);
+  plan_flag_sub_ = nh_.subscribe("plan_start", 1, &DragonFullVectoringController::planStartCallback, this);
+
   add_external_wrench_sub_ = nh_.subscribe(std::string("apply_external_wrench"), 1, &DragonFullVectoringController::addExternalWrenchCallback, this);
   clear_external_wrench_sub_ = nh_.subscribe(std::string("clear_external_wrench"), 1, &DragonFullVectoringController::clearExternalWrenchCallback, this);
 
@@ -423,6 +427,24 @@ void DragonFullVectoringController::initialize(ros::NodeHandle nh, ros::NodeHand
                                                 loop_rate.sleep();
                                               }
                                           });
+  
+  plan_flag_ = false;
+  joint_cmd_.name.resize(6);
+  joint_cmd_.position.resize(6);
+  joint_cmd_.name[0] = "joint1_pitch";
+  joint_cmd_.name[1] = "joint1_yaw";
+  joint_cmd_.name[2] = "joint2_pitch";
+  joint_cmd_.name[3] = "joint2_yaw";
+  joint_cmd_.name[4] = "joint3_pitch";
+  joint_cmd_.name[5] = "joint3_yaw";
+  q_init_.resize(6);
+  q_result_.resize(6);
+  q_init_(0) = 0.0;
+  q_init_(1) = 1.57;
+  q_init_(2) = 0.0;
+  q_init_(3) = 1.57;
+  q_init_(4) = 0.0;
+  q_init_(5) = 1.57;
 }
 
 void DragonFullVectoringController::reset()
@@ -1389,6 +1411,62 @@ void DragonFullVectoringController::controlCore()
     }
 
   prev_target_gimbal_angles_ = target_gimbal_angles_;
+  admittanceControl();
+}
+
+void DragonFullVectoringController::eePosCallback(const geometry_msgs::PointStamped::ConstPtr& msg)
+{
+  ee_pos_ref_[0] = msg->point.x;
+  ee_pos_ref_[1] = msg->point.y;
+  ee_pos_ref_[2] = msg->point.z;
+}
+
+void DragonFullVectoringController::planStartCallback(const std_msgs::BoolConstPtr& msg)
+{
+  plan_flag_ = msg->data;
+}
+
+void DragonFullVectoringController::admittanceControl()
+{
+
+  if (plan_flag_)
+  {
+    //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
+    Eigen::Vector3d ee_pos_ = ee_pos_ref_;
+
+    std::cout<<"ee_pos_ref"<<std::endl;
+    
+    // inverse kinematics to get the target gimbal anglles
+    KDL::Chain chain;
+    bool ok = robot_model_->getTree().getChain("link1", "end_frame", chain);
+   
+  
+    KDL::JntArray q_min(6), q_max(6);
+
+    for (int i = 0; i < 6; i++) 
+    {
+      q_min(i) = -1.57;
+      q_max(i) =  1.57;
+    }
+
+    KDL::ChainFkSolverPos_recursive fk_solver(chain);
+    KDL::ChainIkSolverVel_pinv ik_vel(chain);
+
+    KDL::ChainIkSolverPos_NR_JL ik_solver(chain, q_min, q_max, fk_solver, ik_vel);
+
+  
+    KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 0), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
+    int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
+    std::cout<<"target_frame:" <<ee_pos_.transpose()<<std::endl;
+
+    for (int i = 0; i < 6; i++)
+      joint_cmd_.position[i] = q_result_(i);
+    std::cout<<joint_cmd_<<std::endl;
+    q_init_ = q_result_;
+    
+    joints_ctrl_pub_.publish(joint_cmd_);
+  }
+
 }
 
 void DragonFullVectoringController::externalWrenchEstimate()

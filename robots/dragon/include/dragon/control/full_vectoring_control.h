@@ -49,6 +49,10 @@
 #include <dragon/sensor/imu.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <nlopt.hpp>
+#include <std_msgs/Bool.h>
+#include <kdl/chainiksolvervel_pinv.hpp>    
+#include <kdl/chainiksolverpos_nr_jl.hpp>    
+#include <kdl/chainfksolverpos_recursive.hpp>
 
 namespace aerial_robot_control
 {
@@ -94,7 +98,12 @@ namespace aerial_robot_control
     ros::Publisher estimate_external_wrench_pub_;
     ros::Publisher rotor_interfere_wrench_pub_;
     ros::Publisher interfrence_marker_pub_;
+    ros::Publisher joints_ctrl_pub_;
 
+    ros::Subscriber ee_pos_sub_;
+    ros::Subscriber plan_flag_sub_;
+
+    sensor_msgs::JointState joint_cmd_;
     boost::shared_ptr<Dragon::FullVectoringRobotModel> dragon_robot_model_;
     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_for_control_;
     std::vector<double> target_base_thrust_;
@@ -199,9 +208,18 @@ namespace aerial_robot_control
       target_wrench_cog_ = target_wrench_cog;
     }
 
+
+    Eigen::Vector3d ee_pos_ref_;
+    bool plan_flag_;
+
+    KDL::JntArray q_init_, q_result_;
+
     void controlCore() override;
     void rotorInterfereCompensation();
     void rosParamInit();
     void sendCmd();
+    void admittanceControl();
+    void eePosCallback(const geometry_msgs::PointStamped::ConstPtr& msg);
+    void planStartCallback(const std_msgs::BoolConstPtr& msg);
   };
 };

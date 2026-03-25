@@ -990,7 +990,8 @@ void DragonFullVectoringImpedanceController::controlCore()
   delta_v(4) = omega_.y() - target_omega_cog.y();
   delta_v(5) = omega_.z() - target_omega_cog.z();
   Eigen::VectorXd ang_acc_cmd = Eigen::VectorXd::Zero(3);
-  ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3)) + aerial_robot_model::skew(omega) * I * omega;
+  //ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3)) + aerial_robot_model::skew(omega) * I * omega;
+  ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3));
   //Eigen::VectorXd limit_r = Eigen::VectorXd::Constant(3, 6.0);
   //clampCommand(ang_acc_cmd, limit_r);
 
@@ -1021,9 +1022,12 @@ void DragonFullVectoringImpedanceController::controlCore()
   tf::Vector3 target_lin_acc_low_freq = uav_rot.inverse() * target_lin_acc_w_low_freq;
   tf::Vector3 target_lin_acc_high_freq = uav_rot.inverse() * target_lin_acc_w_high_freq;
 
-  tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0] + (aerial_robot_model::skew(omega) * I * omega)[0],
-                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] + (aerial_robot_model::skew(omega) * I * omega)[1],
-                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] + (aerial_robot_model::skew(omega) * I * omega)[2]);
+  // tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0] + (aerial_robot_model::skew(omega) * I * omega)[0],
+  //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] + (aerial_robot_model::skew(omega) * I * omega)[1],
+  //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] + (aerial_robot_model::skew(omega) * I * omega)[2]);
+  tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0],
+                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1],
+                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2]);
   // // include d control term if non-zero target velocity
   for(int i = 0; i < 3; i++)
     {
@@ -1347,8 +1351,8 @@ void DragonFullVectoringImpedanceController::controlCore()
               /* gimbal roll lock: 2Dof */
               full_q_mat.middleCols(2 * i, 2) = wrench_map * links_rotation_from_cog.at(i) * aerial_robot_model::kdlToEigen(KDL::Rotation::RPY(target_gimbal_angles_.at(i * 2), 0, 0)) * mask;
             }
-
-          Eigen::VectorXd target_wrench = calcExternalWrenchSum(external_wrench_map);
+          Eigen::VectorXd target_wrench = Eigen::VectorXd::Zero(6);
+          //Eigen::VectorXd target_wrench = calcExternalWrenchSum(external_wrench_map);
           target_wrench.head(3) += robot_model_for_control_->getMass() * target_acc.head(3);
           target_wrench.tail(3) += robot_model_for_control_->getInertia<Eigen::Matrix3d>() * target_acc.tail(3);
           Eigen::VectorXd vectoring_forces = aerial_robot_model::pseudoinverse(full_q_mat) * target_wrench;
@@ -1558,7 +1562,9 @@ void DragonFullVectoringImpedanceController::admittanceControl()
     std::cout<<ma<<std::endl;
 
     //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
-    Eigen::Vector3d ee_pos_ = pd_ + Eigen::Vector3d(1.2,0.45,0.3);
+    Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
+
+    std::cout<<"ee_pos_ref"<<std::endl;
     
     // inverse kinematics to get the target gimbal anglles
     KDL::Chain chain;
