@@ -59,6 +59,14 @@
     </link>
   </xacro:macro>
 
+  <link name="end_frame"/>
+     
+  <joint name="end_eff" type="fixed">
+      <parent link="link4"/>
+      <child link="end_frame"/>
+      <origin rpy="0 0 0" xyz="${link_length} 0 0"/>
+  </joint>
+
   <!-- friction -->
   <xacro:macro name="friction" params="self">
     <gazebo reference="link${self}">

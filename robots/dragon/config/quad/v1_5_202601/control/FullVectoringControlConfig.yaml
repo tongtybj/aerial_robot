@@ -1,4 +1,4 @@
-aerial_robot_control_name: aerial_robot_control/dragon_full_vectoring_impedance
+aerial_robot_control_name: aerial_robot_control/dragon_full_vectoring
 
 controller:
 
@@ -103,14 +103,13 @@ controller:
   # Idy: 0.4
   # Idz: 0.8
 
-  ma: 10.0
-  ca: 10.0
-  ka: 1.5
-  fref: -1.0
-
-
-  kot: 3.0 
-  kor: 1.0
+  max: 20.0
+  cax: 30.0
+  kax: 20.0
+  mayz: 10.0
+  cayz: 30.0
+  kayz: 20.0
+  # fref: -1.0
 
   x_y_p: 2.5
   x_y_zeta: 0.80

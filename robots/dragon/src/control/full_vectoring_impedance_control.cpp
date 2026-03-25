@@ -387,9 +387,12 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
   estimate_external_wrench_pub_ = nh_.advertise<geometry_msgs::WrenchStamped>("estimated_external_wrench", 1);
   rotor_interfere_wrench_pub_ = nh_.advertise<geometry_msgs::WrenchStamped>("rotor_interfere_wrench", 1);
   interfrence_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("interference_markers", 1);
+  joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_ctrl", 1);
 
   add_external_wrench_sub_ = nh_.subscribe(std::string("apply_external_wrench"), 1, &DragonFullVectoringImpedanceController::addExternalWrenchCallback, this);
   clear_external_wrench_sub_ = nh_.subscribe(std::string("clear_external_wrench"), 1, &DragonFullVectoringImpedanceController::clearExternalWrenchCallback, this);
+  ee_pos_sub_ = nh_.subscribe(std::string("ee_pos"), 1, &DragonFullVectoringImpedanceController::eePosCallback, this);
+  plan_flag_sub_ = nh_.subscribe("plan_start", 1, &DragonFullVectoringImpedanceController::planStartCallback, this);
 
   extra_vectoring_force_sub_ = nh_.subscribe("extra_vectoring_force", 1, &DragonFullVectoringImpedanceController::extraVectoringForceCallback, this);
   extra_vectoring_forces_.resize(0);
@@ -423,6 +426,29 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
                                                 loop_rate.sleep();
                                               }
                                           });
+  time_ = ros::Time::now();
+  pd_ = Eigen::Vector3d::Zero();
+  pd_dot_ = Eigen::Vector3d::Zero();
+  pd_ddot_ = Eigen::Vector3d::Zero();
+  fext_ = Eigen::Vector3d::Zero();
+  plan_flag_ = false;
+  joint_cmd_.name.resize(6);
+  joint_cmd_.position.resize(6);
+  joint_cmd_.name[0] = "joint1_pitch";
+  joint_cmd_.name[1] = "joint1_yaw";
+  joint_cmd_.name[2] = "joint2_pitch";
+  joint_cmd_.name[3] = "joint2_yaw";
+  joint_cmd_.name[4] = "joint3_pitch";
+  joint_cmd_.name[5] = "joint3_yaw";
+  q_init_.resize(6);
+  q_result_.resize(6);
+  q_init_(0) = 0.0;
+  q_init_(1) = 1.57;
+  q_init_(2) = 0.0;
+  q_init_(3) = 1.57;
+  q_init_(4) = 0.0;
+  q_init_(5) = 1.57;
+
 }
 
 void DragonFullVectoringImpedanceController::reset()
@@ -977,47 +1003,47 @@ void DragonFullVectoringImpedanceController::controlCore()
 
 
   /* separate PI and D control term */
-  // tf::Vector3 target_lin_acc_w_low_freq(pid_controllers_.at(X).getPTerm() + pid_controllers_.at(X).getITerm(),
-  //                                       pid_controllers_.at(Y).getPTerm() + pid_controllers_.at(Y).getITerm(),
-  //                                       pid_controllers_.at(Z).getPTerm() + pid_controllers_.at(Z).getITerm());
+  tf::Vector3 target_lin_acc_w_low_freq((1 / md(0) - 1 / uav_mass) * est_external_wrench_[0] + (-Kpt(0) * delta_p(0)),
+                                        (1 / md(1) - 1 / uav_mass) * est_external_wrench_[1] + (-Kpt(1) * delta_p(1)),
+                                        (1 / md(2) - 1 / uav_mass) * est_external_wrench_[2] + (-Kpt(2) * delta_p(2)) + aerial_robot_estimation::G);
+  // include d control term if non-zero target velocity
+  for(int i = 0; i < 3; i++)
+    {
+      if(fabs(target_vel_[i]) > gimbal_roll_target_lin_vel_thresh_)
+        target_lin_acc_w_low_freq[i] = lin_acc_cmd(i);
+    }
+
+  tf::Vector3 target_lin_acc_w_high_freq((-Kdt(0) * delta_v(0)),
+                                         (-Kdt(1) * delta_v(1)),
+                                         (-Kdt(2) * delta_v(2)));
+  tf::Vector3 residual = target_lin_acc_w_low_freq + target_lin_acc_w_high_freq - target_lin_acc_w;
+  target_lin_acc_w_high_freq -= residual;
+  tf::Vector3 target_lin_acc_low_freq = uav_rot.inverse() * target_lin_acc_w_low_freq;
+  tf::Vector3 target_lin_acc_high_freq = uav_rot.inverse() * target_lin_acc_w_high_freq;
+
+  tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0] + (aerial_robot_model::skew(omega) * I * omega)[0],
+                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] + (aerial_robot_model::skew(omega) * I * omega)[1],
+                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] + (aerial_robot_model::skew(omega) * I * omega)[2]);
   // // include d control term if non-zero target velocity
-  // for(int i = 0; i < 3; i++)
-  //   {
-  //     if(fabs(target_vel_[i]) > gimbal_roll_target_lin_vel_thresh_)
-  //       target_lin_acc_w_low_freq[i] = pid_controllers_.at(X + i).result();
-  //   }
+  for(int i = 0; i < 3; i++)
+    {
+      if(fabs(target_omega_[i]) > gimbal_roll_target_ang_vel_thresh_)
+        target_ang_acc_low_freq[i] = ang_acc_cmd[i];
+    }
 
-  // tf::Vector3 target_lin_acc_w_high_freq(pid_controllers_.at(X).getDTerm(),
-  //                                        pid_controllers_.at(Y).getDTerm(),
-  //                                        pid_controllers_.at(Z).getDTerm());
-  // tf::Vector3 residual = target_lin_acc_w_low_freq + target_lin_acc_w_high_freq - target_lin_acc_w;
-  // target_lin_acc_w_high_freq -= residual;
-  // tf::Vector3 target_lin_acc_low_freq = uav_rot.inverse() * target_lin_acc_w_low_freq;
-  // tf::Vector3 target_lin_acc_high_freq = uav_rot.inverse() * target_lin_acc_w_high_freq;
-
-  // tf::Vector3 target_ang_acc_low_freq(pid_controllers_.at(ROLL).getPTerm() + pid_controllers_.at(ROLL).getITerm(),
-  //                                     pid_controllers_.at(PITCH).getPTerm() + pid_controllers_.at(PITCH).getITerm(),
-  //                                     pid_controllers_.at(YAW).getPTerm() + pid_controllers_.at(YAW).getITerm());
-  // // include d control term if non-zero target velocity
-  // for(int i = 0; i < 3; i++)
-  //   {
-  //     if(fabs(target_omega_[i]) > gimbal_roll_target_ang_vel_thresh_)
-  //       target_ang_acc_low_freq[i] = pid_controllers_.at(ROLL + i).result();
-  //   }
-
-  // tf::Vector3 target_ang_acc_high_freq(pid_controllers_.at(ROLL).getDTerm(),
-  //                                      pid_controllers_.at(PITCH).getDTerm(),
-  //                                      pid_controllers_.at(YAW).getDTerm());
-  // residual = target_ang_acc_low_freq + target_ang_acc_high_freq - target_ang_acc;
-  // target_ang_acc_high_freq -= residual;
+  tf::Vector3 target_ang_acc_high_freq((-Kd * delta_v.segment(3, 3))[0],
+                                       (-Kd * delta_v.segment(3, 3))[1],
+                                       (-Kd * delta_v.segment(3, 3))[2]);
+  residual = target_ang_acc_low_freq + target_ang_acc_high_freq - target_ang_acc;
+  target_ang_acc_high_freq -= residual;
   Eigen::VectorXd target_acc_low_freq = Eigen::VectorXd::Zero(6);
   Eigen::VectorXd target_acc_high_freq = Eigen::VectorXd::Zero(6);
-  // target_acc_low_freq.head(3) = Eigen::Vector3d(target_lin_acc_low_freq.x(), target_lin_acc_low_freq.y(), target_lin_acc_low_freq.z());
-  // target_acc_low_freq.tail(3) = Eigen::Vector3d(target_ang_acc_low_freq.x(), target_ang_acc_low_freq.y(), target_ang_acc_low_freq.z());
-  target_acc_low_freq.head(3) = Eigen::Vector3d(target_lin_acc.x(), target_lin_acc.y(), target_lin_acc.z());
-  target_acc_low_freq.tail(3) = Eigen::Vector3d(target_ang_acc.x(), target_ang_acc.y(), target_ang_acc.z());
-  // target_acc_high_freq.head(3) = Eigen::Vector3d(target_lin_acc_high_freq.x(), target_lin_acc_high_freq.y(), target_lin_acc_high_freq.z());
-  // target_acc_high_freq.tail(3) = Eigen::Vector3d(target_ang_acc_high_freq.x(), target_ang_acc_high_freq.y(), target_ang_acc_high_freq.z());
+  target_acc_low_freq.head(3) = Eigen::Vector3d(target_lin_acc_low_freq.x(), target_lin_acc_low_freq.y(), target_lin_acc_low_freq.z());
+  target_acc_low_freq.tail(3) = Eigen::Vector3d(target_ang_acc_low_freq.x(), target_ang_acc_low_freq.y(), target_ang_acc_low_freq.z());
+  // target_acc_low_freq.head(3) = Eigen::Vector3d(target_lin_acc.x(), target_lin_acc.y(), target_lin_acc.z());
+  // target_acc_low_freq.tail(3) = Eigen::Vector3d(target_ang_acc.x(), target_ang_acc.y(), target_ang_acc.z());
+  target_acc_high_freq.head(3) = Eigen::Vector3d(target_lin_acc_high_freq.x(), target_lin_acc_high_freq.y(), target_lin_acc_high_freq.z());
+  target_acc_high_freq.tail(3) = Eigen::Vector3d(target_ang_acc_high_freq.x(), target_ang_acc_high_freq.y(), target_ang_acc_high_freq.z());
 
   pid_msg_.roll.total.at(0) = target_ang_acc.x();
   pid_msg_.roll.p_term.at(0) = pid_controllers_.at(ROLL).getPTerm();
@@ -1490,6 +1516,89 @@ void DragonFullVectoringImpedanceController::controlCore()
     }
 
   prev_target_gimbal_angles_ = target_gimbal_angles_;
+  admittanceControl();
+}
+
+void DragonFullVectoringImpedanceController::admittanceControl()
+{
+
+  if (plan_flag_)
+  {
+    double dt = (ros::Time::now() - time_).toSec();
+    Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
+    // filter external force
+    double alpha = 0.8;
+    fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * fext_(0);
+    fext_(1) = alpha * est_external_wrench_(1) + (1 - alpha) * fext_(1);
+    fext_(2) = alpha * est_external_wrench_(2) + (1 - alpha) * fext_(2);
+
+
+    // if (Fext_(0) > 0.35)
+    //   Fext_(0) = 0.35;
+    // else if (Fext_(0) < -2.2)
+    //   Fext_(0) = -2.2;
+    // Fref(0) = fref_;
+    //xd_ddot_ = (R.inverse() * Fext - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
+    // defferential method to calculate distance 
+    Eigen::Matrix3d ma = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d ca = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d ka = Eigen::Matrix3d::Zero();
+    ma(0, 0) = max_;
+    ma(1, 1) = mayz_;
+    ma(2, 2) = mayz_;
+    ca(0, 0) = cax_;
+    ca(1, 1) = cayz_;
+    ca(2, 2) = cayz_;
+    ka(0, 0) = kax_;
+    ka(1, 1) = kayz_;
+    ka(2, 2) = kayz_;
+    pd_ddot_ = ma.inverse() * (fext_ - ka * pd_ - ca * pd_dot_);
+    pd_dot_ += pd_ddot_ * dt;
+    pd_ += pd_dot_ * dt;
+    std::cout<<ma<<std::endl;
+
+    //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
+    Eigen::Vector3d ee_pos_ = pd_ + Eigen::Vector3d(1.2,0.45,0.3);
+    
+    // inverse kinematics to get the target gimbal anglles
+    KDL::Chain chain;
+    bool ok = robot_model_->getTree().getChain("link1", "end_frame", chain);
+   
+  
+    KDL::JntArray q_min(6), q_max(6);
+
+    for (int i = 0; i < 6; i++) 
+    {
+      q_min(i) = -1.57;
+      q_max(i) =  1.57;
+    }
+
+    KDL::ChainFkSolverPos_recursive fk_solver(chain);
+    KDL::ChainIkSolverVel_pinv ik_vel(chain);
+
+    KDL::ChainIkSolverPos_NR_JL ik_solver(chain, q_min, q_max, fk_solver, ik_vel);
+
+  
+    KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 0), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
+    int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
+    std::cout<<"target_frame:" <<ee_pos_.transpose()<<std::endl;
+
+    for (int i = 0; i < 6; i++)
+      joint_cmd_.position[i] = q_result_(i);
+    std::cout<<joint_cmd_<<std::endl;
+    q_init_ = q_result_;
+    
+    joints_ctrl_pub_.publish(joint_cmd_);
+  }
+  else
+  {
+    pd_ = Eigen::Vector3d::Zero();
+    pd_dot_ = Eigen::Vector3d::Zero();
+    pd_ddot_ = Eigen::Vector3d::Zero();
+    fext_ = Eigen::Vector3d::Zero();
+  }
+  time_ = ros::Time::now();
+
 }
 
 void DragonFullVectoringImpedanceController::externalWrenchEstimate()
@@ -1586,14 +1695,15 @@ bool DragonFullVectoringImpedanceController::staticIterativeAllocation(const int
             }
         }
 
-      Eigen::VectorXd target_wrench = calcExternalWrenchSum(external_wrench_map);
+      //Eigen::VectorXd target_wrench = calcExternalWrenchSum(external_wrench_map);
+      Eigen::VectorXd target_wrench = Eigen::VectorXd::Zero(6);
       target_wrench.head(3) += robot_model_for_control_->getMass() * target_acc.head(3);
       target_wrench.tail(3) += robot_model_for_control_->getInertia<Eigen::Matrix3d>() * target_acc.tail(3); // TODO: consider the external weight such as grasped object
       vectoring_forces = aerial_robot_model::pseudoinverse(full_q_mat) * target_wrench;
 
       // add extra vectoring force
       // condition: no gimbal roll lock
-      // simaple linear addition, which is OK for near hovering joint configuration (roll and pitch: 0.5; roll or pitch: 0.78)
+      // simple linear addition, which is OK for near hovering joint configuration (roll and pitch: 0.5; roll or pitch: 0.78)
       if (extra_vectoring_forces.size() > 0 && gimbal_lock_num == 0)
         {
           for(int i = 0; i < motor_num_; i++)
@@ -2079,6 +2189,17 @@ void DragonFullVectoringImpedanceController::extraVectoringForceCallback(const a
     }
 }
 
+void DragonFullVectoringImpedanceController::eePosCallback(const geometry_msgs::PointStamped::ConstPtr& msg)
+{
+  ee_pos_ref_[0] = msg->point.x;
+  ee_pos_ref_[1] = msg->point.y;
+  ee_pos_ref_[2] = msg->point.z;
+}
+
+void DragonFullVectoringImpedanceController::planStartCallback(const std_msgs::BoolConstPtr& msg)
+{
+  plan_flag_ = msg->data;
+}
 
 void DragonFullVectoringImpedanceController::sendCmd()
 {
@@ -2210,6 +2331,12 @@ void DragonFullVectoringImpedanceController::rosParamInit()
   getParam<double>(control_nh, "z_zeta", z_zeta_, 1.0);
   getParam<double>(control_nh, "roll_pitch_zeta", roll_pitch_zeta_, 0.4);
   getParam<double>(control_nh, "yaw_zeta", yaw_zeta_, 0.5);
+  getParam<double>(control_nh, "max", max_, 10.0);
+  getParam<double>(control_nh, "cax", cax_, 20.0);
+  getParam<double>(control_nh, "kax", kax_, 10.0);
+  getParam<double>(control_nh, "mayz", mayz_, 10.0);
+  getParam<double>(control_nh, "cayz", cayz_, 20.0);
+  getParam<double>(control_nh, "kayz", kayz_, 10.0);
 }
 
 /* plugin registration */

@@ -98,9 +98,10 @@ void HydrusTiltedImpedanceController::controlCore()
   double M4 = robot_model_->getInertiaMap().at("link4").getMass();
   double m = M1+M2+M3+M4;
 
-  double dt = (ros::Time::now() - time_).toSec();
+  
   if (plan_flag_)
   {
+    double dt = (ros::Time::now() - time_).toSec();
     Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
     // filter external force
     double alpha = 0.8;
@@ -148,7 +149,6 @@ void HydrusTiltedImpedanceController::controlCore()
     ee_pose.position.x = xd_(0);
     ee_pose.position.y = Fext_(0);
     ee_pos_pub_.publish(ee_pose);
-    time_ = ros::Time::now();
   }
   else
   {
@@ -158,9 +158,8 @@ void HydrusTiltedImpedanceController::controlCore()
     xd_(1) = 0.0;
 
     xd_dot_ = Eigen::VectorXd::Zero(3);
-
-    time_ = ros::Time::now();
   }
+  time_ = ros::Time::now();
 }
 
 

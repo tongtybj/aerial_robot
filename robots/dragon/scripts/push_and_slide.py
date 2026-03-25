@@ -81,7 +81,7 @@ if __name__ == "__main__":
     nav_msg.pos_xy_nav_mode = 4 # pos_vel mode
 
 
-    nav_msg.target_pos_x = 0.3
+    nav_msg.target_pos_x = -0.1
     nav_msg.target_vel_x = 0.0
     nav_msg.target_pos_y = 0.0
     nav_msg.target_vel_y = 0.0
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     for i in range(10):
         nav_msg = FlightNav()
         nav_msg.pos_xy_nav_mode = 4
-        nav_msg.target_pos_x = 0.7 + (0.3/10) * (i+1)
+        nav_msg.target_pos_x = -0.1 + (0.3/10) * (i+1)
 
         nav_msg.yaw_nav_mode = 4 
         nav_msg.target_yaw = -math.pi/6
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         filted_force_x = external_wrench.wrench.force.x * 0.1 + force_x * 0.9
         nav_msg.pos_xy_nav_mode = 4
 
-        nav_msg.target_pos_x = 1.0
+        nav_msg.target_pos_x = 0.2
         #nav_msg.target_pos_x = -1.20 + (external_wrench.wrench.force.x + 0.6)/0.5*0.05
         nav_msg.target_vel_x = 0.0
         nav_msg.target_pos_y = 0.5 * math.sin(math.pi * round / 1200)
