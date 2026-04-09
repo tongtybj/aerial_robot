@@ -92,6 +92,14 @@ namespace aerial_robot_control
 
   private:
 
+    enum POSMODE
+    {
+      COG_POSITION = 0,
+      EE_POSITION = 1,
+      BE_POSITION = 2
+    };
+    int pos_mode_;
+
     ros::Publisher flight_cmd_pub_; //for spinal
     ros::Publisher gimbal_control_pub_;
     ros::Publisher target_vectoring_force_pub_;
@@ -102,6 +110,7 @@ namespace aerial_robot_control
 
     ros::Subscriber ee_pos_sub_;
     ros::Subscriber plan_flag_sub_;
+    ros::Subscriber pos_mode_sub_;
 
     boost::shared_ptr<Dragon::FullVectoringRobotModel> dragon_robot_model_;
     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_for_control_;
@@ -232,8 +241,8 @@ namespace aerial_robot_control
     void sendCmd();
     void admittanceControl();
     void eePosCallback(const geometry_msgs::PointStamped::ConstPtr& msg);
-
     void planStartCallback(const std_msgs::BoolConstPtr& msg);
+    void posModeCallback(const std_msgs::UInt8ConstPtr& mode);
 
 };
 }

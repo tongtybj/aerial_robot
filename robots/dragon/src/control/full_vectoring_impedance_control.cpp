@@ -393,6 +393,8 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
   clear_external_wrench_sub_ = nh_.subscribe(std::string("clear_external_wrench"), 1, &DragonFullVectoringImpedanceController::clearExternalWrenchCallback, this);
   ee_pos_sub_ = nh_.subscribe(std::string("ee_pos"), 1, &DragonFullVectoringImpedanceController::eePosCallback, this);
   plan_flag_sub_ = nh_.subscribe("plan_start", 1, &DragonFullVectoringImpedanceController::planStartCallback, this);
+  pos_mode_sub_ = nh_.subscribe("pos_mode", 1, &DragonFullVectoringImpedanceController::posModeCallback, this);
+
 
   extra_vectoring_force_sub_ = nh_.subscribe("extra_vectoring_force", 1, &DragonFullVectoringImpedanceController::extraVectoringForceCallback, this);
   extra_vectoring_forces_.resize(0);
@@ -448,6 +450,7 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
   q_init_(3) = 1.57;
   q_init_(4) = 0.0;
   q_init_(5) = 1.57;
+  pos_mode_ = POSMODE::COG_POSITION;
 
 }
 
@@ -949,8 +952,61 @@ void DragonFullVectoringImpedanceController::controlCore()
   omega(2) = omega_.z();
   tf::Vector3 target_omega_cog = uav_rot.inverse() * target_omega_;
 
-  delta_p(0) = pos_.x() - target_pos_.x();
-  delta_p(1) = pos_.y() - target_pos_.y();
+  Eigen::Vector3d ee_pos = robot_model_->getPosition("end_frame");
+  Eigen::Vector3d be_pos = robot_model_->getPosition("link1");
+  Eigen::Matrix3d ee_rot = robot_model_->getRotation("end_frame");
+  Eigen::Matrix3d be_rot = robot_model_->getRotation("link1");
+  KDL::Frame cog_frame = robot_model_->getCog<KDL::Frame>();
+  Eigen::Vector3d cog_pos = aerial_robot_model::kdlToEigen(cog_frame.p);
+  Eigen::Matrix3d cog_rotation = aerial_robot_model::kdlToEigen(cog_frame.M);
+  Eigen::Vector3d cog_pos_world = Eigen::Vector3d::Zero();
+  cog_pos_world[0] = pos_.x();
+  cog_pos_world[1] = pos_.y();
+  cog_pos_world[2] = pos_.z();
+  Eigen::Vector3d ee_pos_cog = R*cog_rotation.transpose()*(ee_pos-cog_pos);
+  Eigen::Vector3d be_pos_cog = R*cog_rotation.transpose()*(be_pos-cog_pos);
+  Eigen::Matrix3d ee_cog = cog_rotation.transpose()*ee_rot;
+  Eigen::Matrix3d be_cog = cog_rotation.transpose()*be_rot;
+  Eigen::Vector3d ee_pos_world = cog_pos_world+R*cog_rotation.transpose()*(ee_pos-cog_pos);
+  Eigen::Vector3d be_pos_world = cog_pos_world+R*cog_rotation.transpose()*(be_pos-cog_pos);
+
+  KDL::JntArray joint_positions = dragon_robot_model_->getJointPositions();
+  const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
+  double target_pitch1 = joint_positions(joint_index_map.find(std::string("joint1_pitch"))->second);
+  double target_yaw1 = joint_positions(joint_index_map.find(std::string("joint1_yaw"))->second);
+  double target_pitch2 = joint_positions(joint_index_map.find(std::string("joint2_pitch"))->second);
+  double target_yaw2 = joint_positions(joint_index_map.find(std::string("joint2_yaw"))->second);
+  double target_pitch3 = joint_positions(joint_index_map.find(std::string("joint3_pitch"))->second);
+  double target_yaw3 = joint_positions(joint_index_map.find(std::string("joint3_yaw"))->second);
+  //std::cout<<"joint"<<joint_positions.rows()<<" "<<joint_positions(joint_index_map.find(std::string("joint1_pitch"))->second)<<" "<<joint_positions(joint_index_map.find(std::string("joint1_yaw"))->second)<<" "<<joint_positions(2)<<std::endl;
+  
+
+
+  if (pos_mode_ == COG_POSITION)
+  {
+    delta_p(0) = pos_.x() - target_pos_.x();
+    delta_p(1) = pos_.y() - target_pos_.y();
+    KDL::Rotation desire_cog = KDL::Rotation::Identity();
+    robot_model_->setCogDesireOrientation(desire_cog);
+    robot_model_for_control_->setCogDesireOrientation(desire_cog);
+  }
+  else if (pos_mode_ == EE_POSITION)
+  {
+    delta_p(0) = ee_pos_world.x() - target_pos_.x();
+    delta_p(1) = ee_pos_world.y() - target_pos_.y();
+    KDL::Rotation desire_cog = KDL::Rotation::RotZ(-target_yaw2) * KDL::Rotation::RotY(-target_pitch2) * KDL::Rotation::RotZ(-target_yaw3) * KDL::Rotation::RotY(-target_pitch3);
+    robot_model_->setCogDesireOrientation(desire_cog);
+    robot_model_for_control_->setCogDesireOrientation(desire_cog);
+  }
+  else if (pos_mode_ == BE_POSITION)
+  {
+    delta_p(0) = be_pos_world.x() - target_pos_.x();
+    delta_p(1) = be_pos_world.y() - target_pos_.y();
+    KDL::Rotation desire_cog = KDL::Rotation::RotY(target_pitch1) * KDL::Rotation::RotZ(target_yaw1);
+    robot_model_->setCogDesireOrientation(desire_cog);
+    robot_model_for_control_->setCogDesireOrientation(desire_cog);
+  }
+
   delta_p(2) = pos_.z() - target_pos_.z();
   delta_v(0) = vel_.x() - target_vel_.x();
   delta_v(1) = vel_.y() - target_vel_.y();
@@ -978,7 +1034,21 @@ void DragonFullVectoringImpedanceController::controlCore()
   target_acc.head(3) = Eigen::Vector3d(target_lin_acc.x(), target_lin_acc.y(), target_lin_acc.z());
 
   Eigen::Matrix3d target_R = (Eigen::AngleAxisd(target_rpy_.z(), Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(target_rpy_.y(), Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd(target_rpy_.x(), Eigen::Vector3d::UnitX())).toRotationMatrix();
-  Eigen::Matrix3d eR = (target_R.transpose() * R - R.transpose() * target_R) / 2;
+  Eigen::Matrix3d eR = Eigen::Matrix3d::Identity();
+  if (pos_mode_ == COG_POSITION)
+  {
+    eR = (target_R.transpose() * R - R.transpose() * target_R) / 2;
+  }
+  else if (pos_mode_ == EE_POSITION)
+  {
+    eR = (target_R.transpose() * (R * ee_cog) - (R * ee_cog).transpose() * target_R) / 2;
+  }
+  else if (pos_mode_ == BE_POSITION)
+  {
+    eR = (target_R.transpose() * (R * be_cog) - (R * be_cog).transpose() * target_R) / 2;
+  }
+  
+  eR = (target_R.transpose() * R - R.transpose() * target_R) / 2;
   delta_p(3) = (eR(2, 1) - eR(1, 2)) / 2;
   delta_p(4) = (eR(0, 2) - eR(2, 0)) / 2;
   delta_p(5) = (eR(1, 0) - eR(0, 1)) / 2;
@@ -1067,13 +1137,18 @@ void DragonFullVectoringImpedanceController::controlCore()
   pid_msg_.pitch.err_d = pid_controllers_.at(PITCH).getErrD();
 
 
+
+
+
+
   if(navigator_->getForceLandingFlag() && target_lin_acc_w.z() < 5.0) // heuristic measures to avoid to large gimbal angles after force land
     start_rp_integration_ = false;
 
   // update robot_model_for_control_;
   robot_model_for_control_->setExtraModuleMap(robot_model_->getExtraModuleMap()); // connect the extra module between two robot models
   KDL::Rotation cog_desire_orientation = robot_model_->getCogDesireOrientation<KDL::Rotation>();
-  robot_model_for_control_->setCogDesireOrientation(cog_desire_orientation); // update the cog orientation
+  std::cout<<aerial_robot_model::kdlToEigen(cog_desire_orientation)<<std::endl;
+  //robot_model_for_control_->setCogDesireOrientation(cog_desire_orientation); // update the cog orientation
   KDL::JntArray gimbal_processed_joint = dragon_robot_model_->getJointPositions();
   robot_model_for_control_->updateRobotModel(gimbal_processed_joint);
   roll_locked_gimbal_ = dragon_robot_model_->getRollLockedGimbal();
@@ -1481,7 +1556,7 @@ void DragonFullVectoringImpedanceController::controlCore()
     }
 
   // re-update the robot model for other purpose (e.g. external wrench estimation and rotor interference)
-  const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
+  //const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
   for(int i = 0; i < motor_num_; ++i)
     {
       std::string s = std::to_string(i + 1);
@@ -1562,8 +1637,8 @@ void DragonFullVectoringImpedanceController::admittanceControl()
     std::cout<<ma<<std::endl;
 
     //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
-    Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
-
+    //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
+    Eigen::Vector3d ee_pos_ = ee_pos_ref_;
     std::cout<<"ee_pos_ref"<<std::endl;
     
     // inverse kinematics to get the target gimbal anglles
@@ -2205,6 +2280,19 @@ void DragonFullVectoringImpedanceController::eePosCallback(const geometry_msgs::
 void DragonFullVectoringImpedanceController::planStartCallback(const std_msgs::BoolConstPtr& msg)
 {
   plan_flag_ = msg->data;
+}
+
+void DragonFullVectoringImpedanceController::posModeCallback(const std_msgs::UInt8ConstPtr& mode)
+{
+  pos_mode_ = mode->data;
+  if (mode->data == POSMODE::COG_POSITION)
+    ROS_INFO("Position control mode changed to CoG mode");
+  else if (mode->data == POSMODE::EE_POSITION)
+    ROS_INFO("Position control mode changed to EE mode");
+  else if (mode->data == POSMODE::BE_POSITION)
+    ROS_INFO("Position control mode changed to BE mode");
+  else
+    ROS_WARN("Received invalid position control mode: %d", mode->data);
 }
 
 void DragonFullVectoringImpedanceController::sendCmd()
