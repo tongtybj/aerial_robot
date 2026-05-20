@@ -41,7 +41,7 @@
 
   <xacro:frame_model name="main_frame1" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${0.5 * $(arg env_width)}" height="${2 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.00" />
   <xacro:frame_model name="main_frame2" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${-0.5 * $(arg env_width)}"  height="${2 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.00" />
-  <xacro:frame_model name="main_frame3" mass="${frame_mass}" length="0.02" width="$(arg env_width)" x="0" y="0"  height="${2 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.20"  />
+  <xacro:frame_model name="main_frame3" mass="${frame_mass}" length="0.02" width="$(arg env_width)" x="0" y="0"  height="${2 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0.00"  />
 
 
   <joint name="frame_joint1" type="fixed">

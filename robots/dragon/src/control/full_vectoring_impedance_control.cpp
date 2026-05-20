@@ -956,6 +956,7 @@ void DragonFullVectoringImpedanceController::controlCore()
   Eigen::Vector3d be_pos = robot_model_->getPosition("link1");
   Eigen::Matrix3d ee_rot = robot_model_->getRotation("end_frame");
   Eigen::Matrix3d be_rot = robot_model_->getRotation("link1");
+  std::cout<<"ee_pos"<<ee_pos<<std::endl;
   KDL::Frame cog_frame = robot_model_->getCog<KDL::Frame>();
   Eigen::Vector3d cog_pos = aerial_robot_model::kdlToEigen(cog_frame.p);
   Eigen::Matrix3d cog_rotation = aerial_robot_model::kdlToEigen(cog_frame.M);
@@ -1147,7 +1148,7 @@ void DragonFullVectoringImpedanceController::controlCore()
   // update robot_model_for_control_;
   robot_model_for_control_->setExtraModuleMap(robot_model_->getExtraModuleMap()); // connect the extra module between two robot models
   KDL::Rotation cog_desire_orientation = robot_model_->getCogDesireOrientation<KDL::Rotation>();
-  std::cout<<aerial_robot_model::kdlToEigen(cog_desire_orientation)<<std::endl;
+  // std::cout<<aerial_robot_model::kdlToEigen(cog_desire_orientation)<<std::endl;
   //robot_model_for_control_->setCogDesireOrientation(cog_desire_orientation); // update the cog orientation
   KDL::JntArray gimbal_processed_joint = dragon_robot_model_->getJointPositions();
   robot_model_for_control_->updateRobotModel(gimbal_processed_joint);
@@ -1601,8 +1602,7 @@ void DragonFullVectoringImpedanceController::controlCore()
 void DragonFullVectoringImpedanceController::admittanceControl()
 {
 
-  if (plan_flag_)
-  {
+  
     double dt = (ros::Time::now() - time_).toSec();
     Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
     // filter external force
@@ -1634,7 +1634,7 @@ void DragonFullVectoringImpedanceController::admittanceControl()
     pd_ddot_ = ma.inverse() * (fext_ - ka * pd_ - ca * pd_dot_);
     pd_dot_ += pd_ddot_ * dt;
     pd_ += pd_dot_ * dt;
-    std::cout<<ma<<std::endl;
+    // std::cout<<ma<<std::endl;
 
     //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
     //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
@@ -1660,23 +1660,36 @@ void DragonFullVectoringImpedanceController::admittanceControl()
     KDL::ChainIkSolverPos_NR_JL ik_solver(chain, q_min, q_max, fk_solver, ik_vel);
 
   
-    KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 0), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
+    KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 1.57), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
     int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
-    std::cout<<"target_frame:" <<ee_pos_.transpose()<<std::endl;
+    std::cout<<"target_frame:" <<ee_pos_.transpose()<<" ret: "<<ret<<std::endl;
 
     for (int i = 0; i < 6; i++)
       joint_cmd_.position[i] = q_result_(i);
     std::cout<<joint_cmd_<<std::endl;
-    q_init_ = q_result_;
+    if (ret >= 0) 
+      q_init_ = q_result_;   // 只有成功才更新
+    else
+    {
+      q_init_(0) = 0.0;
+      q_init_(1) = 1.02;
+      q_init_(2) = 0.0;
+      q_init_(3) = 1.02;
+      q_init_(4) = 0.0;
+      q_init_(5) = -0.53;
+    }
+
+    if (plan_flag_)
+  {
     
     joints_ctrl_pub_.publish(joint_cmd_);
   }
   else
   {
-    pd_ = Eigen::Vector3d::Zero();
-    pd_dot_ = Eigen::Vector3d::Zero();
-    pd_ddot_ = Eigen::Vector3d::Zero();
-    fext_ = Eigen::Vector3d::Zero();
+    // pd_ = Eigen::Vector3d::Zero();
+    // pd_dot_ = Eigen::Vector3d::Zero();
+    // pd_ddot_ = Eigen::Vector3d::Zero();
+    // fext_ = Eigen::Vector3d::Zero();
   }
   time_ = ros::Time::now();
 

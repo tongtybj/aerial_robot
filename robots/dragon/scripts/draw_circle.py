@@ -120,10 +120,10 @@ if __name__ == "__main__":
         round += 1
      
         ee_pos_msg = PointStamped()
-    
-        ee_pos_msg.point.x = 1.8
-        ee_pos_msg.point.y = 0.3 * math.sin(math.pi * round / 1200)
-        ee_pos_msg.point.z = 0.3 * math.cos(math.pi * round / 1200)
+
+        ee_pos_msg.point.x = 0.528 + 0.2 * math.sin(math.pi * round / 1600)
+        ee_pos_msg.point.y = 1.38
+        ee_pos_msg.point.z = 0.2 * math.cos(math.pi * round / 1600)
         # nav_msg.target_pos_x = 0.2
         # #nav_msg.target_pos_x = -1.20 + (external_wrench.wrench.force.x + 0.6)/0.5*0.05
         # nav_msg.target_vel_x = 0.0
