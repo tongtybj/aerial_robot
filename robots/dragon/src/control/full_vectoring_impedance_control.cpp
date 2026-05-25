@@ -1603,85 +1603,84 @@ void DragonFullVectoringImpedanceController::admittanceControl()
 {
 
   
-    double dt = (ros::Time::now() - time_).toSec();
-    Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
-    // filter external force
-    double alpha = 0.8;
-    fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * fext_(0);
-    fext_(1) = alpha * est_external_wrench_(1) + (1 - alpha) * fext_(1);
-    fext_(2) = alpha * est_external_wrench_(2) + (1 - alpha) * fext_(2);
+  double dt = (ros::Time::now() - time_).toSec();
+  Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
+  // filter external force
+  double alpha = 0.8;
+  fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * fext_(0);
+  fext_(1) = alpha * est_external_wrench_(1) + (1 - alpha) * fext_(1);
+  fext_(2) = alpha * est_external_wrench_(2) + (1 - alpha) * fext_(2);
 
 
-    // if (Fext_(0) > 0.35)
-    //   Fext_(0) = 0.35;
-    // else if (Fext_(0) < -2.2)
-    //   Fext_(0) = -2.2;
-    // Fref(0) = fref_;
-    //xd_ddot_ = (R.inverse() * Fext - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
-    // defferential method to calculate distance 
-    Eigen::Matrix3d ma = Eigen::Matrix3d::Zero();
-    Eigen::Matrix3d ca = Eigen::Matrix3d::Zero();
-    Eigen::Matrix3d ka = Eigen::Matrix3d::Zero();
-    ma(0, 0) = max_;
-    ma(1, 1) = mayz_;
-    ma(2, 2) = mayz_;
-    ca(0, 0) = cax_;
-    ca(1, 1) = cayz_;
-    ca(2, 2) = cayz_;
-    ka(0, 0) = kax_;
-    ka(1, 1) = kayz_;
-    ka(2, 2) = kayz_;
-    pd_ddot_ = ma.inverse() * (fext_ - ka * pd_ - ca * pd_dot_);
-    pd_dot_ += pd_ddot_ * dt;
-    pd_ += pd_dot_ * dt;
-    // std::cout<<ma<<std::endl;
+  // if (Fext_(0) > 0.35)
+  //   Fext_(0) = 0.35;
+  // else if (Fext_(0) < -2.2)
+  //   Fext_(0) = -2.2;
+  // Fref(0) = fref_;
+  //xd_ddot_ = (R.inverse() * Fext - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
+  // defferential method to calculate distance 
+  Eigen::Matrix3d ma = Eigen::Matrix3d::Zero();
+  Eigen::Matrix3d ca = Eigen::Matrix3d::Zero();
+  Eigen::Matrix3d ka = Eigen::Matrix3d::Zero();
+  ma(0, 0) = max_;
+  ma(1, 1) = mayz_;
+  ma(2, 2) = mayz_;
+  ca(0, 0) = cax_;
+  ca(1, 1) = cayz_;
+  ca(2, 2) = cayz_;
+  ka(0, 0) = kax_;
+  ka(1, 1) = kayz_;
+  ka(2, 2) = kayz_;
+  pd_ddot_ = ma.inverse() * (fext_ - ka * pd_ - ca * pd_dot_);
+  pd_dot_ += pd_ddot_ * dt;
+  pd_ += pd_dot_ * dt;
+  // std::cout<<ma<<std::endl;
 
-    //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
-    //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
-    Eigen::Vector3d ee_pos_ = ee_pos_ref_;
-    std::cout<<"ee_pos_ref"<<std::endl;
-    
-    // inverse kinematics to get the target gimbal anglles
-    KDL::Chain chain;
-    bool ok = robot_model_->getTree().getChain("link1", "end_frame", chain);
-   
+  //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
+  //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
+  Eigen::Vector3d ee_pos_ = ee_pos_ref_;
+  std::cout<<"ee_pos_ref"<<std::endl;
   
-    KDL::JntArray q_min(6), q_max(6);
-
-    for (int i = 0; i < 6; i++) 
-    {
-      q_min(i) = -1.57;
-      q_max(i) =  1.57;
-    }
-
-    KDL::ChainFkSolverPos_recursive fk_solver(chain);
-    KDL::ChainIkSolverVel_pinv ik_vel(chain);
-
-    KDL::ChainIkSolverPos_NR_JL ik_solver(chain, q_min, q_max, fk_solver, ik_vel);
-
+  // inverse kinematics to get the target gimbal anglles
+  KDL::Chain chain;
+  bool ok = robot_model_->getTree().getChain("link1", "end_frame", chain);
   
-    KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 1.57), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
-    int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
-    std::cout<<"target_frame:" <<ee_pos_.transpose()<<" ret: "<<ret<<std::endl;
 
-    for (int i = 0; i < 6; i++)
-      joint_cmd_.position[i] = q_result_(i);
-    std::cout<<joint_cmd_<<std::endl;
-    if (ret >= 0) 
-      q_init_ = q_result_;   // 只有成功才更新
-    else
-    {
-      q_init_(0) = 0.0;
-      q_init_(1) = 1.02;
-      q_init_(2) = 0.0;
-      q_init_(3) = 1.02;
-      q_init_(4) = 0.0;
-      q_init_(5) = -0.53;
-    }
+  KDL::JntArray q_min(6), q_max(6);
 
-    if (plan_flag_)
+  for (int i = 0; i < 6; i++) 
   {
-    
+    q_min(i) = -1.57;
+    q_max(i) =  1.57;
+  }
+
+  KDL::ChainFkSolverPos_recursive fk_solver(chain);
+  KDL::ChainIkSolverVel_pinv ik_vel(chain);
+
+  KDL::ChainIkSolverPos_NR_JL ik_solver(chain, q_min, q_max, fk_solver, ik_vel);
+
+
+  KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 1.57), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
+  int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
+  std::cout<<"target_frame:" <<ee_pos_.transpose()<<" ret: "<<ret<<std::endl;
+
+  for (int i = 0; i < 6; i++)
+    joint_cmd_.position[i] = q_result_(i);
+  std::cout<<joint_cmd_<<std::endl;
+  if (ret >= 0) 
+    q_init_ = q_result_;   // 只有成功才更新
+  else
+  {
+    q_init_(0) = 0.0;
+    q_init_(1) = 1.02;
+    q_init_(2) = 0.0;
+    q_init_(3) = 1.02;
+    q_init_(4) = 0.0;
+    q_init_(5) = -0.53;
+  }
+
+  if (plan_flag_)
+  {
     joints_ctrl_pub_.publish(joint_cmd_);
   }
   else
