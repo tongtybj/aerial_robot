@@ -81,9 +81,15 @@
    <collision>
         <origin rpy="0 0 0" xyz="0 0 0"/>
         <geometry>
-          <sphere radius="0.1"/>
+          <sphere radius="0.02"/>
         </geometry>
       </collision>
+      <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+          <sphere radius="0.02"/>
+        </geometry>
+    </visual>
   </link>
      
   <joint name="end_eff" type="fixed">

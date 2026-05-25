@@ -13,7 +13,7 @@ class InitPose(object):
 
         joint_controller_params = rospy.get_param("servo_controller/joints")
         self.robot_name = rospy.get_namespace().replace('/', '')
-        self.angle_thresh = rospy.get_param("simulation/init_pose_thesh", 0.01) # ~ 1 deg
+        self.angle_thresh = rospy.get_param("simulation/init_pose_thesh", 0.05) # ~ 1 deg
         self.joint_torque = rospy.get_param("simulation/joint_torque", 1000) # Nm
 
         self.joint_num = len([k for k in joint_controller_params.keys() if 'controller' in k])
