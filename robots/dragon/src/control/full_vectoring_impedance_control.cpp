@@ -394,7 +394,7 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
   ee_pos_sub_ = nh_.subscribe(std::string("ee_pos"), 1, &DragonFullVectoringImpedanceController::eePosCallback, this);
   plan_flag_sub_ = nh_.subscribe("plan_start", 1, &DragonFullVectoringImpedanceController::planStartCallback, this);
   pos_mode_sub_ = nh_.subscribe("pos_mode", 1, &DragonFullVectoringImpedanceController::posModeCallback, this);
-
+  imp_command_pub_ = nh_.advertise<aerial_robot_msgs::ImpedanceControl>("imp_cmd", 1);
 
   extra_vectoring_force_sub_ = nh_.subscribe("extra_vectoring_force", 1, &DragonFullVectoringImpedanceController::extraVectoringForceCallback, this);
   extra_vectoring_forces_.resize(0);
@@ -886,12 +886,95 @@ void DragonFullVectoringImpedanceController::controlCore()
   /* TODO: saturation of z control */
 
   // workaround to handle speical definition of CoG desired orientation
+  /* TODO: saturation of z control */
+
+  // workaround to handle speical definition of CoG desired orientation
   if(boost::dynamic_pointer_cast<aerial_robot_navigation::DragonNavigator>(navigator_)->getEqCoGWorldFlag())
     {
       navigator_->setTargetYaw(0);
     }
 
   PoseLinearController::controlCore();
+
+  // tf::Matrix3x3 uav_rot = estimator_->getOrientation(Frame::COG, estimate_mode_);
+  // tf::Vector3 target_lin_acc_w(pid_controllers_.at(X).result(),
+  //                              pid_controllers_.at(Y).result(),
+  //                              pid_controllers_.at(Z).result());
+  // tf::Vector3 target_lin_acc = uav_rot.inverse() * target_lin_acc_w;
+  // Eigen::VectorXd target_acc = Eigen::VectorXd::Zero(6);
+  // target_acc.head(3) = Eigen::Vector3d(target_lin_acc.x(), target_lin_acc.y(), target_lin_acc.z());
+
+  // tf::Vector3 target_ang_acc(pid_controllers_.at(ROLL).result(),
+  //                            pid_controllers_.at(PITCH).result(),
+  //                            pid_controllers_.at(YAW).result());
+  // target_acc.tail(3) = Eigen::Vector3d(target_ang_acc.x(), target_ang_acc.y(), target_ang_acc.z());
+
+  // /* separate PI and D control term */
+  // tf::Vector3 target_lin_acc_w_low_freq(pid_controllers_.at(X).getPTerm() + pid_controllers_.at(X).getITerm(),
+  //                                       pid_controllers_.at(Y).getPTerm() + pid_controllers_.at(Y).getITerm(),
+  //                                       pid_controllers_.at(Z).getPTerm() + pid_controllers_.at(Z).getITerm());
+  // // include d control term if non-zero target velocity
+  // for(int i = 0; i < 3; i++)
+  //   {
+  //     if(fabs(target_vel_[i]) > gimbal_roll_target_lin_vel_thresh_)
+  //       target_lin_acc_w_low_freq[i] = pid_controllers_.at(X + i).result();
+  //   }
+
+  // tf::Vector3 target_lin_acc_w_high_freq(pid_controllers_.at(X).getDTerm(),
+  //                                        pid_controllers_.at(Y).getDTerm(),
+  //                                        pid_controllers_.at(Z).getDTerm());
+  // tf::Vector3 residual = target_lin_acc_w_low_freq + target_lin_acc_w_high_freq - target_lin_acc_w;
+  // target_lin_acc_w_high_freq -= residual;
+  // tf::Vector3 target_lin_acc_low_freq = uav_rot.inverse() * target_lin_acc_w_low_freq;
+  // tf::Vector3 target_lin_acc_high_freq = uav_rot.inverse() * target_lin_acc_w_high_freq;
+
+  // tf::Vector3 target_ang_acc_low_freq(pid_controllers_.at(ROLL).getPTerm() + pid_controllers_.at(ROLL).getITerm(),
+  //                                     pid_controllers_.at(PITCH).getPTerm() + pid_controllers_.at(PITCH).getITerm(),
+  //                                     pid_controllers_.at(YAW).getPTerm() + pid_controllers_.at(YAW).getITerm());
+  // // include d control term if non-zero target velocity
+  // for(int i = 0; i < 3; i++)
+  //   {
+  //     if(fabs(target_omega_[i]) > gimbal_roll_target_ang_vel_thresh_)
+  //       target_ang_acc_low_freq[i] = pid_controllers_.at(ROLL + i).result();
+  //   }
+
+  // tf::Vector3 target_ang_acc_high_freq(pid_controllers_.at(ROLL).getDTerm(),
+  //                                      pid_controllers_.at(PITCH).getDTerm(),
+  //                                      pid_controllers_.at(YAW).getDTerm());
+  // residual = target_ang_acc_low_freq + target_ang_acc_high_freq - target_ang_acc;
+  // target_ang_acc_high_freq -= residual;
+  // Eigen::VectorXd target_acc_low_freq = Eigen::VectorXd::Zero(6);
+  // Eigen::VectorXd target_acc_high_freq = Eigen::VectorXd::Zero(6);
+  // target_acc_low_freq.head(3) = Eigen::Vector3d(target_lin_acc_low_freq.x(), target_lin_acc_low_freq.y(), target_lin_acc_low_freq.z());
+  // target_acc_low_freq.tail(3) = Eigen::Vector3d(target_ang_acc_low_freq.x(), target_ang_acc_low_freq.y(), target_ang_acc_low_freq.z());
+  // target_acc_high_freq.head(3) = Eigen::Vector3d(target_lin_acc_high_freq.x(), target_lin_acc_high_freq.y(), target_lin_acc_high_freq.z());
+  // target_acc_high_freq.tail(3) = Eigen::Vector3d(target_ang_acc_high_freq.x(), target_ang_acc_high_freq.y(), target_ang_acc_high_freq.z());
+
+  KDL::JntArray joint_positions = dragon_robot_model_->getJointPositions();
+  const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
+  double target_pitch1 = joint_positions(joint_index_map.find(std::string("joint1_pitch"))->second);
+  double target_yaw1 = joint_positions(joint_index_map.find(std::string("joint1_yaw"))->second);
+  double target_pitch2 = joint_positions(joint_index_map.find(std::string("joint2_pitch"))->second);
+  double target_yaw2 = joint_positions(joint_index_map.find(std::string("joint2_yaw"))->second);
+  double target_pitch3 = joint_positions(joint_index_map.find(std::string("joint3_pitch"))->second);
+  double target_yaw3 = joint_positions(joint_index_map.find(std::string("joint3_yaw"))->second);
+  KDL::Rotation desire_cog;
+
+  if (pos_mode_ == COG_POSITION)
+  {
+    desire_cog = KDL::Rotation::Identity();
+  }
+  else if (pos_mode_ == EE_POSITION)
+  {
+    desire_cog = KDL::Rotation::RotZ(-target_yaw3) * KDL::Rotation::RotY(-target_pitch3) * KDL::Rotation::RotZ(-target_yaw2) * KDL::Rotation::RotY(-target_pitch2);
+  }
+  else if (pos_mode_ == BE_POSITION)
+  {
+    desire_cog = KDL::Rotation::RotY(target_pitch1) * KDL::Rotation::RotZ(target_yaw1);
+  }
+    
+  robot_model_->setCogDesireOrientation(desire_cog);
+  robot_model_for_control_->setCogDesireOrientation(desire_cog);
 
   double uav_mass = robot_model_->getMass();
  
@@ -904,10 +987,10 @@ void DragonFullVectoringImpedanceController::controlCore()
   Eigen::Matrix3d I = robot_model_->getInertia<Eigen::Matrix3d>();
  
   Eigen::Matrix3d Id = Eigen::Matrix3d::Zero();
-  Id(0, 0) = Idx_ * I(0, 0);
-  Id(1, 1) = Idy_ * I(1, 1);
-  Id(2, 2) = Idz_ * I(2, 2);
-  // Id = I;
+  // Id(0, 0) = Idx_ * I(0, 0);
+  // Id(1, 1) = Idy_ * I(1, 1);
+  // Id(2, 2) = Idz_ * I(2, 2);
+  Id = I;
 
   // Control gains 
   // Translational gains
@@ -954,31 +1037,28 @@ void DragonFullVectoringImpedanceController::controlCore()
 
   Eigen::Vector3d ee_pos = robot_model_->getPosition("end_frame");
   Eigen::Vector3d be_pos = robot_model_->getPosition("link1");
-  Eigen::Matrix3d ee_rot = robot_model_->getRotation("end_frame");
+  Eigen::Matrix3d ee_rot = robot_model_->getRotation("link4");
   Eigen::Matrix3d be_rot = robot_model_->getRotation("link1");
-  std::cout<<"ee_pos"<<ee_pos<<std::endl;
+  // std::cout<<"ee_pos"<<ee_pos<<std::endl;
+  // std::cout<<"be_pos"<<be_pos<<std::endl;
   KDL::Frame cog_frame = robot_model_->getCog<KDL::Frame>();
   Eigen::Vector3d cog_pos = aerial_robot_model::kdlToEigen(cog_frame.p);
+  // std::cout<<"cog_pos"<<cog_pos<<std::endl;
   Eigen::Matrix3d cog_rotation = aerial_robot_model::kdlToEigen(cog_frame.M);
+  // std::cout<<"cog_rotation"<<cog_rotation<<std::endl;
   Eigen::Vector3d cog_pos_world = Eigen::Vector3d::Zero();
   cog_pos_world[0] = pos_.x();
   cog_pos_world[1] = pos_.y();
   cog_pos_world[2] = pos_.z();
-  Eigen::Vector3d ee_pos_cog = R*cog_rotation.transpose()*(ee_pos-cog_pos);
-  Eigen::Vector3d be_pos_cog = R*cog_rotation.transpose()*(be_pos-cog_pos);
+  Eigen::Vector3d ee_pos_cog = cog_rotation.transpose()*(ee_pos-cog_pos);
+  Eigen::Vector3d be_pos_cog = cog_rotation.transpose()*(be_pos-cog_pos);
   Eigen::Matrix3d ee_cog = cog_rotation.transpose()*ee_rot;
   Eigen::Matrix3d be_cog = cog_rotation.transpose()*be_rot;
   Eigen::Vector3d ee_pos_world = cog_pos_world+R*cog_rotation.transpose()*(ee_pos-cog_pos);
   Eigen::Vector3d be_pos_world = cog_pos_world+R*cog_rotation.transpose()*(be_pos-cog_pos);
 
-  KDL::JntArray joint_positions = dragon_robot_model_->getJointPositions();
-  const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
-  double target_pitch1 = joint_positions(joint_index_map.find(std::string("joint1_pitch"))->second);
-  double target_yaw1 = joint_positions(joint_index_map.find(std::string("joint1_yaw"))->second);
-  double target_pitch2 = joint_positions(joint_index_map.find(std::string("joint2_pitch"))->second);
-  double target_yaw2 = joint_positions(joint_index_map.find(std::string("joint2_yaw"))->second);
-  double target_pitch3 = joint_positions(joint_index_map.find(std::string("joint3_pitch"))->second);
-  double target_yaw3 = joint_positions(joint_index_map.find(std::string("joint3_yaw"))->second);
+//  std::cout<<"ee_pos_cog"<<ee_pos_cog<<std::endl;
+//  std::cout<<"be_pos_cog"<<be_pos_cog<<std::endl;
   //std::cout<<"joint"<<joint_positions.rows()<<" "<<joint_positions(joint_index_map.find(std::string("joint1_pitch"))->second)<<" "<<joint_positions(joint_index_map.find(std::string("joint1_yaw"))->second)<<" "<<joint_positions(2)<<std::endl;
   
 
@@ -987,28 +1067,23 @@ void DragonFullVectoringImpedanceController::controlCore()
   {
     delta_p(0) = pos_.x() - target_pos_.x();
     delta_p(1) = pos_.y() - target_pos_.y();
-    KDL::Rotation desire_cog = KDL::Rotation::Identity();
-    robot_model_->setCogDesireOrientation(desire_cog);
-    robot_model_for_control_->setCogDesireOrientation(desire_cog);
+    delta_p(2) = pos_.z() - target_pos_.z();
   }
   else if (pos_mode_ == EE_POSITION)
   {
     delta_p(0) = ee_pos_world.x() - target_pos_.x();
     delta_p(1) = ee_pos_world.y() - target_pos_.y();
-    KDL::Rotation desire_cog = KDL::Rotation::RotZ(-target_yaw2) * KDL::Rotation::RotY(-target_pitch2) * KDL::Rotation::RotZ(-target_yaw3) * KDL::Rotation::RotY(-target_pitch3);
-    robot_model_->setCogDesireOrientation(desire_cog);
-    robot_model_for_control_->setCogDesireOrientation(desire_cog);
+    delta_p(2) = ee_pos_world.z() - target_pos_.z();
+
   }
   else if (pos_mode_ == BE_POSITION)
   {
     delta_p(0) = be_pos_world.x() - target_pos_.x();
     delta_p(1) = be_pos_world.y() - target_pos_.y();
-    KDL::Rotation desire_cog = KDL::Rotation::RotY(target_pitch1) * KDL::Rotation::RotZ(target_yaw1);
-    robot_model_->setCogDesireOrientation(desire_cog);
-    robot_model_for_control_->setCogDesireOrientation(desire_cog);
+    delta_p(2) = be_pos_world.z() - target_pos_.z();
   }
 
-  delta_p(2) = pos_.z() - target_pos_.z();
+  
   delta_v(0) = vel_.x() - target_vel_.x();
   delta_v(1) = vel_.y() - target_vel_.y();
   delta_v(2) = vel_.z() - target_vel_.z();
@@ -1020,6 +1095,10 @@ void DragonFullVectoringImpedanceController::controlCore()
   for (int i = 0; i < 3; i++)
     lin_acc_cmd(i) = (1 / md(i) - 1 / uav_mass) * est_external_wrench_[i] + (-Kdt(i) * delta_v(i) - Kpt(i) * delta_p(i));
   lin_acc_cmd(2) += aerial_robot_estimation::G;
+  double rate = pid_controllers_.at(Z).result() / (aerial_robot_estimation::G + 1.5);
+  if (rate >= 1.0)
+    rate = 1.0;
+  lin_acc_cmd(2) *= rate;
   // Eigen::VectorXd limit_t = Eigen::VectorXd::Constant(3, 1.4);
   // limit_t(2) = 15.0;
     // std::cout << "lin_acc_cmd: " << lin_acc_cmd.transpose() <<  std::endl;
@@ -1038,18 +1117,18 @@ void DragonFullVectoringImpedanceController::controlCore()
   Eigen::Matrix3d eR = Eigen::Matrix3d::Identity();
   if (pos_mode_ == COG_POSITION)
   {
-    eR = (target_R.transpose() * R - R.transpose() * target_R) / 2;
+    eR = (target_R.transpose() * R - R.transpose() * target_R);
   }
   else if (pos_mode_ == EE_POSITION)
   {
-    eR = (target_R.transpose() * (R * ee_cog) - (R * ee_cog).transpose() * target_R) / 2;
+    eR = (target_R.transpose() * (R * ee_cog) - (R * ee_cog).transpose() * target_R);
   }
   else if (pos_mode_ == BE_POSITION)
   {
-    eR = (target_R.transpose() * (R * be_cog) - (R * be_cog).transpose() * target_R) / 2;
+    eR = (target_R.transpose() * (R * be_cog) - (R * be_cog).transpose() * target_R);
   }
   
-  eR = (target_R.transpose() * R - R.transpose() * target_R) / 2;
+ 
   delta_p(3) = (eR(2, 1) - eR(1, 2)) / 2;
   delta_p(4) = (eR(0, 2) - eR(2, 0)) / 2;
   delta_p(5) = (eR(1, 0) - eR(0, 1)) / 2;
@@ -1061,8 +1140,16 @@ void DragonFullVectoringImpedanceController::controlCore()
   delta_v(4) = omega_.y() - target_omega_cog.y();
   delta_v(5) = omega_.z() - target_omega_cog.z();
   Eigen::VectorXd ang_acc_cmd = Eigen::VectorXd::Zero(3);
-  //ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3)) + aerial_robot_model::skew(omega) * I * omega;
-  ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3));
+  lin_acc_cmd(2) -= aerial_robot_estimation::G;
+  ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) 
+  + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3)) 
+  - I.inverse() * aerial_robot_model::skew(omega) * I * omega;
+  // + Id.inverse() * be_pos_cog.cross(R.transpose() * lin_acc_cmd * uav_mass);
+  // std::cout<<"aaa"<<R.transpose() * lin_acc_cmd<<std::endl;
+  // std::cout<<"bba"<<be_pos_cog<<std::endl;
+  // std::cout<<"cca"<<be_pos_cog.cross(R.transpose() * lin_acc_cmd)<<std::endl;
+  lin_acc_cmd(2) += aerial_robot_estimation::G;
+  //ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3));
   //Eigen::VectorXd limit_r = Eigen::VectorXd::Constant(3, 6.0);
   //clampCommand(ang_acc_cmd, limit_r);
 
@@ -1078,7 +1165,8 @@ void DragonFullVectoringImpedanceController::controlCore()
   tf::Vector3 target_lin_acc_w_low_freq((1 / md(0) - 1 / uav_mass) * est_external_wrench_[0] + (-Kpt(0) * delta_p(0)),
                                         (1 / md(1) - 1 / uav_mass) * est_external_wrench_[1] + (-Kpt(1) * delta_p(1)),
                                         (1 / md(2) - 1 / uav_mass) * est_external_wrench_[2] + (-Kpt(2) * delta_p(2)) + aerial_robot_estimation::G);
-  // include d control term if non-zero target velocity
+  
+                                    // include d control term if non-zero target velocity
   for(int i = 0; i < 3; i++)
     {
       if(fabs(target_vel_[i]) > gimbal_roll_target_lin_vel_thresh_)
@@ -1093,13 +1181,19 @@ void DragonFullVectoringImpedanceController::controlCore()
   tf::Vector3 target_lin_acc_low_freq = uav_rot.inverse() * target_lin_acc_w_low_freq;
   tf::Vector3 target_lin_acc_high_freq = uav_rot.inverse() * target_lin_acc_w_high_freq;
 
-  // tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0] + (aerial_robot_model::skew(omega) * I * omega)[0],
-  //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] + (aerial_robot_model::skew(omega) * I * omega)[1],
-  //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] + (aerial_robot_model::skew(omega) * I * omega)[2]);
-  tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0],
-                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1],
-                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2]);
-  // // include d control term if non-zero target velocity
+
+  lin_acc_cmd(2) -= aerial_robot_estimation::G;
+  // tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0] + (Id.inverse() * be_pos_cog.cross(R.transpose() * lin_acc_cmd * uav_mass))[0],
+  //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] + (Id.inverse() * be_pos_cog.cross(R.transpose() * lin_acc_cmd * uav_mass))[1],
+  //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] + (Id.inverse() * be_pos_cog.cross(R.transpose() * lin_acc_cmd * uav_mass))[2]);
+  
+  
+  tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0] - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[0],
+                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[1],
+                                      ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[2]);
+ 
+                                      lin_acc_cmd(2) += aerial_robot_estimation::G;// // include d control term if non-zero target velocity
+
   for(int i = 0; i < 3; i++)
     {
       if(fabs(target_omega_[i]) > gimbal_roll_target_ang_vel_thresh_)
@@ -1120,6 +1214,26 @@ void DragonFullVectoringImpedanceController::controlCore()
   target_acc_high_freq.head(3) = Eigen::Vector3d(target_lin_acc_high_freq.x(), target_lin_acc_high_freq.y(), target_lin_acc_high_freq.z());
   target_acc_high_freq.tail(3) = Eigen::Vector3d(target_ang_acc_high_freq.x(), target_ang_acc_high_freq.y(), target_ang_acc_high_freq.z());
 
+  // imp_cmd_.full_cmd.force.x = target_acc_low_freq.tail(3)[0];
+  // imp_cmd_.full_cmd.force.y = target_acc_low_freq.tail(3)[1];
+  // imp_cmd_.full_cmd.force.z = target_acc_low_freq.tail(3)[2];
+  // imp_cmd_.full_cmd.torque.x = (-Kp * delta_p.segment(3, 3))[0];
+  // imp_cmd_.full_cmd.torque.y = (-Kp * delta_p.segment(3, 3))[1];
+  // imp_cmd_.full_cmd.torque.z = (-Kp * delta_p.segment(3, 3))[2];
+  // imp_cmd_.imp_cmd.force.x = - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[0];
+  // imp_cmd_.imp_cmd.force.y = - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[1];
+  // imp_cmd_.imp_cmd.force.z = - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[2];
+  imp_cmd_.full_cmd.force.x = target_acc_low_freq.head(3)[0];
+  imp_cmd_.full_cmd.force.y = target_acc_low_freq.head(3)[1];
+  imp_cmd_.full_cmd.force.z = target_acc_low_freq.head(3)[2];
+  imp_cmd_.full_cmd.torque.x = lin_acc_cmd[0];
+  imp_cmd_.full_cmd.torque.y = lin_acc_cmd[1];
+  imp_cmd_.full_cmd.torque.z = lin_acc_cmd[2];
+  imp_cmd_.imp_cmd.force.x = target_acc_high_freq.head(3)[0];
+  imp_cmd_.imp_cmd.force.y = target_acc_high_freq.head(3)[1];
+  imp_cmd_.imp_cmd.force.z = target_acc_high_freq.head(3)[2];
+  // imp_command_pub_.publish(imp_cmd_);
+  
   pid_msg_.roll.total.at(0) = target_ang_acc.x();
   pid_msg_.roll.p_term.at(0) = pid_controllers_.at(ROLL).getPTerm();
   pid_msg_.roll.i_term.at(0) = pid_controllers_.at(ROLL).getITerm();
@@ -1251,7 +1365,7 @@ void DragonFullVectoringImpedanceController::controlCore()
           extra_vectoring_forces_.resize(0);
         }
     }
-
+  admittanceControl();
 
   // TODO: we need to compensate a nonlinear term w x (Jw) for rotational motion.
   // solution1: using the raw angular velocity: https://ieeexplore.ieee.org/document/5717652, problem is the noisy of raw omega
@@ -1596,7 +1710,7 @@ void DragonFullVectoringImpedanceController::controlCore()
     }
 
   prev_target_gimbal_angles_ = target_gimbal_angles_;
-  admittanceControl();
+  //admittanceControl();
 }
 
 void DragonFullVectoringImpedanceController::admittanceControl()
@@ -1604,7 +1718,10 @@ void DragonFullVectoringImpedanceController::admittanceControl()
 
   
   double dt = (ros::Time::now() - time_).toSec();
-  Eigen::Vector3d Fref = Eigen::Vector3d::Zero();
+
+  KDL::JntArray joint_processed_joint = dragon_robot_model_->getJointPositions();
+  const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
+  Eigen::Vector3d fref = Eigen::Vector3d::Zero();
   // filter external force
   double alpha = 0.8;
   fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * fext_(0);
@@ -1616,7 +1733,7 @@ void DragonFullVectoringImpedanceController::admittanceControl()
   //   Fext_(0) = 0.35;
   // else if (Fext_(0) < -2.2)
   //   Fext_(0) = -2.2;
-  // Fref(0) = fref_;
+  fref(0) = fref_;
   //xd_ddot_ = (R.inverse() * Fext - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
   // defferential method to calculate distance 
   Eigen::Matrix3d ma = Eigen::Matrix3d::Zero();
@@ -1631,15 +1748,47 @@ void DragonFullVectoringImpedanceController::admittanceControl()
   ka(0, 0) = kax_;
   ka(1, 1) = kayz_;
   ka(2, 2) = kayz_;
-  pd_ddot_ = ma.inverse() * (fext_ - ka * pd_ - ca * pd_dot_);
-  pd_dot_ += pd_ddot_ * dt;
-  pd_ += pd_dot_ * dt;
-  // std::cout<<ma<<std::endl;
+  pd_ddot_ = ma.inverse() * ((fext_ - fref) - ka * pd_ - ca * pd_dot_);
+  pd_dot_ = pd_ddot_ * dt + pd_dot_;
+  pd_ = pd_dot_ * dt + pd_;
+  if (pd_(0) > 0.2)
+    pd_(0) = 0.2;
+  else if  (pd_(0) < -0.2)
+    pd_(0) = -0.2;
+  if (pd_(1) > 0.2)
+    pd_(1) = 0.2;
+  else if  (pd_(1) < -0.2)
+    pd_(1) = -0.2;
+     if (pd_(2) > 0.2)
+    pd_(2) = 0.2;
+  else if  (pd_(2) < -0.2)
+    pd_(2) = -0.2;
+    std::cout<<"kax_:"  <<kax_<<std::endl;
+    std::cout<<"f_:"  <<fext_<<std::endl;
+     std::cout<<"pd_d:" <<pd_dot_.transpose()<<std::endl;
+  std::cout<<"pd_:" <<pd_.transpose()<<std::endl;
+// pd_(1) = 0.0;
+// pd_(2) = 0.0;
 
-  //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
-  //Eigen::Vector3d ee_pos_ = pd_ + ee_pos_ref_;
-  Eigen::Vector3d ee_pos_ = ee_pos_ref_;
-  std::cout<<"ee_pos_ref"<<std::endl;
+    // xd_ddot_ = ((Fext_ - Fref) - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
+    // xd_ += xd_dot_ * dt;
+    // xd_dot_ += xd_ddot_ * dt;
+    // // if (xd_(0) > 0.95)
+    // //   xd_(0) = 0.95;
+    // if (xd_(0) > 1.90)
+    //   xd_(0) = 1.90;
+    // else if (xd_(0) < 0.80)
+    //   xd_(0) = 0.80;
+
+  // pd_(1) = pd_(0);
+  // pd_(0) = 0.0;
+  Eigen::Vector3d ee_ad_pos_ = pd_;
+  ee_ad_pos_[1] = ee_ad_pos_[0];
+  ee_ad_pos_[0] = 0.0;
+  ee_ad_pos_[2] = 0.0;
+  Eigen::Vector3d ee_pos_ = ee_ad_pos_ + ee_pos_ref_;
+  //Eigen::Vector3d ee_pos_ = ee_pos_ref_;
+  std::cout<<"ee_pos"<<ee_pos_<<std::endl;
   
   // inverse kinematics to get the target gimbal anglles
   KDL::Chain chain;
@@ -1662,11 +1811,15 @@ void DragonFullVectoringImpedanceController::admittanceControl()
 
   KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 1.57), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
   int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
-  std::cout<<"target_frame:" <<ee_pos_.transpose()<<" ret: "<<ret<<std::endl;
+  // std::cout<<"target_frame:" <<ee_pos_.transpose()<<" ret: "<<ret<<std::endl;
 
   for (int i = 0; i < 6; i++)
     joint_cmd_.position[i] = q_result_(i);
-  std::cout<<joint_cmd_<<std::endl;
+  // std::cout<<joint_cmd_<<std::endl;
+  KDL::Frame current_frame;
+  fk_solver.JntToCart(q_init_, current_frame);
+  Eigen::Vector3d current_pose = aerial_robot_model::kdlToEigen(current_frame.p);
+    // std::cout<<"current_pose:" <<current_pose.transpose()<<std::endl;
   if (ret >= 0) 
     q_init_ = q_result_;   // 只有成功才更新
   else
@@ -1682,6 +1835,14 @@ void DragonFullVectoringImpedanceController::admittanceControl()
   if (plan_flag_)
   {
     joints_ctrl_pub_.publish(joint_cmd_);
+    joint_processed_joint(joint_index_map.find(std::string("joint1_pitch"))->second) = q_result_(0);
+    joint_processed_joint(joint_index_map.find(std::string("joint1_yaw"))->second) = q_result_(1);
+    joint_processed_joint(joint_index_map.find(std::string("joint2_pitch"))->second) = q_result_(2);
+    joint_processed_joint(joint_index_map.find(std::string("joint2_yaw"))->second) = q_result_(3);
+    joint_processed_joint(joint_index_map.find(std::string("joint3_pitch"))->second) = q_result_(4);
+    joint_processed_joint(joint_index_map.find(std::string("joint3_yaw"))->second) = q_result_(5);
+    robot_model_for_control_->updateRobotModel(joint_processed_joint);
+    
   }
   else
   {
@@ -1817,7 +1978,7 @@ bool DragonFullVectoringImpedanceController::staticIterativeAllocation(const int
               /* before takeoff, the form is level -> joint_pitch = 0*/
               if(!start_rp_integration_)
                 f_i.z() = dragon_robot_model_->getHoverVectoringF()[last_col + 2]; // approximation: stable state
-
+        
               double gimbal_i_roll = atan2(-f_i.y(), f_i.z());
               double gimbal_i_pitch = atan2(f_i.x(), -f_i.y() * sin(gimbal_i_roll) + f_i.z() * cos(gimbal_i_roll));
 
@@ -1841,6 +2002,48 @@ bool DragonFullVectoringImpedanceController::staticIterativeAllocation(const int
               last_col += 2;
             }
         }
+
+        Eigen::Vector3d f_1 = vectoring_forces.segment(0, 3);
+        Eigen::Vector3d f_2 = vectoring_forces.segment(3, 3);
+        Eigen::Vector3d f_3 = vectoring_forces.segment(6, 3);
+        Eigen::Vector3d f_4 = vectoring_forces.segment(9, 3);
+        Eigen::Matrix3d rot1 = robot_model_->getRotation("link1");
+        Eigen::Matrix3d rot2 = robot_model_->getRotation("link2");
+        Eigen::Matrix3d rot3 = robot_model_->getRotation("link3");
+        Eigen::Matrix3d rot4 = robot_model_->getRotation("link4");
+        // std::cout << "f1c:"<<rot1*f_1<<std::endl;
+        // std::cout << "f2c:"<<rot2*f_2<<std::endl;
+        // std::cout << "f3c:"<<rot3*f_3<<std::endl;
+        // std::cout << "f4c:"<<rot4*f_4<<std::endl;
+        Eigen::Vector3d ff = rot1*f_1+rot2*f_2+rot3*f_3+rot4*f_4;
+        ff[2] -= 6.98549 * 9.8;
+        // std::cout << "f:"<<ff<<std::endl;
+        // imp_cmd_.full_cmd.force.x = (rot1*f_1)[0];
+        // imp_cmd_.full_cmd.force.y = (rot1*f_1)[1];
+        // imp_cmd_.full_cmd.force.z = (rot1*f_1)[2];
+        // imp_cmd_.full_cmd.torque.x = (rot2*f_2)[0];
+        // imp_cmd_.full_cmd.torque.y = (rot2*f_2)[1];
+        // imp_cmd_.full_cmd.torque.z = (rot2*f_2)[1];
+        imp_cmd_.pd_cmd.force.x = target_acc.head(3)[0];
+        imp_cmd_.pd_cmd.force.y = target_acc.head(3)[1];
+        imp_cmd_.pd_cmd.force.z = target_acc.head(3)[2];
+        imp_cmd_.pd_cmd.torque.x = target_wrench[0];
+        imp_cmd_.pd_cmd.torque.y = target_wrench[1];
+        imp_cmd_.pd_cmd.torque.z = target_wrench[2];
+        // imp_cmd_.imp_cmd.torque.x = ff[0];
+        // imp_cmd_.imp_cmd.torque.y = ff[1];
+        // ff[2] += 6.98549 * 9.8;
+        // imp_cmd_.imp_cmd.torque.z = ff[2];
+        imp_command_pub_.publish(imp_cmd_);
+        // Eigen::Matrix3d rot11 = robot_model_for_control_->getRotation("link1");
+        // Eigen::Matrix3d rot21 = robot_model_for_control_->getRotation("link2");
+        // Eigen::Matrix3d rot31 = robot_model_for_control_->getRotation("link3");
+        // Eigen::Matrix3d rot41 = robot_model_for_control_->getRotation("link4");
+        // std::cout << "f1c:"<<rot11*f_1<<std::endl;
+        // std::cout << "f2c:"<<rot21*f_2<<std::endl;
+        // std::cout << "f3c:"<<rot31*f_3<<std::endl;
+        // std::cout << "f4c:"<<rot41*f_4<<std::endl;
+        // std::cout << "f:"<<rot11*f_1+rot21*f_2+rot31*f_3+rot41*f_4<<std::endl;
 
       std::vector<Eigen::Vector3d> prev_rotors_origin_from_cog = rotors_origin_from_cog;
       for(int i = 0; i < motor_num_; ++i)
@@ -2443,6 +2646,7 @@ void DragonFullVectoringImpedanceController::rosParamInit()
   getParam<double>(control_nh, "mayz", mayz_, 10.0);
   getParam<double>(control_nh, "cayz", cayz_, 20.0);
   getParam<double>(control_nh, "kayz", kayz_, 10.0);
+  getParam<double>(control_nh, "fref", fref_, 0.0);
 }
 
 /* plugin registration */

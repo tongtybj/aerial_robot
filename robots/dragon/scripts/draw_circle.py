@@ -5,7 +5,7 @@ import time
 import rospy
 import math
 import tf2_ros
-from std_msgs.msg import Empty
+from std_msgs.msg import Bool
 from std_msgs.msg import UInt8
 from geometry_msgs.msg import Point
 from aerial_robot_msgs.msg import FlightNav
@@ -46,109 +46,103 @@ if __name__ == "__main__":
     link_num = rospy.get_param("~link_num", 4)
     duration = rospy.get_param("~duration", 0.005)
     joint_pub = rospy.Publisher("/dragon/joints_ctrl", JointState, queue_size=1)
-    #odam_sub = rospy.Subscriber("/hydrus_xi/uav/cog", Odometry, odam_callback)
-
-    # wrench_sub = rospy.Subscriber("/hydrus_xi/estimated_external_wrench", WrenchStamped, wrench_callback)
-    # joint_sub = rospy.Subscriber("/hydrus_xi/joint_states", JointState, joint_callback)
+    plan_pub = rospy.Publisher("/dragon/plan_start", Bool, queue_size=1)
+    mode_pub = rospy.Publisher("/dragon/pos_mode", UInt8, queue_size=1)
     odom_sub = rospy.Subscriber("/dragon/uav/cog/odom", Odometry, odom_callback)
-   
-    # wrench_pub = rospy.Publisher("/hydrus_xi/external_wrench", WrenchStamped, queue_size=1)
-    # pos_pub = rospy.Publisher("/hydrus_xi/pos_cmds", Point, queue_size=1)
+
     nav_pub = rospy.Publisher("/dragon/uav/nav", FlightNav, queue_size=1)
     trajectory_pub = rospy.Publisher("/dragon/ee_pos", PointStamped, queue_size=1)
 
 
     time.sleep(1)
-    force_x = 0.0
-#[-0.07, 0.79, -0.39]
-#[1.0, 1.5, -0.59]
-    contact_msg = Empty()
 
-    mode = UInt8()
-    contact_msg = Empty()
-    mode.data = 1
+    mode_msg = UInt8()
+    mode_msg.data = 2
+    mode_pub.publish(mode_msg)
+    print("Mode change to be-centric")
+    time.sleep(3)
   
     nav_msg = FlightNav()
+    nav_msg.pos_xy_nav_mode = 4 # pos_vel mode
+    nav_msg.target_pos_x = -0.60
+    nav_msg.target_pos_y = 0.48
+
+    nav_msg.pos_z_nav_mode = 4 
+    nav_msg.target_pos_z = 1.2
+
+    nav_msg.yaw_nav_mode = 4 
+    nav_msg.target_yaw = -math.pi / 2
+
+    nav_pub.publish(nav_msg)
+    print("Fly to initial pose [", nav_msg.target_pos_x, ",", nav_msg.target_pos_y, ",", nav_msg.target_pos_z, ",", nav_msg.target_yaw, "]"    )
+    time.sleep(5)
+
+    joints = JointState()
+    joints.name = ["joint1_yaw", "joint2_yaw", "joint3_yaw"]
+    joints.position = [math.pi/3, math.pi/3, -math.pi/6]
+    joint_pub.publish(joints)
+    print("Change to initial joint configuration")
+    time.sleep(7)
+    nav_msg = FlightNav()
+    nav_msg.pos_xy_nav_mode = 4 # pos_vel mode
+    nav_msg.target_pos_x = -0.42
+    nav_msg.target_pos_y = 0.48
+
+    nav_msg.pos_z_nav_mode = 4 
+    nav_msg.target_pos_z = 1.2
+
+    nav_msg.yaw_nav_mode = 4 
+    nav_msg.target_yaw = -math.pi / 2
+
+    nav_pub.publish(nav_msg)
+    time.sleep(3)
+
     ee_pos_msg = PointStamped()
-   
 
-   
-
-#     print("preparation 1")
-#     time.sleep(1)
-
-#     nav_msg.pos_xy_nav_mode = 4 # pos_vel mode
-
-
-#     nav_msg.target_pos_x = -0.1
-#     nav_msg.target_vel_x = 0.0
-#     nav_msg.target_pos_y = 0.0
-#     nav_msg.target_vel_y = 0.0
-
-#     nav_msg.pos_z_nav_mode = 4 
-#     nav_msg.target_pos_z = 1.2
-#     nav_msg.target_vel_z = 0.05
-#     nav_msg.yaw_nav_mode = 4 
-#     nav_msg.target_yaw = -math.pi/6
-#     nav_msg.target_omega_z = -0.05
-
-#     nav_pub.publish(nav_msg)
-
-#     time.sleep(3)
-
-#    # time.sleep(6)
-#     print("preparation 2")
-
-#     for i in range(10):
-#         nav_msg = FlightNav()
-#         nav_msg.pos_xy_nav_mode = 4
-#         nav_msg.target_pos_x = -0.1 + (0.3/10) * (i+1)
-
-#         nav_msg.yaw_nav_mode = 4 
-#         nav_msg.target_yaw = -math.pi/6
-#         nav_msg.pos_z_nav_mode = 4 
-#         nav_msg.target_pos_z = 1.2
-#         nav_msg.target_vel_z = 0.0
-#         nav_pub.publish(nav_msg)
-
-#         time.sleep(0.5)
-#     print("preparation 3")
     round = 0
     time.sleep(1)
 
     while not rospy.is_shutdown():
         round += 1
+        if round > 6400:
+            round -= 6400
+        # nav_msg = FlightNav()
+        # nav_msg.pos_xy_nav_mode = 4 # pos_vel mode
+        # nav_msg.target_pos_x = -0.35
+        # nav_msg.target_pos_y = 0.0 - 0.2 * math.sin(math.pi * round / 1600)
+
+        # nav_msg.pos_z_nav_mode = 4 
+        # nav_msg.target_pos_z = 1.2 + 0.2 * math.cos(math.pi * round / 1600)
+
+        # nav_msg.yaw_nav_mode = 4 
+        # nav_msg.target_yaw = 0.0
+
+        # nav_pub.publish(nav_msg)
      
         ee_pos_msg = PointStamped()
-
         ee_pos_msg.point.x = 0.528 + 0.2 * math.sin(math.pi * round / 1600)
+        #ee_pos_msg.point.x = 0.428 + 0.2 * math.sin(math.pi * round / 1600)
         ee_pos_msg.point.y = 1.38
-        ee_pos_msg.point.z = 0.2 * math.cos(math.pi * round / 1600)
-        # nav_msg.target_pos_x = 0.2
-        # #nav_msg.target_pos_x = -1.20 + (external_wrench.wrench.force.x + 0.6)/0.5*0.05
-        # nav_msg.target_vel_x = 0.0
-        # nav_msg.target_pos_y = 0.5 * math.sin(math.pi * round / 1200)
-        # nav_msg.target_vel_y = 0.087 * math.pi * math.cos(math.pi * round / 1200)
+        ee_pos_msg.point.z = 0.00 + 0.2 * math.cos(math.pi * round / 1600)
+        if round < 4400 and round > 400: 
 
-        # #nav_msg.target_acc_y = -0.048 * math.pi * math.pi * math.cos(math.pi * round / 50)
-        # nav_msg.pos_z_nav_mode = 4 
-        # # nav_msg.target_pos_z = 0.9
-        # # nav_msg.target_vel_z = 0.0
-
-        # nav_msg.target_pos_z = 0.9 + 0.3 * math.cos(math.pi * round / 1200)
-        # nav_msg.target_vel_z = -0.05 * math.pi * math.sin(math.pi * round / 1200)
-
-        # #nav_msg.target_acc_z = -0.048 * math.pi * math.pi * math.sin(math.pi * round / 50)
-        # nav_msg.yaw_nav_mode = 4 
-        # nav_msg.target_yaw = -math.pi/6
-        # #nav_msg.target_yaw = -0.445
-        # #print(cog2world)
-        # nav_pub.publish(nav_msg)
-        #contact_pub.publish(contact_msg)
-
-        # external_wrench_added.wrench.torque.z = 0.4 * math.cos(round / 50)
-        # external_wrench_added.wrench.force.y = 0.6 * math.cos(round / 50)
+            ee_pos_msg.point.x = 0.528 + 0.2 * math.sin(math.pi * (round + 1600) / 8000)
+            #ee_pos_msg.point.x = 0.428 + 0.2 * math.sin(math.pi * round / 1600)
+            ee_pos_msg.point.y = 1.42
+            ee_pos_msg.point.z = 0.00 + 0.2 * math.cos(math.pi * (round + 1600) / 8000)
+        if round  >= 4400: 
+            ee_pos_msg.point.x = 0.528 + 0.2 * math.sin(math.pi * (round - 3200) / 1600)
+            #ee_pos_msg.point.x = 0.428 + 0.2 * math.sin(math.pi * round / 1600)
+            ee_pos_msg.point.y = 1.42
+            ee_pos_msg.point.z = 0.00 + 0.2 * math.cos(math.pi * (round - 3200) / 1600)
+   
         trajectory_pub.publish(ee_pos_msg)
+
+        if round == 10:
+            plan_msg = Bool()
+            plan_msg.data = True
+            plan_pub.publish(plan_msg)
+            print("Begin to plan")
         time.sleep(duration)
 
 
