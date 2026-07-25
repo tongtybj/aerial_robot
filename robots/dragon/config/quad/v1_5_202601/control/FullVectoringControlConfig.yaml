@@ -19,7 +19,7 @@ controller:
   allocation_refine_threshold: 0.0001 # for static allocation
 
   wrench_estimate_update_rate: 100
-  momentum_observer_force_weight: 3 # heavy delay, less noise, 2, 2.5, 3, light delay, more noise. The old parameter 5 has bug
+  momentum_observer_force_weight: 2.0 # heavy delay, less noise, 2, 2.5, 3, light delay, more noise. The old parameter 5 has bug
   momentum_observer_torque_weight: 2.5
 
   rotor_interfere_compensate: true # enable compensation
@@ -63,7 +63,7 @@ controller:
 
   z:
     p_gain: 2.8
-    i_gain: 0.4 # 1.2
+    i_gain: 0.6 # 1.2
     d_gain: 2.8
     limit_err_p: 1.0
     limit_sum: 20 # m / s^2
@@ -94,11 +94,11 @@ controller:
     need_d_control: true
 
   mdx: 1.0
-  mdy: 5.0
-  mdz: 5.0
-  Idx: 10.0
-  Idy: 10.0
-  Idz: 5.0
+  mdy: 1.0
+  mdz: 1.0
+  Idx: 1.0
+  Idy: 1.0
+  Idz: 1.0
 
   # Idy: 0.4
   # Idz: 0.8
