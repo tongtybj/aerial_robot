@@ -40,6 +40,7 @@
 #include <aerial_robot_control/control/base/pose_linear_controller.h>
 #include <dragon/model/full_vectoring_robot_model.h>
 #include <dragon/dragon_navigation.h>
+#include <aerial_robot_msgs/ImpedanceControl.h>
 #include <geometry_msgs/WrenchStamped.h>
 #include <spinal/FourAxisCommand.h>
 #include <spinal/RollPitchYawTerm.h>
@@ -107,6 +108,7 @@ namespace aerial_robot_control
     ros::Publisher rotor_interfere_wrench_pub_;
     ros::Publisher interfrence_marker_pub_;
     ros::Publisher joints_ctrl_pub_;
+    ros::Publisher imp_command_pub_;
 
     ros::Subscriber ee_pos_sub_;
     ros::Subscriber plan_flag_sub_;
@@ -121,12 +123,14 @@ namespace aerial_robot_control
     bool gimbal_vectoring_check_flag_;
     Eigen::VectorXd target_acc_cog_; // 6DoF acc (only represent the dynamic motion)
     Eigen::VectorXd target_wrench_cog_; // 6DoF wrench (target_acc (DoF) * inertia + external wrench compensate term)
+    aerial_robot_msgs::ImpedanceControl imp_cmd_;
 
     /* impedance parameters */
     double mdx_, mdy_, mdz_, Idx_, Idy_, Idz_;
     double x_y_p_, z_p_, roll_pitch_p_, yaw_p_, joints_p_, pos_p_, x_y_zeta_, z_zeta_, roll_pitch_zeta_, yaw_zeta_;
     /* admittance parameters */
     double max_, cax_, kax_, mayz_, cayz_, kayz_;
+    double fref_;
 
     Eigen::Vector3d pd_, pd_dot_, pd_ddot_, fext_, ee_pos_ref_;
 
