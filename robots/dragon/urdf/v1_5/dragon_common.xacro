@@ -101,7 +101,7 @@
   <link name="end">
    <inertial>
           <origin xyz="0 0 0" rpy="0 0 0"/>
-          <mass value="0.001" />
+          <mass value="0.05" />
           <inertia
               ixx="0.0001" iyy="0.0001" izz="0.0001"
               ixy="0.0000" ixz="0.0000" iyz="0.0000"/>

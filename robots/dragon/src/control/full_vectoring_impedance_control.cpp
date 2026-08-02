@@ -1094,11 +1094,12 @@ void DragonFullVectoringImpedanceController::controlCore()
   Eigen::VectorXd lin_acc_cmd = Eigen::VectorXd::Zero(3);
   for (int i = 0; i < 3; i++)
     lin_acc_cmd(i) = (1 / md(i) - 1 / uav_mass) * est_external_wrench_[i] + (-Kdt(i) * delta_v(i) - Kpt(i) * delta_p(i));
-  lin_acc_cmd(2) += aerial_robot_estimation::G;
-  double rate = pid_controllers_.at(Z).result() / (aerial_robot_estimation::G + 1.5);
-  if (rate >= 1.0)
-    rate = 1.0;
-  lin_acc_cmd(2) *= rate;
+ 
+  double rate = pid_controllers_.at(Z).result() / (aerial_robot_estimation::G);
+  // if (rate >= 1.0)
+  //   rate = 1.0;
+  //std::cout<<"rate: "<<rate;
+  lin_acc_cmd(2) += rate * aerial_robot_estimation::G;
   // Eigen::VectorXd limit_t = Eigen::VectorXd::Constant(3, 1.4);
   // limit_t(2) = 15.0;
     // std::cout << "lin_acc_cmd: " << lin_acc_cmd.transpose() <<  std::endl;
@@ -1140,7 +1141,7 @@ void DragonFullVectoringImpedanceController::controlCore()
   delta_v(4) = omega_.y() - target_omega_cog.y();
   delta_v(5) = omega_.z() - target_omega_cog.z();
   Eigen::VectorXd ang_acc_cmd = Eigen::VectorXd::Zero(3);
-  lin_acc_cmd(2) -= aerial_robot_estimation::G;
+  //lin_acc_cmd(2) -= aerial_robot_estimation::G;
   ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) 
   + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3)) 
   - I.inverse() * aerial_robot_model::skew(omega) * I * omega;
@@ -1148,7 +1149,7 @@ void DragonFullVectoringImpedanceController::controlCore()
   // std::cout<<"aaa"<<R.transpose() * lin_acc_cmd<<std::endl;
   // std::cout<<"bba"<<be_pos_cog<<std::endl;
   // std::cout<<"cca"<<be_pos_cog.cross(R.transpose() * lin_acc_cmd)<<std::endl;
-  lin_acc_cmd(2) += aerial_robot_estimation::G;
+  //lin_acc_cmd(2) += aerial_robot_estimation::G;
   //ang_acc_cmd = (Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3) + (-Kd * delta_v.segment(3, 3) - Kp * delta_p.segment(3, 3));
   //Eigen::VectorXd limit_r = Eigen::VectorXd::Constant(3, 6.0);
   //clampCommand(ang_acc_cmd, limit_r);
@@ -1164,7 +1165,7 @@ void DragonFullVectoringImpedanceController::controlCore()
   /* separate PI and D control term */
   tf::Vector3 target_lin_acc_w_low_freq((1 / md(0) - 1 / uav_mass) * est_external_wrench_[0] + (-Kpt(0) * delta_p(0)),
                                         (1 / md(1) - 1 / uav_mass) * est_external_wrench_[1] + (-Kpt(1) * delta_p(1)),
-                                        (1 / md(2) - 1 / uav_mass) * est_external_wrench_[2] + (-Kpt(2) * delta_p(2)) + aerial_robot_estimation::G);
+                                        (1 / md(2) - 1 / uav_mass) * est_external_wrench_[2] + (-Kpt(2) * delta_p(2)) + rate*aerial_robot_estimation::G);
   
                                     // include d control term if non-zero target velocity
   for(int i = 0; i < 3; i++)
@@ -1182,7 +1183,7 @@ void DragonFullVectoringImpedanceController::controlCore()
   tf::Vector3 target_lin_acc_high_freq = uav_rot.inverse() * target_lin_acc_w_high_freq;
 
 
-  lin_acc_cmd(2) -= aerial_robot_estimation::G;
+  //lin_acc_cmd(2) -= aerial_robot_estimation::G;
   // tf::Vector3 target_ang_acc_low_freq(((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[0] + (-Kp * delta_p.segment(3, 3))[0] + (Id.inverse() * be_pos_cog.cross(R.transpose() * lin_acc_cmd * uav_mass))[0],
   //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] + (Id.inverse() * be_pos_cog.cross(R.transpose() * lin_acc_cmd * uav_mass))[1],
   //                                     ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] + (Id.inverse() * be_pos_cog.cross(R.transpose() * lin_acc_cmd * uav_mass))[2]);
@@ -1192,7 +1193,7 @@ void DragonFullVectoringImpedanceController::controlCore()
                                       ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[1] + (-Kp * delta_p.segment(3, 3))[1] - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[1],
                                       ((Id.inverse() - I.inverse()) * est_external_wrench_.segment(3, 3))[2] + (-Kp * delta_p.segment(3, 3))[2] - (I.inverse() * aerial_robot_model::skew(omega) * I * omega)[2]);
  
-                                      lin_acc_cmd(2) += aerial_robot_estimation::G;// // include d control term if non-zero target velocity
+                                      //lin_acc_cmd(2) += aerial_robot_estimation::G;// // include d control term if non-zero target velocity
 
   for(int i = 0; i < 3; i++)
     {
@@ -1229,11 +1230,16 @@ void DragonFullVectoringImpedanceController::controlCore()
   imp_cmd_.full_cmd.torque.x = lin_acc_cmd[0];
   imp_cmd_.full_cmd.torque.y = lin_acc_cmd[1];
   imp_cmd_.full_cmd.torque.z = lin_acc_cmd[2];
-  imp_cmd_.imp_cmd.force.x = target_acc_high_freq.head(3)[0];
-  imp_cmd_.imp_cmd.force.y = target_acc_high_freq.head(3)[1];
-  imp_cmd_.imp_cmd.force.z = target_acc_high_freq.head(3)[2];
+  imp_cmd_.imp_cmd.force.x = (1 / md(0) - 1 / uav_mass) * est_external_wrench_[0];
+  imp_cmd_.imp_cmd.force.y = (1 / md(1) - 1 / uav_mass) * est_external_wrench_[1];
+  imp_cmd_.imp_cmd.force.z = (1 / md(2) - 1 / uav_mass) * est_external_wrench_[2];
+  imp_cmd_.pd_cmd.force.x = (-Kdt(0) * delta_v(0) - Kpt(0) * delta_p(0));
+  imp_cmd_.pd_cmd.force.y = (-Kdt(1) * delta_v(1) - Kpt(1) * delta_p(1));
+  imp_cmd_.pd_cmd.force.z = (-Kdt(2) * delta_v(2) - Kpt(2) * delta_p(2));
   // imp_command_pub_.publish(imp_cmd_);
-  
+ std::cout<<"Kpt(2)"<<Kpt(2)<<std::endl;
+ std::cout<<"delta_p(2)"<<delta_p(2)<<std::endl;
+ std::cout<<"pid"<<pid_controllers_.at(Z).result()<<std::endl;
   pid_msg_.roll.total.at(0) = target_ang_acc.x();
   pid_msg_.roll.p_term.at(0) = pid_controllers_.at(ROLL).getPTerm();
   pid_msg_.roll.i_term.at(0) = pid_controllers_.at(ROLL).getITerm();
@@ -1763,10 +1769,10 @@ void DragonFullVectoringImpedanceController::admittanceControl()
     pd_(2) = 0.2;
   else if  (pd_(2) < -0.2)
     pd_(2) = -0.2;
-    std::cout<<"kax_:"  <<kax_<<std::endl;
-    std::cout<<"f_:"  <<fext_<<std::endl;
-     std::cout<<"pd_d:" <<pd_dot_.transpose()<<std::endl;
-  std::cout<<"pd_:" <<pd_.transpose()<<std::endl;
+   // std::cout<<"kax_:"  <<kax_<<std::endl;
+    //std::cout<<"f_:"  <<fext_<<std::endl;
+     //std::cout<<"pd_d:" <<pd_dot_.transpose()<<std::endl;
+ // std::cout<<"pd_:" <<pd_.transpose()<<std::endl;
 // pd_(1) = 0.0;
 // pd_(2) = 0.0;
 
@@ -1788,7 +1794,7 @@ void DragonFullVectoringImpedanceController::admittanceControl()
   ee_ad_pos_[2] = 0.0;
   Eigen::Vector3d ee_pos_ = ee_ad_pos_ + ee_pos_ref_;
   //Eigen::Vector3d ee_pos_ = ee_pos_ref_;
-  std::cout<<"ee_pos"<<ee_pos_<<std::endl;
+  //std::cout<<"ee_pos"<<ee_pos_<<std::endl;
   
   // inverse kinematics to get the target gimbal anglles
   KDL::Chain chain;
@@ -1954,7 +1960,7 @@ bool DragonFullVectoringImpedanceController::staticIterativeAllocation(const int
       target_wrench.head(3) += robot_model_for_control_->getMass() * target_acc.head(3);
       target_wrench.tail(3) += robot_model_for_control_->getInertia<Eigen::Matrix3d>() * target_acc.tail(3); // TODO: consider the external weight such as grasped object
       vectoring_forces = aerial_robot_model::pseudoinverse(full_q_mat) * target_wrench;
-
+      std::cout<<target_wrench<<std::endl;
       // add extra vectoring force
       // condition: no gimbal roll lock
       // simple linear addition, which is OK for near hovering joint configuration (roll and pitch: 0.5; roll or pitch: 0.78)
@@ -2024,12 +2030,12 @@ bool DragonFullVectoringImpedanceController::staticIterativeAllocation(const int
         // imp_cmd_.full_cmd.torque.x = (rot2*f_2)[0];
         // imp_cmd_.full_cmd.torque.y = (rot2*f_2)[1];
         // imp_cmd_.full_cmd.torque.z = (rot2*f_2)[1];
-        imp_cmd_.pd_cmd.force.x = target_acc.head(3)[0];
-        imp_cmd_.pd_cmd.force.y = target_acc.head(3)[1];
-        imp_cmd_.pd_cmd.force.z = target_acc.head(3)[2];
-        imp_cmd_.pd_cmd.torque.x = target_wrench[0];
-        imp_cmd_.pd_cmd.torque.y = target_wrench[1];
-        imp_cmd_.pd_cmd.torque.z = target_wrench[2];
+        // imp_cmd_.pd_cmd.force.x = target_acc.head(3)[0];
+        // imp_cmd_.pd_cmd.force.y = target_acc.head(3)[1];
+        // imp_cmd_.pd_cmd.force.z = target_acc.head(3)[2];
+        // imp_cmd_.pd_cmd.torque.x = target_wrench[0];
+        // imp_cmd_.pd_cmd.torque.y = target_wrench[1];
+        // imp_cmd_.pd_cmd.torque.z = target_wrench[2];
         // imp_cmd_.imp_cmd.torque.x = ff[0];
         // imp_cmd_.imp_cmd.torque.y = ff[1];
         // ff[2] += 6.98549 * 9.8;

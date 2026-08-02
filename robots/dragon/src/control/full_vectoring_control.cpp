@@ -1567,7 +1567,6 @@ bool DragonFullVectoringController::staticIterativeAllocation(const int iterativ
       target_wrench.head(3) += robot_model_for_control_->getMass() * target_acc.head(3);
       target_wrench.tail(3) += robot_model_for_control_->getInertia<Eigen::Matrix3d>() * target_acc.tail(3); // TODO: consider the external weight such as grasped object
       vectoring_forces = aerial_robot_model::pseudoinverse(full_q_mat) * target_wrench;
-
       // add extra vectoring force
       // condition: no gimbal roll lock
       // simaple linear addition, which is OK for near hovering joint configuration (roll and pitch: 0.5; roll or pitch: 0.78)

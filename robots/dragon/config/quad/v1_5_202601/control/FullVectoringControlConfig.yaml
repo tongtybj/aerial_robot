@@ -63,7 +63,7 @@ controller:
 
   z:
     p_gain: 2.8
-    i_gain: 0.6 # 1.2
+    i_gain: 1.4 # 1.2
     d_gain: 2.8
     limit_err_p: 1.0
     limit_sum: 20 # m / s^2
@@ -93,12 +93,12 @@ controller:
     limit_err_p: 0.4
     need_d_control: true
 
-  mdx: 1.0
-  mdy: 1.0
-  mdz: 1.0
-  Idx: 1.0
-  Idy: 1.0
-  Idz: 1.0
+  mdx: 0.9
+  mdy: 2.0
+  mdz: 2.0
+  Idx: 2.0
+  Idy: 2.0
+  Idz: 2.0
 
   # Idy: 0.4
   # Idz: 0.8
@@ -111,15 +111,15 @@ controller:
   kayz: 15.0
   fref: -1.0
 
-  x_y_p: 4.0
-  x_y_zeta: 0.90
+  x_y_p: 3.6
+  x_y_zeta: 0.80
 
 
-  z_p: 6.0
-  z_zeta: 0.7
+  z_p: 3.6
+  z_zeta: 0.9
 
-  roll_pitch_p: 55.0
-  roll_pitch_zeta: 0.9
+  roll_pitch_p: 15.0
+  roll_pitch_zeta: 0.85
 
-  yaw_p: 6.0
+  yaw_p: 10.0
   yaw_zeta: 0.75
