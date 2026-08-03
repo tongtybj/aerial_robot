@@ -388,6 +388,7 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
   rotor_interfere_wrench_pub_ = nh_.advertise<geometry_msgs::WrenchStamped>("rotor_interfere_wrench", 1);
   interfrence_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("interference_markers", 1);
   joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_ctrl", 1);
+  ee_pos_pub_ = nh_.advertise<geometry_msgs::Pose>("end_effector_pose", 1);
 
   add_external_wrench_sub_ = nh_.subscribe(std::string("apply_external_wrench"), 1, &DragonFullVectoringImpedanceController::addExternalWrenchCallback, this);
   clear_external_wrench_sub_ = nh_.subscribe(std::string("clear_external_wrench"), 1, &DragonFullVectoringImpedanceController::clearExternalWrenchCallback, this);
@@ -429,10 +430,17 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
                                               }
                                           });
   time_ = ros::Time::now();
-  pd_ = Eigen::Vector3d::Zero();
-  pd_dot_ = Eigen::Vector3d::Zero();
-  pd_ddot_ = Eigen::Vector3d::Zero();
-  fext_ = Eigen::Vector3d::Zero();
+  // pd_ = Eigen::Vector3d::Zero();
+  // pd_dot_ = Eigen::Vector3d::Zero();
+  // pd_ddot_ = Eigen::Vector3d::Zero();
+  // fext_ = Eigen::Vector3d::Zero();
+  xd_ = 0.825;
+  xd_dot_ = 0.0;
+  xd_ddot_ = 0.0;
+  fx_ = 0.0;
+  fxref_ = 0.0;
+  xref_ = 0.825;
+
   plan_flag_ = false;
   joint_cmd_.name.resize(6);
   joint_cmd_.position.resize(6);
@@ -450,6 +458,12 @@ void DragonFullVectoringImpedanceController::initialize(ros::NodeHandle nh, ros:
   q_init_(3) = 1.57;
   q_init_(4) = 0.0;
   q_init_(5) = 1.57;
+  q_result_(0) = 0.0;
+  q_result_(1) = 1.57;
+  q_result_(2) = 0.0;
+  q_result_(3) = 1.57;
+  q_result_(4) = 0.0;
+  q_result_(5) = 1.57;
   pos_mode_ = POSMODE::COG_POSITION;
 
 }
@@ -1237,9 +1251,9 @@ void DragonFullVectoringImpedanceController::controlCore()
   imp_cmd_.pd_cmd.force.y = (-Kdt(1) * delta_v(1) - Kpt(1) * delta_p(1));
   imp_cmd_.pd_cmd.force.z = (-Kdt(2) * delta_v(2) - Kpt(2) * delta_p(2));
   // imp_command_pub_.publish(imp_cmd_);
- std::cout<<"Kpt(2)"<<Kpt(2)<<std::endl;
- std::cout<<"delta_p(2)"<<delta_p(2)<<std::endl;
- std::cout<<"pid"<<pid_controllers_.at(Z).result()<<std::endl;
+//  std::cout<<"Kpt(2)"<<Kpt(2)<<std::endl;
+//  std::cout<<"delta_p(2)"<<delta_p(2)<<std::endl;
+//  std::cout<<"pid"<<pid_controllers_.at(Z).result()<<std::endl;
   pid_msg_.roll.total.at(0) = target_ang_acc.x();
   pid_msg_.roll.p_term.at(0) = pid_controllers_.at(ROLL).getPTerm();
   pid_msg_.roll.i_term.at(0) = pid_controllers_.at(ROLL).getITerm();
@@ -1727,120 +1741,173 @@ void DragonFullVectoringImpedanceController::admittanceControl()
 
   KDL::JntArray joint_processed_joint = dragon_robot_model_->getJointPositions();
   const auto& joint_index_map = dragon_robot_model_->getJointIndexMap();
-  Eigen::Vector3d fref = Eigen::Vector3d::Zero();
-  // filter external force
+  // Eigen::Vector3d fref = Eigen::Vector3d::Zero();
+  // // filter external force
   double alpha = 0.8;
-  fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * fext_(0);
-  fext_(1) = alpha * est_external_wrench_(1) + (1 - alpha) * fext_(1);
-  fext_(2) = alpha * est_external_wrench_(2) + (1 - alpha) * fext_(2);
+  // fext_(0) = alpha * est_external_wrench_(0) + (1 - alpha) * fext_(0);
+  // fext_(1) = alpha * est_external_wrench_(1) + (1 - alpha) * fext_(1);
+  // fext_(2) = alpha * est_external_wrench_(2) + (1 - alpha) * fext_(2);
 
 
-  // if (Fext_(0) > 0.35)
-  //   Fext_(0) = 0.35;
-  // else if (Fext_(0) < -2.2)
-  //   Fext_(0) = -2.2;
-  fref(0) = fref_;
+  // // if (Fext_(0) > 0.35)
+  // //   Fext_(0) = 0.35;
+  // // else if (Fext_(0) < -2.2)
+  // //   Fext_(0) = -2.2;
+  // fref(0) = fref_;
+  fx_ = alpha * est_external_wrench_(0) + (1 - alpha) * fx_;
+  fxref_ = fref_;
   //xd_ddot_ = (R.inverse() * Fext - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
   // defferential method to calculate distance 
-  Eigen::Matrix3d ma = Eigen::Matrix3d::Zero();
-  Eigen::Matrix3d ca = Eigen::Matrix3d::Zero();
-  Eigen::Matrix3d ka = Eigen::Matrix3d::Zero();
-  ma(0, 0) = max_;
-  ma(1, 1) = mayz_;
-  ma(2, 2) = mayz_;
-  ca(0, 0) = cax_;
-  ca(1, 1) = cayz_;
-  ca(2, 2) = cayz_;
-  ka(0, 0) = kax_;
-  ka(1, 1) = kayz_;
-  ka(2, 2) = kayz_;
-  pd_ddot_ = ma.inverse() * ((fext_ - fref) - ka * pd_ - ca * pd_dot_);
-  pd_dot_ = pd_ddot_ * dt + pd_dot_;
-  pd_ = pd_dot_ * dt + pd_;
-  if (pd_(0) > 0.2)
-    pd_(0) = 0.2;
-  else if  (pd_(0) < -0.2)
-    pd_(0) = -0.2;
-  if (pd_(1) > 0.2)
-    pd_(1) = 0.2;
-  else if  (pd_(1) < -0.2)
-    pd_(1) = -0.2;
-     if (pd_(2) > 0.2)
-    pd_(2) = 0.2;
-  else if  (pd_(2) < -0.2)
-    pd_(2) = -0.2;
+  // Eigen::Matrix3d ma = Eigen::Matrix3d::Zero();
+  // Eigen::Matrix3d ca = Eigen::Matrix3d::Zero();
+  // Eigen::Matrix3d ka = Eigen::Matrix3d::Zero();
+  // ma(0, 0) = max_;
+  // ma(1, 1) = mayz_;
+  // ma(2, 2) = mayz_;
+  // ca(0, 0) = cax_;
+  // ca(1, 1) = cayz_;
+  // ca(2, 2) = cayz_;
+  // ka(0, 0) = kax_;
+  // ka(1, 1) = kayz_;
+  // ka(2, 2) = kayz_;
+  // pd_ddot_ = ma.inverse() * ((fext_ - fref) - ka * pd_ - ca * pd_dot_);
+  // pd_dot_ = pd_ddot_ * dt + pd_dot_;
+  // pd_ = pd_dot_ * dt + pd_;
+  // if (pd_(0) > 0.2)
+  //   pd_(0) = 0.2;
+  // else if  (pd_(0) < -0.2)
+  //   pd_(0) = -0.2;
+  // if (pd_(1) > 0.2)
+  //   pd_(1) = 0.2;
+  // else if  (pd_(1) < -0.2)
+  //   pd_(1) = -0.2;
+  //    if (pd_(2) > 0.2)
+  //   pd_(2) = 0.2;
+  // else if  (pd_(2) < -0.2)
+  //   pd_(2) = -0.2;
    // std::cout<<"kax_:"  <<kax_<<std::endl;
     //std::cout<<"f_:"  <<fext_<<std::endl;
      //std::cout<<"pd_d:" <<pd_dot_.transpose()<<std::endl;
  // std::cout<<"pd_:" <<pd_.transpose()<<std::endl;
 // pd_(1) = 0.0;
 // pd_(2) = 0.0;
+  double Ma = max_;
+  double Ca = cax_;
+  double Ka = kax_;
 
-    // xd_ddot_ = ((Fext_ - Fref) - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
-    // xd_ += xd_dot_ * dt;
-    // xd_dot_ += xd_ddot_ * dt;
-    // // if (xd_(0) > 0.95)
-    // //   xd_(0) = 0.95;
-    // if (xd_(0) > 1.90)
-    //   xd_(0) = 1.90;
-    // else if (xd_(0) < 0.80)
-    //   xd_(0) = 0.80;
+
+ 
 
   // pd_(1) = pd_(0);
   // pd_(0) = 0.0;
-  Eigen::Vector3d ee_ad_pos_ = pd_;
-  ee_ad_pos_[1] = ee_ad_pos_[0];
-  ee_ad_pos_[0] = 0.0;
-  ee_ad_pos_[2] = 0.0;
-  Eigen::Vector3d ee_pos_ = ee_ad_pos_ + ee_pos_ref_;
+
+  //  if (Fext_(0) > 0.35)
+  //     Fext_(0) = 0.35;
+  //   else if (Fext_(0) < -2.2)
+  //     Fext_(0) = -2.2;
+  //   Fref(0) = fref_;
+  //   //xd_ddot_ = (R.inverse() * Fext - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
+  //   // defferential method to calculate distance 
+  //   xd_ddot_ = ((Fext_ - Fref) - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
+  //   xd_ += xd_dot_ * dt;
+  //   xd_dot_ += xd_ddot_ * dt;
+  //   // if (xd_(0) > 0.95)
+  //   //   xd_(0) = 0.95;
+  //   if (xd_(0) > 1.00)
+  //     xd_(0) = 1.00;
+  //   else if (xd_(0) < 0.8)
+  //     xd_(0) = 0.8;
+    geometry_msgs::Pose ee_pose;
+    std::cout<<"fext_"<<fx_<<std::endl;
+    std::cout<<"xd_"<<xd_<<std::endl;
+    ee_pose.position.x = xd_;
+
+    // ---------------CoG--------------------
+    // Calculate joint angle from theta
+
+  // ee_ad_pos_[1] = ee_ad_pos_[0];
+  // ee_ad_pos_[0] = 0.0;
+  // ee_ad_pos_[2] = 0.0;
+  // Eigen::Vector3d ee_pos_ = ee_ad_pos_ + ee_pos_ref_;
   //Eigen::Vector3d ee_pos_ = ee_pos_ref_;
   //std::cout<<"ee_pos"<<ee_pos_<<std::endl;
   
   // inverse kinematics to get the target gimbal anglles
-  KDL::Chain chain;
-  bool ok = robot_model_->getTree().getChain("link1", "end_frame", chain);
+  // KDL::Chain chain;
+  // bool ok = robot_model_->getTree().getChain("link1", "end_frame", chain);
   
 
-  KDL::JntArray q_min(6), q_max(6);
+  // KDL::JntArray q_min(6), q_max(6);
 
-  for (int i = 0; i < 6; i++) 
-  {
-    q_min(i) = -1.57;
-    q_max(i) =  1.57;
-  }
+  // for (int i = 0; i < 6; i++) 
+  // {
+  //   q_min(i) = -1.57;
+  //   q_max(i) =  1.57;
+  // }
 
-  KDL::ChainFkSolverPos_recursive fk_solver(chain);
-  KDL::ChainIkSolverVel_pinv ik_vel(chain);
+  // KDL::ChainFkSolverPos_recursive fk_solver(chain);
+  // KDL::ChainIkSolverVel_pinv ik_vel(chain);
 
-  KDL::ChainIkSolverPos_NR_JL ik_solver(chain, q_min, q_max, fk_solver, ik_vel);
+  // KDL::ChainIkSolverPos_NR_JL ik_solver(chain, q_min, q_max, fk_solver, ik_vel);
 
 
-  KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 1.57), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
-  int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
-  // std::cout<<"target_frame:" <<ee_pos_.transpose()<<" ret: "<<ret<<std::endl;
+  // KDL::Frame target_frame(KDL::Rotation::RPY(0, 0, 1.57), KDL::Vector(ee_pos_(0), ee_pos_(1), ee_pos_(2)));
+  // int ret = ik_solver.CartToJnt(q_init_, target_frame, q_result_);
+  // // std::cout<<"target_frame:" <<ee_pos_.transpose()<<" ret: "<<ret<<std::endl;
 
-  for (int i = 0; i < 6; i++)
-    joint_cmd_.position[i] = q_result_(i);
-  // std::cout<<joint_cmd_<<std::endl;
-  KDL::Frame current_frame;
-  fk_solver.JntToCart(q_init_, current_frame);
-  Eigen::Vector3d current_pose = aerial_robot_model::kdlToEigen(current_frame.p);
-    // std::cout<<"current_pose:" <<current_pose.transpose()<<std::endl;
-  if (ret >= 0) 
-    q_init_ = q_result_;   // 只有成功才更新
-  else
-  {
-    q_init_(0) = 0.0;
-    q_init_(1) = 1.02;
-    q_init_(2) = 0.0;
-    q_init_(3) = 1.02;
-    q_init_(4) = 0.0;
-    q_init_(5) = -0.53;
-  }
+  // for (int i = 0; i < 6; i++)
+  //   joint_cmd_.position[i] = q_result_(i);
+  // // std::cout<<joint_cmd_<<std::endl;
+  // KDL::Frame current_frame;
+  // fk_solver.JntToCart(q_init_, current_frame);
+  // Eigen::Vector3d current_pose = aerial_robot_model::kdlToEigen(current_frame.p);
+  //   // std::cout<<"current_pose:" <<current_pose.transpose()<<std::endl;
+  // if (ret >= 0) 
+  //   q_init_ = q_result_;   // 只有成功才更新
+  // else
+  // {
+  //   q_init_(0) = 0.0;
+  //   q_init_(1) = 1.02;
+  //   q_init_(2) = 0.0;
+  //   q_init_(3) = 1.02;
+  //   q_init_(4) = 0.0;
+  //   q_init_(5) = -0.53;
+  // }
 
   if (plan_flag_)
   {
+     xd_ddot_ = ((fx_ - fxref_) - Ka * (xd_ - xref_) - Ca * xd_dot_) / Ma;
+  xd_ += xd_dot_ * dt;
+  xd_dot_ += xd_ddot_ * dt;
+  // if (xd_(0) > 0.95)
+  //   xd_(0) = 0.95;
+  if (xd_ > 0.86)
+    xd_ = 0.86;
+  else if (xd_ < 0.75)
+    xd_ = 0.75;
+    geometry_msgs::Pose ee_pose;
+    std::cout<<"fext_"<<fx_<<std::endl;
+    std::cout<<"xd_"<<xd_<<std::endl;
+    ee_pose.position.x = xd_;
+
+    // ---------------CoG--------------------
+    // Calculate joint angle from theta
+
+    double ctheta = (xd_-0.474+0.474/8)/0.474;
+    //double ctheta = (xd_(0)-0.6)/1.2;
+    
+    // joint_cmd_.position[0] = 1.5708 - std::acos(ctheta);
+    // joint_cmd_.position[1] = 2 * std::acos(ctheta);
+    // joint_cmd_.position[2] = -std::acos(ctheta);
+    q_result_(1) = 1.5708 - std::acos(ctheta);
+    q_result_(3) = 2 * std::acos(ctheta);
+    q_result_(5) = -std::acos(ctheta);
+    for (int i = 0; i < 6; i++)
+      joint_cmd_.position[i] = q_result_(i);
+  // Eigen::Vector3d ee_ad_pos_ = pd_;
+  
     joints_ctrl_pub_.publish(joint_cmd_);
+    ee_pos_pub_.publish(ee_pose);
     joint_processed_joint(joint_index_map.find(std::string("joint1_pitch"))->second) = q_result_(0);
     joint_processed_joint(joint_index_map.find(std::string("joint1_yaw"))->second) = q_result_(1);
     joint_processed_joint(joint_index_map.find(std::string("joint2_pitch"))->second) = q_result_(2);
@@ -1857,6 +1924,7 @@ void DragonFullVectoringImpedanceController::admittanceControl()
     // pd_ddot_ = Eigen::Vector3d::Zero();
     // fext_ = Eigen::Vector3d::Zero();
   }
+    std::cout<<"q1"<<q_result_(0)<<" q2"<<q_result_(1)<<" q3"<<q_result_(2)<<" q4"<<q_result_(3)<<" q5"<<q_result_(4)<<" q6"<<q_result_(5)<<std::endl;
   time_ = ros::Time::now();
 
 }
@@ -1960,7 +2028,7 @@ bool DragonFullVectoringImpedanceController::staticIterativeAllocation(const int
       target_wrench.head(3) += robot_model_for_control_->getMass() * target_acc.head(3);
       target_wrench.tail(3) += robot_model_for_control_->getInertia<Eigen::Matrix3d>() * target_acc.tail(3); // TODO: consider the external weight such as grasped object
       vectoring_forces = aerial_robot_model::pseudoinverse(full_q_mat) * target_wrench;
-      std::cout<<target_wrench<<std::endl;
+      // std::cout<<target_wrench<<std::endl;
       // add extra vectoring force
       // condition: no gimbal roll lock
       // simple linear addition, which is OK for near hovering joint configuration (roll and pitch: 0.5; roll or pitch: 0.78)

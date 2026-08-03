@@ -109,7 +109,7 @@ controller:
   mayz: 15.0
   cayz: 30.0
   kayz: 15.0
-  fref: -1.0
+  fref: 0.0
 
   x_y_p: 3.6
   x_y_zeta: 0.80

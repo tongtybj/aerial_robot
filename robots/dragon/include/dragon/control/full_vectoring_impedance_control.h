@@ -109,6 +109,7 @@ namespace aerial_robot_control
     ros::Publisher interfrence_marker_pub_;
     ros::Publisher joints_ctrl_pub_;
     ros::Publisher imp_command_pub_;
+    ros::Publisher ee_pos_pub_;
 
     ros::Subscriber ee_pos_sub_;
     ros::Subscriber plan_flag_sub_;
@@ -133,6 +134,7 @@ namespace aerial_robot_control
     double fref_;
 
     Eigen::Vector3d pd_, pd_dot_, pd_ddot_, fext_, ee_pos_ref_;
+    double xd_, xd_dot_, xd_ddot_, fx_, fxref_, xref_;
 
     bool plan_flag_;
 

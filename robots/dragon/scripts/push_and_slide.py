@@ -49,7 +49,7 @@ if __name__ == "__main__":
     #odam_sub = rospy.Subscriber("/hydrus_xi/uav/cog", Odometry, odam_callback)
 
     # wrench_sub = rospy.Subscriber("/hydrus_xi/estimated_external_wrench", WrenchStamped, wrench_callback)
-    # joint_sub = rospy.Subscriber("/hydrus_xi/joint_states", JointState, joint_callback)
+    joint_sub = rospy.Subscriber("/dragon/joint_states", JointState, joint_callback)
     odom_sub = rospy.Subscriber("/dragon/uav/cog/odom", Odometry, odom_callback)
    
     # wrench_pub = rospy.Publisher("/hydrus_xi/external_wrench", WrenchStamped, queue_size=1)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     nav_msg.pos_xy_nav_mode = 4 # pos_vel mode
 
 
-    nav_msg.target_pos_x = -0.1
+    nav_msg.target_pos_x = -0.2
     nav_msg.target_vel_x = 0.0
     nav_msg.target_pos_y = 0.0
     nav_msg.target_vel_y = 0.0
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     nav_msg.target_pos_z = 1.2
     nav_msg.target_vel_z = 0.05
     nav_msg.yaw_nav_mode = 4 
-    nav_msg.target_yaw = -math.pi/6
+    nav_msg.target_yaw = -joint_states.position[11] - joint_states.position[13]
     nav_msg.target_omega_z = -0.05
 
     nav_pub.publish(nav_msg)
@@ -99,14 +99,15 @@ if __name__ == "__main__":
 
    # time.sleep(6)
     print("preparation 2")
+    print(joint_states)
 
     for i in range(10):
         nav_msg = FlightNav()
         nav_msg.pos_xy_nav_mode = 4
-        nav_msg.target_pos_x = -0.1 + (0.3/10) * (i+1)
+        nav_msg.target_pos_x = -0.10 + (0.3/10) * (i+1)
 
         nav_msg.yaw_nav_mode = 4 
-        nav_msg.target_yaw = -math.pi/6
+        nav_msg.target_yaw = -joint_states.position[11] - joint_states.position[13]
         nav_msg.pos_z_nav_mode = 4 
         nav_msg.target_pos_z = 1.2
         nav_msg.target_vel_z = 0.0
@@ -130,20 +131,20 @@ if __name__ == "__main__":
         nav_msg.target_pos_x = 0.2
         #nav_msg.target_pos_x = -1.20 + (external_wrench.wrench.force.x + 0.6)/0.5*0.05
         nav_msg.target_vel_x = 0.0
-        nav_msg.target_pos_y = 0.5 * math.sin(math.pi * round / 1200)
-        nav_msg.target_vel_y = 0.087 * math.pi * math.cos(math.pi * round / 1200)
+        nav_msg.target_pos_y = 0.3 * math.sin(math.pi * round / 1600)
+        nav_msg.target_vel_y = 0.087 * math.pi * math.cos(math.pi * round / 1600)
 
         #nav_msg.target_acc_y = -0.048 * math.pi * math.pi * math.cos(math.pi * round / 50)
         nav_msg.pos_z_nav_mode = 4 
         # nav_msg.target_pos_z = 0.9
         # nav_msg.target_vel_z = 0.0
 
-        nav_msg.target_pos_z = 0.9 + 0.3 * math.cos(math.pi * round / 1200)
-        nav_msg.target_vel_z = -0.05 * math.pi * math.sin(math.pi * round / 1200)
+        nav_msg.target_pos_z = 0.9 + 0.3 * math.cos(math.pi * round / 1600)
+        nav_msg.target_vel_z = -0.05 * math.pi * math.sin(math.pi * round / 1600)
 
         #nav_msg.target_acc_z = -0.048 * math.pi * math.pi * math.sin(math.pi * round / 50)
         nav_msg.yaw_nav_mode = 4 
-        nav_msg.target_yaw = -math.pi/6
+        nav_msg.target_yaw = -joint_states.position[11] - joint_states.position[13]
         #nav_msg.target_yaw = -0.445
         #print(cog2world)
         nav_pub.publish(nav_msg)
