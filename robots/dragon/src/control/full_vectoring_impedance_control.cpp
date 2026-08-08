@@ -1114,6 +1114,12 @@ void DragonFullVectoringImpedanceController::controlCore()
   //   rate = 1.0;
   //std::cout<<"rate: "<<rate;
   lin_acc_cmd(2) += rate * aerial_robot_estimation::G;
+  if (navigator_->getNaviState() == aerial_robot_navigation::LAND_STATE)
+    {
+      double min_acc_z = 6.0; // TODO: hard-coding, should be change to ros parameter
+      if (lin_acc_cmd(2) < min_acc_z) lin_acc_cmd(2) = min_acc_z;
+    }
+
   // Eigen::VectorXd limit_t = Eigen::VectorXd::Constant(3, 1.4);
   // limit_t(2) = 15.0;
     // std::cout << "lin_acc_cmd: " << lin_acc_cmd.transpose() <<  std::endl;
@@ -1123,7 +1129,6 @@ void DragonFullVectoringImpedanceController::controlCore()
   tf::Vector3 target_lin_acc_w(lin_acc_cmd(0),
                                 lin_acc_cmd(1),
                                 lin_acc_cmd(2));  
-                                
   tf::Vector3 target_lin_acc = uav_rot.inverse() * target_lin_acc_w;
 
   target_acc.head(3) = Eigen::Vector3d(target_lin_acc.x(), target_lin_acc.y(), target_lin_acc.z());
